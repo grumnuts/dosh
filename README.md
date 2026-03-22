@@ -46,6 +46,7 @@ Only `SECRET_KEY` is required in `docker-compose.yml`. Everything else has a sen
 | Variable | Default | Description |
 |---|---|---|
 | `SECRET_KEY` | — | **Required.** Secret for signing session cookies. Generate with `openssl rand -base64 48`. |
+| `TZ` | `UTC` | **Recommended.** Container timezone. Set to your local timezone (e.g. `Australia/Sydney`) so week boundaries and transaction dates are calculated correctly. |
 | `PORT` | `3000` | Port the server listens on. Also update the `ports` mapping in `docker-compose.yml` if changed. |
 | `HOST` | `0.0.0.0` | Interface to bind to. |
 | `DB_PATH` | `/data/dosh.db` | Path to the SQLite database file inside the container. |

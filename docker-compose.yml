@@ -9,6 +9,8 @@ services:
     environment:
       # Generate with: openssl rand -base64 48
       SECRET_KEY: change-me-to-a-long-random-secret
+      # Set to your local timezone — e.g. Australia/Sydney, America/New_York
+      TZ: Australia/Sydney
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/setup/status"]
