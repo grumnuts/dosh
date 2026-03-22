@@ -6,7 +6,6 @@ import { Layout } from './components/layout/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
 import { BudgetPage } from './pages/BudgetPage'
-import { TransactionsPage } from './pages/TransactionsPage'
 import { AccountsPage } from './pages/AccountsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditPage } from './pages/AuditPage'
@@ -53,7 +52,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/budget" replace />} />
         <Route path="/budget" element={<BudgetPage />} />
-        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/transactions" element={<Navigate to="/accounts" replace />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/audit" element={<AuditPage />} />

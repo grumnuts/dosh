@@ -22,7 +22,8 @@ export interface TransactionFilters {
   endDate?: string
   accountId?: number
   categoryId?: number
-  payee?: string
+  uncategorised?: boolean
+  search?: string
   limit?: number
   offset?: number
 }
@@ -45,12 +46,16 @@ export const transactionsApi = {
     if (filters.endDate) params.set('endDate', filters.endDate)
     if (filters.accountId) params.set('accountId', String(filters.accountId))
     if (filters.categoryId) params.set('categoryId', String(filters.categoryId))
-    if (filters.payee) params.set('payee', filters.payee)
+    if (filters.uncategorised) params.set('uncategorised', 'true')
+    if (filters.search) params.set('search', filters.search)
     if (filters.limit) params.set('limit', String(filters.limit))
     if (filters.offset) params.set('offset', String(filters.offset))
     const qs = params.toString()
     return api.get<Transaction[]>(`/api/transactions${qs ? `?${qs}` : ''}`)
   },
+
+  uncategorisedCount: () =>
+    api.get<{ count: number }>('/api/transactions/uncategorised-count'),
 
   create: (data: TransactionInput) =>
     api.post<{ id: number; pairedId?: number }>('/api/transactions', data),

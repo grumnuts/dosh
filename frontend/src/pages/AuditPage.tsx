@@ -65,7 +65,9 @@ export function AuditPage() {
     endDate: '',
     userId: '',
     eventType: '',
+    search: '',
   })
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { data: entries, isLoading } = useQuery({
     queryKey: ['audit', filters],
@@ -75,6 +77,7 @@ export function AuditPage() {
         endDate: filters.endDate || undefined,
         userId: filters.userId ? parseInt(filters.userId, 10) : undefined,
         eventType: filters.eventType || undefined,
+        search: filters.search || undefined,
         limit: 200,
       }),
   })
@@ -84,43 +87,74 @@ export function AuditPage() {
   const setFilter = (key: string, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }))
 
+  const hasFilters = Object.values(filters).some(Boolean)
+  const clearFilters = () => setFilters({ startDate: '', endDate: '', userId: '', eventType: '', search: '' })
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
-      <h1 className="text-xl font-bold text-primary">Audit Log</h1>
-
-      {/* Filters */}
-      <div className="card p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted uppercase tracking-wide">From</label>
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => setFilter('startDate', e.target.value)}
-              className="input-base text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted uppercase tracking-wide">To</label>
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => setFilter('endDate', e.target.value)}
-              className="input-base text-sm"
-            />
-          </div>
-          <Select label="User" value={filters.userId} onChange={(e) => setFilter('userId', e.target.value)}>
-            <option value="">All users</option>
-            {users?.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
-          </Select>
-          <Select label="Event Type" value={filters.eventType} onChange={(e) => setFilter('eventType', e.target.value)}>
-            <option value="">All events</option>
-            {Object.entries(EVENT_TYPE_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </Select>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-primary">Audit Log</h1>
+        <div className="flex items-center gap-2">
+          <button
+            className={`p-1.5 rounded transition-colors ${filtersOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-label="Toggle filters"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </button>
+          <input
+            type="text"
+            placeholder="Search..."
+            value={filters.search}
+            onChange={(e) => setFilter('search', e.target.value)}
+            className="input-base text-sm w-40 sm:w-56"
+          />
         </div>
       </div>
+
+      {/* Filters (collapsible) */}
+      {filtersOpen && (
+        <div className="card p-4 space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted uppercase tracking-wide">From</label>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilter('startDate', e.target.value)}
+                className="input-base text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted uppercase tracking-wide">To</label>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilter('endDate', e.target.value)}
+                className="input-base text-sm"
+              />
+            </div>
+            <Select label="User" value={filters.userId} onChange={(e) => setFilter('userId', e.target.value)}>
+              <option value="">All users</option>
+              {users?.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
+            </Select>
+            <Select label="Event Type" value={filters.eventType} onChange={(e) => setFilter('eventType', e.target.value)}>
+              <option value="">All events</option>
+              {Object.entries(EVENT_TYPE_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </Select>
+          </div>
+          {hasFilters && (
+            <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Log entries */}
       <div className="card overflow-hidden">

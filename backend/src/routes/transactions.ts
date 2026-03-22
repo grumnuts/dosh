@@ -15,7 +15,24 @@ const transactionSchema = z.object({
   transferToAccountId: z.number().int().optional().nullable(),
 })
 
+function upsertPayee(payeeName: string | null | undefined): void {
+  if (!payeeName?.trim()) return
+  const db = getDb()
+  db.prepare('INSERT OR IGNORE INTO payees (name, created_at) VALUES (?, ?)').run(
+    payeeName.trim(),
+    new Date().toISOString(),
+  )
+}
+
 export async function transactionRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/transactions/uncategorised-count', { preHandler: authenticate }, async (_request, reply) => {
+    const db = getDb()
+    const row = db
+      .prepare(`SELECT COUNT(*) as count FROM transactions WHERE type = 'transaction' AND category_id IS NULL`)
+      .get() as { count: number }
+    return reply.send({ count: row.count })
+  })
+
   app.get('/api/transactions', { preHandler: authenticate }, async (request, reply) => {
     const query = z
       .object({
@@ -23,7 +40,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         endDate: z.string().optional(),
         accountId: z.string().optional(),
         categoryId: z.string().optional(),
-        payee: z.string().optional(),
+        uncategorised: z.string().optional(),
+        search: z.string().optional(),
         limit: z.string().optional(),
         offset: z.string().optional(),
       })
@@ -61,9 +79,21 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       sql += ' AND t.category_id = ?'
       params.push(parseInt(query.categoryId, 10))
     }
-    if (query.payee) {
-      sql += ' AND t.payee LIKE ?'
-      params.push(`%${query.payee}%`)
+    if (query.uncategorised === 'true') {
+      sql += ` AND t.category_id IS NULL AND t.type = 'transaction'`
+    }
+    if (query.search) {
+      sql += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`
+      const term = `%${query.search}%`
+      params.push(term, term, term, term)
+      // Also match by dollar amount if the search string looks numeric
+      const numericSearch = query.search.replace(/[$,\s]/g, '')
+      const parsed = parseFloat(numericSearch)
+      if (!isNaN(parsed) && parsed > 0) {
+        sql += ` OR ABS(t.amount) = ?`
+        params.push(Math.round(parsed * 100))
+      }
+      sql += `)`
     }
 
     sql += ' ORDER BY t.date DESC, t.id DESC'
@@ -117,7 +147,6 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           body.data.payee ?? null,
           body.data.description ?? null,
           Math.abs(body.data.amount),
-          'transfer',
           debitId,
           now,
           now,
@@ -158,6 +187,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       )
 
     const id = result.lastInsertRowid as number
+    upsertPayee(body.data.payee)
 
     logAudit({
       userId: request.user!.id,
@@ -190,28 +220,43 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const db = getDb()
-    const existing = db.prepare("SELECT id, type FROM transactions WHERE id = ?").get(id) as
-      | { id: number; type: string }
+    const existing = db.prepare("SELECT id, type, transfer_pair_id FROM transactions WHERE id = ?").get(id) as
+      | { id: number; type: string; transfer_pair_id: number | null }
       | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Transaction not found' })
-    if (existing.type !== 'transaction') {
-      return reply.code(400).send({ error: 'Can only edit regular transactions' })
+    if (existing.type === 'cover') {
+      return reply.code(400).send({ error: 'Cover transactions cannot be edited' })
     }
 
-    db.prepare(
-      `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-       category_id = ?, updated_at = ? WHERE id = ?`,
-    ).run(
-      body.data.date,
-      body.data.accountId,
-      body.data.payee ?? null,
-      body.data.description ?? null,
-      body.data.amount,
-      body.data.categoryId ?? null,
-      new Date().toISOString(),
-      id,
-    )
+    const now = new Date().toISOString()
+
+    if (existing.type === 'transfer') {
+      // Update date, payee, description on both legs — amounts and accounts stay fixed
+      const updateTransfer = db.prepare(
+        `UPDATE transactions SET date = ?, payee = ?, description = ?, updated_at = ? WHERE id = ?`
+      )
+      updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, now, id)
+      if (existing.transfer_pair_id) {
+        updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, now, existing.transfer_pair_id)
+      }
+    } else {
+      db.prepare(
+        `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
+         category_id = ?, updated_at = ? WHERE id = ?`,
+      ).run(
+        body.data.date,
+        body.data.accountId,
+        body.data.payee ?? null,
+        body.data.description ?? null,
+        body.data.amount,
+        body.data.categoryId ?? null,
+        now,
+        id,
+      )
+    }
+
+    upsertPayee(body.data.payee)
 
     logAudit({
       userId: request.user!.id,
@@ -219,7 +264,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'transaction.updated',
       entityType: 'transaction',
       entityId: parseInt(id, 10),
-      details: { amount: body.data.amount, date: body.data.date },
+      details: { type: existing.type, date: body.data.date },
     })
 
     return reply.send({ ok: true })
@@ -237,8 +282,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     if (!tx) return reply.code(404).send({ error: 'Transaction not found' })
 
-    // Delete both legs if it's a transfer or cover
+    // Delete both legs if it's a transfer or cover.
+    // Clear transfer_pair_id on both rows first to avoid the circular FK constraint.
     if (tx.transfer_pair_id) {
+      db.prepare('UPDATE transactions SET transfer_pair_id = NULL WHERE id IN (?, ?)').run(id, tx.transfer_pair_id)
       db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.transfer_pair_id)
     }
     db.prepare('DELETE FROM transactions WHERE id = ?').run(id)

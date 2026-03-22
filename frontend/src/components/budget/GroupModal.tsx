@@ -15,9 +15,10 @@ interface Props {
   open: boolean
   onClose: () => void
   group?: { id: number; name: string } | null
+  isIncome?: boolean
 }
 
-export function GroupModal({ open, onClose, group }: Props) {
+export function GroupModal({ open, onClose, group, isIncome }: Props) {
   const qc = useQueryClient()
   const isEdit = !!group
 
@@ -36,7 +37,7 @@ export function GroupModal({ open, onClose, group }: Props) {
         await budgetApi.updateGroup(group!.id, { name: data.name })
         return { id: group!.id }
       }
-      return budgetApi.createGroup({ name: data.name })
+      return budgetApi.createGroup({ name: data.name, isIncome: isIncome ?? false })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budget'] })

@@ -8,3 +8,4 @@ data/
 frontend/dist/
 backend/dist/
 .DS_Store
+notes.md

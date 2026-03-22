@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
-import { budgetApi, BudgetCategory, CategoryInput } from '../../api/budget'
+import { budgetApi, CategoryInput } from '../../api/budget'
 
 const schema = z.object({
   name: z.string().min(1, 'Required'),
@@ -17,15 +17,24 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+interface CategoryProp {
+  id: number
+  name: string
+  period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
+  budgetedAmount: number
+  notes: string | null
+}
+
 interface Props {
   open: boolean
   onClose: () => void
   groupId: number
   groupName: string
-  category?: BudgetCategory | null
+  isIncomeGroup?: boolean
+  category?: CategoryProp | null
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, category }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup, category }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
@@ -93,15 +102,17 @@ export function CategoryModal({ open, onClose, groupId, groupName, category }: P
 
         <Input label="Name" {...register('name')} error={errors.name?.message} />
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Budget Amount ($)"
-            type="number"
-            step="0.01"
-            min="0"
-            {...register('budgetedAmount')}
-            error={errors.budgetedAmount?.message}
-          />
+        <div className={`grid gap-3 ${isIncomeGroup ? '' : 'grid-cols-2'}`}>
+          {!isIncomeGroup && (
+            <Input
+              label="Budget Amount ($)"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register('budgetedAmount')}
+              error={errors.budgetedAmount?.message}
+            />
+          )}
           <Select label="Period" {...register('period')}>
             <option value="weekly">Weekly</option>
             <option value="fortnightly">Fortnightly</option>

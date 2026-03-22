@@ -21,9 +21,26 @@ export interface BudgetGroup {
   categories: BudgetCategory[]
 }
 
+export interface IncomeCategory {
+  id: number
+  name: string
+  period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
+  received: number
+  notes: string | null
+  sortOrder: number
+}
+
+export interface IncomeGroup {
+  id: number
+  name: string
+  sortOrder: number
+  categories: IncomeCategory[]
+}
+
 export interface BudgetWeek {
   weekStart: string
   groups: BudgetGroup[]
+  incomeGroups: IncomeGroup[]
   totalWeeklyBudget: number
   totalIncome: number
   unallocated: number
@@ -40,13 +57,14 @@ export interface CategoryInput {
 
 export interface GroupInput {
   name: string
+  isIncome?: boolean
   sortOrder?: number
 }
 
 export const budgetApi = {
   getWeek: (weekStart: string) => api.get<BudgetWeek>(`/api/budget/week/${weekStart}`),
 
-  getGroups: () => api.get<Array<{ id: number; name: string; sort_order: number }>>('/api/budget/groups'),
+  getGroups: () => api.get<Array<{ id: number; name: string; sort_order: number; is_income: number }>>('/api/budget/groups'),
   createGroup: (data: GroupInput) => api.post<{ id: number }>('/api/budget/groups', data),
   updateGroup: (id: number, data: GroupInput) => api.put<{ ok: boolean }>(`/api/budget/groups/${id}`, data),
   deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/api/budget/groups/${id}`),

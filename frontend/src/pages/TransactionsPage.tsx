@@ -17,8 +17,10 @@ export function TransactionsPage() {
     endDate: '',
     accountId: '',
     categoryId: '',
-    payee: '',
+    search: '',
   })
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [uncategorisedOnly, setUncategorisedOnly] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -26,16 +28,22 @@ export function TransactionsPage() {
   const [inlineCategoryValue, setInlineCategoryValue] = useState<string>('')
 
   const { data: transactions, isLoading } = useQuery({
-    queryKey: ['transactions', filters],
+    queryKey: ['transactions', filters, uncategorisedOnly],
     queryFn: () =>
       transactionsApi.list({
         startDate: filters.startDate || undefined,
         endDate: filters.endDate || undefined,
         accountId: filters.accountId ? parseInt(filters.accountId, 10) : undefined,
         categoryId: filters.categoryId ? parseInt(filters.categoryId, 10) : undefined,
-        payee: filters.payee || undefined,
+        uncategorised: uncategorisedOnly || undefined,
+        search: filters.search || undefined,
         limit: 200,
       }),
+  })
+
+  const { data: uncategorisedData } = useQuery({
+    queryKey: ['transactions', 'uncategorised-count'],
+    queryFn: transactionsApi.uncategorisedCount,
   })
 
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
@@ -61,8 +69,10 @@ export function TransactionsPage() {
   const setFilter = (key: string, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }))
 
-  const clearFilters = () =>
-    setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '' })
+  const clearFilters = () => {
+    setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
+    setUncategorisedOnly(false)
+  }
 
   const hasFilters = Object.values(filters).some(Boolean)
 
@@ -71,7 +81,31 @@ export function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">Transactions</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {!!uncategorisedData?.count && (
+            <button
+              className={`text-xs px-2 py-1 rounded transition-colors ${uncategorisedOnly ? 'bg-amber-500/20 text-amber-400' : 'bg-surface-2 text-muted hover:text-primary'}`}
+              onClick={() => setUncategorisedOnly((v) => !v)}
+            >
+              {uncategorisedData.count} Uncategorised
+            </button>
+          )}
+          <button
+            className={`p-1.5 rounded transition-colors ${filtersOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-label="Toggle filters"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </button>
+          <input
+            type="text"
+            placeholder="Search..."
+            value={filters.search}
+            onChange={(e) => setFilter('search', e.target.value)}
+            className="input-base text-sm w-40 sm:w-56"
+          />
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             Import CSV
           </Button>
@@ -81,59 +115,52 @@ export function TransactionsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="card p-4 space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted uppercase tracking-wide">From</label>
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => setFilter('startDate', e.target.value)}
-              className="input-base text-sm"
-            />
+      {/* Filters (collapsible) */}
+      {filtersOpen && (
+        <div className="card p-4 space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted uppercase tracking-wide">From</label>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilter('startDate', e.target.value)}
+                className="input-base text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted uppercase tracking-wide">To</label>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilter('endDate', e.target.value)}
+                className="input-base text-sm"
+              />
+            </div>
+            <Select
+              label="Account"
+              value={filters.accountId}
+              onChange={(e) => setFilter('accountId', e.target.value)}
+            >
+              <option value="">All accounts</option>
+              {accounts?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+            <Select
+              label="Category"
+              value={filters.categoryId}
+              onChange={(e) => setFilter('categoryId', e.target.value)}
+            >
+              <option value="">All categories</option>
+              {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted uppercase tracking-wide">To</label>
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => setFilter('endDate', e.target.value)}
-              className="input-base text-sm"
-            />
-          </div>
-          <Select
-            label="Account"
-            value={filters.accountId}
-            onChange={(e) => setFilter('accountId', e.target.value)}
-          >
-            <option value="">All accounts</option>
-            {accounts?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </Select>
-          <Select
-            label="Category"
-            value={filters.categoryId}
-            onChange={(e) => setFilter('categoryId', e.target.value)}
-          >
-            <option value="">All categories</option>
-            {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </Select>
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Search payee..."
-            value={filters.payee}
-            onChange={(e) => setFilter('payee', e.target.value)}
-            className="input-base text-sm flex-1"
-          />
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">
               Clear filters
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {/* Transaction list */}
       <div className="card overflow-hidden">
@@ -172,7 +199,7 @@ export function TransactionsPage() {
                     }}
                   >
                     <td className="px-4 py-2.5 font-mono text-xs text-secondary whitespace-nowrap">
-                      {format(parseISO(tx.date), 'dd MMM yy')}
+                      {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted hidden sm:table-cell">
                       {tx.account_name}

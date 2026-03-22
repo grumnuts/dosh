@@ -16,6 +16,7 @@ export interface AuditFilters {
   endDate?: string
   userId?: number
   eventType?: string
+  search?: string
   limit?: number
   offset?: number
 }
@@ -27,6 +28,7 @@ export const auditApi = {
     if (filters.endDate) params.set('endDate', filters.endDate)
     if (filters.userId) params.set('userId', String(filters.userId))
     if (filters.eventType) params.set('eventType', filters.eventType)
+    if (filters.search) params.set('search', filters.search)
     if (filters.limit) params.set('limit', String(filters.limit))
     if (filters.offset) params.set('offset', String(filters.offset))
     const qs = params.toString()

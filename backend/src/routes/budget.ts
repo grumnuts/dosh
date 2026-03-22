@@ -32,7 +32,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/budget/groups', { preHandler: authenticate }, async (request, reply) => {
     const body = z
-      .object({ name: z.string().min(1).max(128) })
+      .object({ name: z.string().min(1).max(128), isIncome: z.boolean().optional().default(false) })
       .safeParse(request.body)
     if (!body.success) return reply.code(400).send({ error: 'Invalid input' })
 
@@ -46,9 +46,9 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const result = db
       .prepare(
-        'INSERT INTO budget_groups (name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?)',
+        'INSERT INTO budget_groups (name, is_income, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
       )
-      .run(body.data.name, maxOrder + 1, now, now)
+      .run(body.data.name, body.data.isIncome ? 1 : 0, maxOrder + 1, now, now)
 
     const id = result.lastInsertRowid as number
 

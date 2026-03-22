@@ -12,6 +12,7 @@ import { budgetRoutes } from './routes/budget'
 import { transactionRoutes } from './routes/transactions'
 import { importRoutes } from './routes/import'
 import { auditRoutes } from './routes/audit'
+import { payeeRoutes } from './routes/payees'
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -50,6 +51,7 @@ async function start(): Promise<void> {
   await app.register(transactionRoutes)
   await app.register(importRoutes)
   await app.register(auditRoutes)
+  await app.register(payeeRoutes)
 
   // Serve frontend static files in production
   const frontendDist = path.join(__dirname, '../../frontend/dist')

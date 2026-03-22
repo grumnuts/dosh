@@ -11,6 +11,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
         endDate: z.string().optional(),
         userId: z.string().optional(),
         eventType: z.string().optional(),
+        search: z.string().optional(),
         limit: z.string().optional(),
         offset: z.string().optional(),
       })
@@ -40,6 +41,11 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     if (query.eventType) {
       sql += ' AND event_type = ?'
       params.push(query.eventType)
+    }
+    if (query.search) {
+      const term = `%${query.search}%`
+      sql += ' AND (username LIKE ? OR event_type LIKE ? OR details LIKE ? OR occurred_at LIKE ?)'
+      params.push(term, term, term, term)
     }
 
     sql += ' ORDER BY occurred_at DESC'

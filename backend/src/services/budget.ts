@@ -15,6 +15,7 @@ interface RawGroup {
   id: number
   name: string
   sort_order: number
+  is_income: number
 }
 
 interface BudgetCategory {
@@ -31,6 +32,15 @@ interface BudgetCategory {
   sortOrder: number
 }
 
+interface IncomeCategory {
+  id: number
+  name: string
+  period: string
+  received: number
+  notes: string | null
+  sortOrder: number
+}
+
 interface BudgetGroup {
   id: number
   name: string
@@ -38,9 +48,17 @@ interface BudgetGroup {
   categories: BudgetCategory[]
 }
 
+interface IncomeGroup {
+  id: number
+  name: string
+  sortOrder: number
+  categories: IncomeCategory[]
+}
+
 interface BudgetWeekData {
   weekStart: string
   groups: BudgetGroup[]
+  incomeGroups: IncomeGroup[]
   totalWeeklyBudget: number
   totalIncome: number
   unallocated: number
@@ -48,8 +66,6 @@ interface BudgetWeekData {
 
 /**
  * Get the historically effective budget amount for a category at a given week.
- * Looks up budget_history for an entry where effective_from <= weekStart,
- * falling back to the current category value if no history exists.
  */
 export function getEffectiveBudget(
   categoryId: number,
@@ -81,15 +97,13 @@ export function getEffectiveBudget(
 
 /**
  * Calculate the full budget for a given week (Sunday YYYY-MM-DD).
- * Returns groups with categories, each with spent/covers/balance,
- * plus footer totals.
  */
 export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const db = getDb()
 
-  const groups = db
+  const allGroups = db
     .prepare(
-      `SELECT id, name, sort_order FROM budget_groups WHERE is_active = 1 ORDER BY sort_order, name`,
+      `SELECT id, name, sort_order, is_income FROM budget_groups WHERE is_active = 1 ORDER BY sort_order, name`,
     )
     .all() as unknown as RawGroup[]
 
@@ -100,16 +114,19 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     )
     .all() as unknown as RawCategory[]
 
+  const regularGroups = allGroups.filter((g) => g.is_income === 0)
+  const incomeGroupsRaw = allGroups.filter((g) => g.is_income === 1)
+
   let totalWeeklyBudget = 0
 
-  const result: BudgetGroup[] = groups.map((group) => {
+  // Build regular expense groups
+  const groups: BudgetGroup[] = regularGroups.map((group) => {
     const groupCats = categories.filter((c) => c.group_id === group.id)
 
     const builtCats: BudgetCategory[] = groupCats.map((cat) => {
       const { budgetedAmount, period } = getEffectiveBudget(cat.id, weekStart)
       const bounds = getPeriodBoundaries(weekStart, period)
 
-      // Sum of regular transaction debits (negative amounts) for this category in the period
       const spentRow = db
         .prepare(
           `SELECT COALESCE(SUM(amount), 0) as total
@@ -119,10 +136,8 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
         )
         .get(cat.id, bounds.start, bounds.end) as { total: number }
 
-      // Absolute spending amount (positive)
       const spent = Math.abs(spentRow.total)
 
-      // Sum of cover transfer credits for this category and this specific week
       const coversRow = db
         .prepare(
           `SELECT COALESCE(SUM(amount), 0) as total
@@ -132,7 +147,6 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
         .get(cat.id, weekStart) as { total: number }
 
       const covers = coversRow.total
-
       const balance = budgetedAmount - spent + covers
       const weekly = weeklyEquivalent(budgetedAmount, period)
       totalWeeklyBudget += weekly
@@ -160,23 +174,50 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     }
   })
 
-  // Total income for the week: positive transaction amounts NOT from transfers/covers
-  const incomeRow = db
-    .prepare(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM transactions
-       WHERE date >= ? AND date <= ? AND type = 'transaction' AND amount > 0`,
-    )
-    .get(weekStart, toDateString(new Date(new Date(weekStart + 'T00:00:00Z').getTime() + 6 * 86400000))) as {
-    total: number
-  }
+  // Build income groups — received = sum of positive transactions in the category's period
+  const incomeGroups: IncomeGroup[] = incomeGroupsRaw.map((group) => {
+    const groupCats = categories.filter((c) => c.group_id === group.id)
 
-  const totalIncome = incomeRow.total
+    const builtCats: IncomeCategory[] = groupCats.map((cat) => {
+      const bounds = getPeriodBoundaries(weekStart, cat.period)
+
+      const receivedRow = db
+        .prepare(
+          `SELECT COALESCE(SUM(amount), 0) as total
+           FROM transactions
+           WHERE category_id = ? AND date >= ? AND date <= ?
+             AND type = 'transaction' AND amount > 0`,
+        )
+        .get(cat.id, bounds.start, bounds.end) as { total: number }
+
+      return {
+        id: cat.id,
+        name: cat.name,
+        period: cat.period,
+        received: receivedRow.total,
+        notes: cat.notes,
+        sortOrder: cat.sort_order,
+      }
+    })
+
+    return {
+      id: group.id,
+      name: group.name,
+      sortOrder: group.sort_order,
+      categories: builtCats,
+    }
+  })
+
+  const totalIncome = incomeGroups.reduce(
+    (sum, g) => sum + g.categories.reduce((s, c) => s + c.received, 0),
+    0,
+  )
   const unallocated = totalIncome - totalWeeklyBudget
 
   return {
     weekStart,
-    groups: result,
+    groups,
+    incomeGroups,
     totalWeeklyBudget,
     totalIncome,
     unallocated,
@@ -185,7 +226,6 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
 /**
  * Calculate the current overspend amount for a category in a given week.
- * Returns the amount needed to cover (positive), or 0 if not overspent.
  */
 export function getCategoryOverspendAmount(categoryId: number, weekStart: string): number {
   const { budgetedAmount, period } = getEffectiveBudget(categoryId, weekStart)
