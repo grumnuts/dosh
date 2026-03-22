@@ -6,11 +6,9 @@ A self-hosted, zero-based envelope budgeting app for households. Weekly budget p
 
 ### Docker Compose (recommended)
 
-1. Copy the example env file and set a secret key:
+1. Edit `docker-compose.yml` and set `SECRET_KEY` to a long random string:
    ```bash
-   cp .env.example .env
-   # Edit .env and set SECRET_KEY to a long random string
-   # openssl rand -base64 48
+   openssl rand -base64 48
    ```
 
 2. Start the app:
@@ -43,14 +41,15 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `SECRET_KEY` | Yes (production) | dev-only fallback | Secret for signing session cookies. Use `openssl rand -base64 48`. |
-| `PORT` | No | `3000` | Port the server listens on |
-| `HOST` | No | `0.0.0.0` | Interface to bind to |
-| `DB_PATH` | No | `./data/dosh.db` | Path to the SQLite database file |
-| `LOG_LEVEL` | No | `info` | Fastify log level (`trace`, `debug`, `info`, `warn`, `error`) |
-| `NODE_ENV` | No | — | Set to `production` in Docker |
+All variables are set in `docker-compose.yml` — no `.env` file required.
+
+| Variable | Default | Description |
+|---|---|---|
+| `SECRET_KEY` | *(change this)* | Secret for signing session cookies. Use `openssl rand -base64 48`. |
+| `PORT` | `3000` | Port the server listens on |
+| `HOST` | `0.0.0.0` | Interface to bind to |
+| `DB_PATH` | `/data/dosh.db` | Path to the SQLite database file |
+| `LOG_LEVEL` | `info` | Fastify log level (`trace`, `debug`, `info`, `warn`, `error`) |
 
 ## Data Persistence
 

@@ -3,16 +3,18 @@ services:
     build: .
     container_name: dosh
     ports:
-      - "${PORT:-3000}:3000"
+      - "3000:3000"
     volumes:
       - dosh-data:/data
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - HOST=0.0.0.0
-      - DB_PATH=/data/dosh.db
-      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DB_PATH: /data/dosh.db
+      LOG_LEVEL: info
+      # Change this to a long random string before first run
+      # Generate one with: openssl rand -base64 48
+      SECRET_KEY: change-me-to-a-long-random-secret
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/setup/status"]
