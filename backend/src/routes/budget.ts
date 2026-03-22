@@ -267,9 +267,10 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
 
     const cat = db
-      .prepare('SELECT id, name FROM budget_categories WHERE id = ? AND is_active = 1')
-      .get(id) as { id: number; name: string } | undefined
+      .prepare('SELECT id, name, is_system FROM budget_categories WHERE id = ? AND is_active = 1')
+      .get(id) as { id: number; name: string; is_system: number } | undefined
     if (!cat) return reply.code(404).send({ error: 'Category not found' })
+    if (cat.is_system) return reply.code(400).send({ error: 'System categories cannot be deleted' })
 
     db.prepare('UPDATE budget_categories SET is_active = 0, updated_at = ? WHERE id = ?').run(
       new Date().toISOString(),

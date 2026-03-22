@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
-import { accountsApi, Account, AccountInput } from '../api/accounts'
+import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
 import { formatMoney, Amount } from '../components/ui/AmountDisplay'
@@ -13,40 +13,48 @@ import { Button } from '../components/ui/Button'
 import { Input, Select, Textarea } from '../components/ui/Input'
 import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
+import { BulkEditModal } from '../components/transactions/BulkEditModal'
 
-const accountSchema = z.object({
+const baseAccountSchema = z.object({
   name: z.string().min(1, 'Required'),
-  type: z.enum(['transactional', 'savings']),
-  startingBalance: z.string(),
+  type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().optional(),
 })
 
-type AccountFormData = z.infer<typeof accountSchema>
+const createAccountSchema = baseAccountSchema.extend({
+  startingBalance: z.string(),
+  startingBalanceDate: z.string(),
+})
+
+type CreateAccountFormData = z.infer<typeof createAccountSchema>
 
 function AccountForm({ account, onClose }: { account?: Account | null; onClose: () => void }) {
   const qc = useQueryClient()
   const isEdit = !!account
+  const today = new Date().toISOString().slice(0, 10)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<AccountFormData>({
-    resolver: zodResolver(accountSchema),
+  const { register, handleSubmit, formState: { errors } } = useForm<CreateAccountFormData>({
+    resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),
     defaultValues: {
       name: account?.name ?? '',
       type: account?.type ?? 'transactional',
-      startingBalance: account ? (account.startingBalance / 100).toFixed(2) : '0.00',
       notes: account?.notes ?? '',
+      startingBalance: '0.00',
+      startingBalanceDate: today,
     },
   })
 
   const mutation = useMutation({
-    mutationFn: async (data: AccountInput): Promise<{ id: number }> => {
+    mutationFn: async (data: AccountInput | AccountCreateInput): Promise<{ id: number }> => {
       if (isEdit) {
-        await accountsApi.update(account!.id, data)
+        await accountsApi.update(account!.id, data as AccountInput)
         return { id: account!.id }
       }
-      return accountsApi.create(data)
+      return accountsApi.create(data as AccountCreateInput)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
       onClose()
     },
   })
@@ -59,29 +67,45 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     },
   })
 
-  const onSubmit = (data: AccountFormData) => {
-    mutation.mutate({
-      name: data.name,
-      type: data.type,
-      startingBalance: Math.round(parseFloat(data.startingBalance || '0') * 100),
-      notes: data.notes || null,
-    })
+  const onSubmit = (data: CreateAccountFormData) => {
+    if (isEdit) {
+      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null })
+    } else {
+      const balanceCents = Math.round(parseFloat(data.startingBalance || '0') * 100)
+      mutation.mutate({
+        name: data.name,
+        type: data.type,
+        notes: data.notes || null,
+        startingBalance: balanceCents || undefined,
+        startingBalanceDate: balanceCents ? data.startingBalanceDate : undefined,
+      })
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit as (data: CreateAccountFormData) => void)} className="space-y-4">
       <Input label="Account Name" {...register('name')} error={errors.name?.message} autoFocus />
       <Select label="Type" {...register('type')}>
         <option value="transactional">Transactional</option>
         <option value="savings">Savings</option>
+        <option value="debt">Debt</option>
       </Select>
-      <Input
-        label="Starting Balance ($)"
-        type="number"
-        step="0.01"
-        {...register('startingBalance')}
-        hint="The opening balance before any transactions"
-      />
+      {!isEdit && (
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Starting Balance ($)"
+            type="number"
+            step="0.01"
+            {...register('startingBalance')}
+            hint="Creates a Starting Balance transaction"
+          />
+          <Input
+            label="As of date"
+            type="date"
+            {...register('startingBalanceDate')}
+          />
+        </div>
+      )}
       <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
       {mutation.isError && (
         <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
@@ -119,9 +143,12 @@ export function AccountsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [inlineCategoryTx, setInlineCategoryTx] = useState<number | null>(null)
   const [inlineCategoryValue, setInlineCategoryValue] = useState<string>('')
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
 
   const { data: accounts, isLoading: accountsLoading } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
+  const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
   const { data: transactions, isLoading: txLoading } = useQuery({
     queryKey: ['transactions', filters, uncategorisedOnly],
     queryFn: () =>
@@ -158,6 +185,36 @@ export function AccountsPage() {
     },
   })
 
+  const bulkDelete = useMutation({
+    mutationFn: (ids: number[]) => transactionsApi.bulkDelete(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
+      setSelectedIds(new Set())
+    },
+  })
+
+  const selectableIds = transactions?.filter((t) => t.type !== 'cover').map((t) => t.id) ?? []
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id))
+  const someSelected = selectedIds.size > 0
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(selectableIds))
+    }
+  }
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   const setFilter = (key: string, value: string) => setFilters((prev) => ({ ...prev, [key]: value }))
   const clearFilters = () => {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
@@ -168,9 +225,11 @@ export function AccountsPage() {
   const totalBalance = accounts?.reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const transactionalTotal = accounts?.filter((a) => a.type === 'transactional').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const savingsTotal = accounts?.filter((a) => a.type === 'savings').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
+  const debtTotal = accounts?.filter((a) => a.type === 'debt').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
+  const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-3">
       {/* Accounts header */}
       <div className="flex items-center justify-between">
         <button
@@ -190,11 +249,12 @@ export function AccountsPage() {
       {!accountsCollapsed && (
       <>
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className={`grid gap-3 ${hasDebt ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
         {[
           { label: 'Net Worth', value: totalBalance },
           { label: 'Transactional', value: transactionalTotal },
           { label: 'Savings', value: savingsTotal },
+          ...(hasDebt ? [{ label: 'Debt', value: debtTotal }] : []),
         ].map(({ label, value }) => (
           <div key={label} className="card p-3 sm:p-4">
             <div className="text-xs text-muted mb-1 truncate">{label}</div>
@@ -243,7 +303,7 @@ export function AccountsPage() {
       )}
 
       {/* Transactions header */}
-      <div className="flex items-center justify-between gap-2 pt-2">
+      <div className="flex items-center justify-between gap-2">
         <button
           className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-accent transition-colors shrink-0"
           onClick={() => setTransactionsCollapsed((c) => !c)}
@@ -256,7 +316,7 @@ export function AccountsPage() {
         <div className="flex items-center gap-2">
           {!!uncategorisedData?.count && (
             <button
-              className={`text-xs px-2 py-1 rounded transition-colors ${uncategorisedOnly ? 'bg-amber-500/20 text-amber-400' : 'bg-surface-2 text-muted hover:text-primary'}`}
+              className={`text-xs px-2 py-1 rounded transition-colors ${uncategorisedOnly ? 'bg-danger/20 text-danger' : 'bg-danger/15 text-danger hover:bg-danger/25'}`}
               onClick={() => setUncategorisedOnly((v) => !v)}
             >
               {uncategorisedData.count} Uncategorised
@@ -264,7 +324,7 @@ export function AccountsPage() {
           )}
           <button
             className={`p-1.5 rounded transition-colors ${filtersOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
-            onClick={() => setFiltersOpen((o) => !o)}
+            onClick={() => setFiltersOpen((o) => { if (o) clearFilters(); return !o; })}
             aria-label="Toggle filters"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -317,6 +377,33 @@ export function AccountsPage() {
         </div>
       )}
 
+      {/* Bulk action bar */}
+      {!transactionsCollapsed && someSelected && (
+        <div className="card px-4 py-2.5 flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-secondary shrink-0">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              loading={bulkDelete.isPending}
+              onClick={() => {
+                if (confirm(`Delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`)) {
+                  bulkDelete.mutate([...selectedIds])
+                }
+              }}
+            >
+              Delete
+            </Button>
+            <button className="text-xs text-muted hover:text-primary" onClick={() => setSelectedIds(new Set())}>
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Transaction list */}
       {!transactionsCollapsed && <div className="card overflow-hidden">
         {txLoading ? (
@@ -334,7 +421,16 @@ export function AccountsPage() {
           <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                  <th className="pl-2 pr-1 py-3 text-left font-medium w-px sm:w-auto sm:px-4">Date</th>
+                  <th className="pl-3 pr-1 py-3 w-px">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
+                      onChange={toggleAll}
+                      className="w-3.5 h-3.5 accent-accent cursor-pointer"
+                    />
+                  </th>
+                  <th className="pl-1 pr-1 py-3 text-left font-medium w-px sm:w-auto sm:px-4">Date</th>
                   <th className="px-2 py-3 text-left font-medium sm:px-3">Account</th>
                   <th className="px-3 py-3 text-left font-medium hidden sm:table-cell">Payee</th>
                   <th className="px-3 py-3 text-left font-medium hidden lg:table-cell lg:w-full">Description</th>
@@ -346,10 +442,23 @@ export function AccountsPage() {
                 {transactions?.map((tx) => (
                   <tr
                     key={tx.id}
-                    className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer"
-                    onClick={() => { if (tx.type !== 'cover') setEditTx(tx) }}
+                    className={`border-b border-border/50 hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
+                    onClick={() => {
+                      if (someSelected && tx.type !== 'cover') { toggleOne(tx.id); return }
+                      if (tx.type !== 'cover') setEditTx(tx)
+                    }}
                   >
-                    <td className="pl-2 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
+                    <td className="pl-3 pr-1 py-2.5 w-px" onClick={(e) => e.stopPropagation()}>
+                      {tx.type !== 'cover' && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(tx.id)}
+                          onChange={() => toggleOne(tx.id)}
+                          className="w-3.5 h-3.5 accent-accent cursor-pointer"
+                        />
+                      )}
+                    </td>
+                    <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
                     <td className="px-2 py-2.5 max-w-0 sm:px-3 sm:max-w-none">
@@ -390,7 +499,16 @@ export function AccountsPage() {
                               className="input-base text-xs py-1 px-2"
                             >
                               <option value="">Uncategorised</option>
-                              {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              {groups?.map((group) => {
+                                const groupCats = (categories as Array<{ id: number; group_id: number; name: string }> | undefined)
+                                  ?.filter((c) => c.group_id === group.id) ?? []
+                                if (groupCats.length === 0) return null
+                                return (
+                                  <optgroup key={group.id} label={group.name}>
+                                    {groupCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                  </optgroup>
+                                )
+                              })}
                             </select>
                           </div>
                         ) : (
@@ -423,6 +541,15 @@ export function AccountsPage() {
       <TransactionForm open={addTxOpen} onClose={() => setAddTxOpen(false)} />
       {editTx && <TransactionForm open={true} onClose={() => setEditTx(null)} transaction={editTx} />}
       <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} />
+      <BulkEditModal
+        open={bulkEditOpen}
+        onClose={() => { setBulkEditOpen(false); setSelectedIds(new Set()) }}
+        selectedIds={selectedIds}
+        transactions={transactions ?? []}
+        accounts={accounts ?? []}
+        groups={groups ?? []}
+        categories={(categories as unknown as Array<{ id: number; group_id: number; name: string }>) ?? []}
+      />
     </div>
   )
 }

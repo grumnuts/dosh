@@ -270,6 +270,41 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ ok: true })
   })
 
+  app.post('/api/transactions/bulk-delete', { preHandler: authenticate }, async (request, reply) => {
+    const body = z.object({ ids: z.array(z.number().int()).min(1).max(500) }).safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Invalid input' })
+
+    const db = getDb()
+    const { ids } = body.data
+    const placeholders = ids.map(() => '?').join(',')
+
+    const txs = db
+      .prepare(`SELECT id, type, transfer_pair_id, amount, date FROM transactions WHERE id IN (${placeholders})`)
+      .all(...ids) as Array<{ id: number; type: string; transfer_pair_id: number | null; amount: number; date: string }>
+
+    // Collect IDs to delete including transfer pair counterparts
+    const allIds = new Set<number>(ids)
+    for (const tx of txs) {
+      if (tx.transfer_pair_id) allIds.add(tx.transfer_pair_id)
+    }
+    const allIdsList = [...allIds]
+    const allPlaceholders = allIdsList.map(() => '?').join(',')
+
+    db.prepare(`UPDATE transactions SET transfer_pair_id = NULL WHERE id IN (${allPlaceholders})`).run(...allIdsList)
+    db.prepare(`DELETE FROM transactions WHERE id IN (${allPlaceholders})`).run(...allIdsList)
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'transaction.bulk_deleted',
+      entityType: 'transaction',
+      entityId: 0,
+      details: { count: allIdsList.length, ids: allIdsList },
+    })
+
+    return reply.send({ ok: true, deleted: allIdsList.length })
+  })
+
   app.delete('/api/transactions/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const db = getDb()

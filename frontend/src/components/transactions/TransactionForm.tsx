@@ -108,6 +108,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
     queryKey: ['budget', 'categories-flat'],
     queryFn: () => budgetApi.getCategories(),
   })
+  const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -267,11 +268,17 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         {txType !== 'transfer' && (
           <Select label="Category (optional)" {...register('categoryId')}>
             <option value="">Uncategorised</option>
-            {categories?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            {groups?.map((group) => {
+              const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
+              if (groupCats.length === 0) return null
+              return (
+                <optgroup key={group.id} label={group.name}>
+                  {groupCats.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </optgroup>
+              )
+            })}
           </Select>
         )}
 

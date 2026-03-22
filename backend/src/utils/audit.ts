@@ -12,6 +12,7 @@ export type AuditEventType =
   | 'transaction.created'
   | 'transaction.updated'
   | 'transaction.deleted'
+  | 'transaction.bulk_deleted'
   | 'transactions.imported'
   | 'budget_group.created'
   | 'budget_group.updated'

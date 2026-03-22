@@ -64,4 +64,7 @@ export const transactionsApi = {
     api.put<{ ok: boolean }>(`/api/transactions/${id}`, data),
 
   delete: (id: number) => api.delete<{ ok: boolean }>(`/api/transactions/${id}`),
+
+  bulkDelete: (ids: number[]) =>
+    api.post<{ ok: boolean; deleted: number }>('/api/transactions/bulk-delete', { ids }),
 }

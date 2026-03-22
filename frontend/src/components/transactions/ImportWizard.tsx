@@ -34,11 +34,34 @@ export function ImportWizard({ open, onClose }: Props) {
   // Parse header row to show column names for mapping
   const headerRow = (() => {
     if (!csvText) return []
-    const firstLine = csvText.split('\n')[0]
-    return firstLine.split(',').map((c, i) => ({
-      index: i,
-      label: hasHeader ? c.trim().replace(/^["']|["']$/g, '') : `Column ${i + 1}`,
-    }))
+    const parseLine = (line: string): string[] => {
+      const result: string[] = []
+      let current = ''
+      let inQuotes = false
+      for (const char of line) {
+        if (char === '"' || char === "'") { inQuotes = !inQuotes }
+        else if (char === ',' && !inQuotes) { result.push(current.trim()); current = '' }
+        else { current += char }
+      }
+      result.push(current.trim())
+      return result
+    }
+
+    const lines = csvText.split('\n').filter((l) => l.trim())
+    const firstLine = lines[0] ?? ''
+    const sampleLine = hasHeader ? (lines[1] ?? '') : firstLine
+    const headers = parseLine(firstLine)
+    const samples = parseLine(sampleLine)
+
+    return headers.map((header, i) => {
+      const name = hasHeader ? header : `Column ${i + 1}`
+      const sample = samples[i] ?? ''
+      return {
+        index: i,
+        label: name,
+        sample,
+      }
+    })
   })()
 
   const preview = useMutation({
@@ -170,7 +193,9 @@ export function ImportWizard({ open, onClose }: Props) {
           {headerRow.length > 0 && (
             <div className="bg-surface-2 rounded-lg p-3 text-xs font-mono text-muted overflow-x-auto">
               {headerRow.map((col) => (
-                <span key={col.index} className="mr-4">[{col.index}] {col.label}</span>
+                <span key={col.index} className="mr-4">
+                  [{col.index}] {col.label}{col.sample ? ` — ${col.sample}` : ''}
+                </span>
               ))}
             </div>
           )}
@@ -198,7 +223,7 @@ export function ImportWizard({ open, onClose }: Props) {
                 <option value="">Not mapped</option>
                 {headerRow.map((col) => (
                   <option key={col.index} value={col.index}>
-                    [{col.index}] {col.label}
+                    {col.label}{col.sample ? ` (${col.sample})` : ''}
                   </option>
                 ))}
               </Select>
@@ -230,7 +255,12 @@ export function ImportWizard({ open, onClose }: Props) {
               {toImportCount} of {previewRows.length} rows will be imported.
               Duplicates are pre-skipped.
             </p>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
+              {previewRows.filter((r) => r.isDuplicate).length > 0 && (
+                <span className="text-xs text-warn">
+                  {previewRows.filter((r) => r.isDuplicate).length} duplicates detected
+                </span>
+              )}
               <button className="text-xs text-muted hover:text-primary" onClick={() => setSkips(new Set())}>
                 Select all
               </button>

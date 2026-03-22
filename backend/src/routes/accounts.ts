@@ -4,10 +4,18 @@ import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
 
-const accountSchema = z.object({
+const createAccountSchema = z.object({
   name: z.string().min(1).max(128),
-  type: z.enum(['transactional', 'savings']),
-  startingBalance: z.number().int(),
+  type: z.enum(['transactional', 'savings', 'debt']),
+  startingBalance: z.number().int().optional().default(0),
+  startingBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes: z.string().max(500).optional().nullable(),
+  sortOrder: z.number().int().optional(),
+})
+
+const updateAccountSchema = z.object({
+  name: z.string().min(1).max(128),
+  type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().max(500).optional().nullable(),
   sortOrder: z.number().int().optional(),
 })
@@ -49,7 +57,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
   })
 
   app.post('/api/accounts', { preHandler: authenticate }, async (request, reply) => {
-    const body = accountSchema.safeParse(request.body)
+    const body = createAccountSchema.safeParse(request.body)
     if (!body.success) {
       return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
     }
@@ -57,20 +65,17 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
     const now = new Date().toISOString()
     const maxOrder = (
-      db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM accounts').get() as {
-        m: number
-      }
+      db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM accounts').get() as { m: number }
     ).m
 
     const result = db
       .prepare(
         `INSERT INTO accounts (name, type, starting_balance, notes, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, 0, ?, ?, ?, ?)`,
       )
       .run(
         body.data.name,
         body.data.type,
-        body.data.startingBalance,
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
         now,
@@ -78,6 +83,21 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       )
 
     const id = result.lastInsertRowid as number
+
+    // Create a starting balance transaction if a non-zero balance was supplied
+    if (body.data.startingBalance !== 0) {
+      const startingBalanceCat = db
+        .prepare(`SELECT id FROM budget_categories WHERE name = 'Starting Balance' AND is_system = 1`)
+        .get() as { id: number } | undefined
+
+      if (startingBalanceCat) {
+        const txDate = body.data.startingBalanceDate ?? now.slice(0, 10)
+        db.prepare(
+          `INSERT INTO transactions (date, account_id, amount, category_id, type, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, 'transaction', ?, ?, ?)`,
+        ).run(txDate, id, body.data.startingBalance, startingBalanceCat.id, now, now, request.user!.id)
+      }
+    }
 
     logAudit({
       userId: request.user!.id,
@@ -93,7 +113,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
   app.put('/api/accounts/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const body = accountSchema.safeParse(request.body)
+    const body = updateAccountSchema.safeParse(request.body)
     if (!body.success) {
       return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
     }
@@ -106,14 +126,13 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     if (!existing) return reply.code(404).send({ error: 'Account not found' })
 
     db.prepare(
-      `UPDATE accounts SET name = ?, type = ?, starting_balance = ?, notes = ?, sort_order = ?, updated_at = ?
+      `UPDATE accounts SET name = ?, type = ?, notes = ?, sort_order = COALESCE(?, sort_order), updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.name,
       body.data.type,
-      body.data.startingBalance,
       body.data.notes ?? null,
-      body.data.sortOrder ?? 0,
+      body.data.sortOrder ?? null,
       new Date().toISOString(),
       id,
     )
