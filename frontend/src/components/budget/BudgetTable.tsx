@@ -132,6 +132,7 @@ function GroupSection({
   onAddCategory: (groupId: number, groupName: string) => void
 }) {
   const [editOpen, setEditOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   const groupSpent = group.categories.reduce((s, c) => s + c.spent, 0)
   const groupBalance = group.categories.reduce((s, c) => s + c.balance, 0)
@@ -142,12 +143,26 @@ function GroupSection({
       <tr className="bg-surface-2">
         <td colSpan={6} className="px-4 py-2">
           <div className="flex items-center justify-between">
-            <button
-              className="flex items-center gap-2 text-sm font-semibold text-primary hover:text-accent transition-colors"
-              onClick={() => setEditOpen(true)}
-            >
-              {group.name}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="text-muted hover:text-primary transition-colors"
+                onClick={() => setCollapsed((c) => !c)}
+                aria-label={collapsed ? 'Expand group' : 'Collapse group'}
+              >
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <button
+                className="text-sm font-semibold text-primary hover:text-accent transition-colors"
+                onClick={() => setEditOpen(true)}
+              >
+                {group.name}
+              </button>
+            </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted hidden md:inline font-mono tabular-nums">
                 {formatMoney(groupSpent)} spent
@@ -172,13 +187,13 @@ function GroupSection({
       </tr>
 
       {/* Category rows */}
-      {group.categories.length === 0 ? (
+      {!collapsed && group.categories.length === 0 ? (
         <tr>
           <td colSpan={6} className="px-6 py-2 text-xs text-muted italic">
             No categories yet — add one above
           </td>
         </tr>
-      ) : (
+      ) : !collapsed && (
         group.categories.map((cat) => (
           <CategoryRow
             key={cat.id}
