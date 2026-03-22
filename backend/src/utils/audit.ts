@@ -1,0 +1,50 @@
+import { getDb } from '../db/client'
+
+export type AuditEventType =
+  | 'user.login'
+  | 'user.logout'
+  | 'user.created'
+  | 'user.deleted'
+  | 'user.password_changed'
+  | 'account.created'
+  | 'account.updated'
+  | 'account.deleted'
+  | 'transaction.created'
+  | 'transaction.updated'
+  | 'transaction.deleted'
+  | 'transactions.imported'
+  | 'budget_group.created'
+  | 'budget_group.updated'
+  | 'budget_group.deleted'
+  | 'budget_category.created'
+  | 'budget_category.updated'
+  | 'budget_category.deleted'
+  | 'budget.amount_changed'
+  | 'budget.overspend_covered'
+
+export interface AuditDetails {
+  [key: string]: unknown
+}
+
+export function logAudit(params: {
+  userId: number | null
+  username: string
+  eventType: AuditEventType
+  entityType?: string
+  entityId?: number
+  details?: AuditDetails
+}): void {
+  const db = getDb()
+  db.prepare(
+    `INSERT INTO audit_log (occurred_at, user_id, username, event_type, entity_type, entity_id, details)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    new Date().toISOString(),
+    params.userId ?? null,
+    params.username,
+    params.eventType,
+    params.entityType ?? null,
+    params.entityId ?? null,
+    params.details ? JSON.stringify(params.details) : null,
+  )
+}

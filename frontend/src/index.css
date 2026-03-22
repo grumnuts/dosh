@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #111111;
+    color: #e8e8e8;
+    min-height: 100dvh;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1c1c1c;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #444444;
+  }
+}
+
+@layer components {
+  .input-base {
+    @apply w-full bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-primary
+           placeholder-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent
+           transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-bg font-semibold px-4 py-2 rounded-lg text-sm
+           hover:bg-accent-dim active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-secondary px-4 py-2 rounded-lg text-sm
+           hover:bg-surface-2 hover:text-primary active:scale-95 transition-all;
+  }
+
+  .btn-danger {
+    @apply bg-danger-muted text-danger font-semibold px-4 py-2 rounded-lg text-sm border border-danger-dim
+           hover:bg-danger hover:text-bg active:scale-95 transition-all disabled:opacity-50;
+  }
+
+  .card {
+    @apply bg-surface border border-border rounded-xl;
+  }
+}

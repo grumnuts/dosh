@@ -1,0 +1,28 @@
+{
+  "name": "dosh-backend",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "dev:watch": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^9.3.1",
+    "@fastify/multipart": "^8.3.0",
+    "@fastify/static": "^7.0.4",
+    "argon2": "^0.31.2",
+    "fastify": "^4.27.0",
+    "nanoid": "^3.3.7",
+    "papaparse": "^5.4.1",
+    "setprototypeof": "^1.2.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/papaparse": "^5.3.14",
+    "tsx": "^4.15.1",
+    "typescript": "^5.4.5"
+  }
+}
