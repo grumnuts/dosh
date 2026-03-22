@@ -7,13 +7,7 @@ services:
     volumes:
       - dosh-data:/data
     environment:
-      NODE_ENV: production
-      PORT: 3000
-      HOST: 0.0.0.0
-      DB_PATH: /data/dosh.db
-      LOG_LEVEL: info
-      # Change this to a long random string before first run
-      # Generate one with: openssl rand -base64 48
+      # Generate with: openssl rand -base64 48
       SECRET_KEY: change-me-to-a-long-random-secret
     restart: unless-stopped
     healthcheck:

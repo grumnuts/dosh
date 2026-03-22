@@ -41,15 +41,15 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ## Environment Variables
 
-All variables are set in `docker-compose.yml` — no `.env` file required.
+Only `SECRET_KEY` is required in `docker-compose.yml`. Everything else has a sensible default and only needs to be set if you want to override it.
 
 | Variable | Default | Description |
 |---|---|---|
-| `SECRET_KEY` | *(change this)* | Secret for signing session cookies. Use `openssl rand -base64 48`. |
-| `PORT` | `3000` | Port the server listens on |
-| `HOST` | `0.0.0.0` | Interface to bind to |
-| `DB_PATH` | `/data/dosh.db` | Path to the SQLite database file |
-| `LOG_LEVEL` | `info` | Fastify log level (`trace`, `debug`, `info`, `warn`, `error`) |
+| `SECRET_KEY` | — | **Required.** Secret for signing session cookies. Generate with `openssl rand -base64 48`. |
+| `PORT` | `3000` | Port the server listens on. Also update the `ports` mapping in `docker-compose.yml` if changed. |
+| `HOST` | `0.0.0.0` | Interface to bind to. |
+| `DB_PATH` | `/data/dosh.db` | Path to the SQLite database file inside the container. |
+| `LOG_LEVEL` | `info` | Log verbosity: `trace`, `debug`, `info`, `warn`, `error`. |
 
 ## Data Persistence
 
