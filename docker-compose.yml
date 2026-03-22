@@ -1,6 +1,6 @@
 services:
   dosh:
-    build: .
+    image: grumnuts/dosh:latest
     container_name: dosh
     ports:
       - "3000:3000"
