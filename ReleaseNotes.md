@@ -4,6 +4,16 @@
 
 ---
 
+## v1.2.0 — 2026-03-23
+
+### New Features
+- Transactions list is now paginated — 100 items per page with previous/next controls and an X–Y of Z counter; page resets automatically when filters change
+
+### Bug Fixes
+- Description column is now a fixed width so it no longer pushes the Category column off-screen on wide viewports
+
+---
+
 ## v1.1.0 — 2026-03-23
 
 ### New Features
