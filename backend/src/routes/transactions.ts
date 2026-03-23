@@ -320,7 +320,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         amount: z.number().int(),
         categoryId: z.number().int().optional().nullable(),
         accountId: z.number().int(),
-        splits: z.array(splitSchema).min(2).optional(),
+        splits: z.array(splitSchema).optional(),
       })
       .safeParse(request.body)
 

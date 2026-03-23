@@ -383,7 +383,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         />
 
         {/* Category / Split section */}
-        {canSplit && !(isEdit && transaction?.category_is_unlisted) && (
+        {canSplit && !(isEdit && !!transaction?.category_is_unlisted) && (
           isSplit ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -478,7 +478,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         )}
 
         {/* Read-only unlisted category */}
-        {txType !== 'transfer' && txType !== 'starting_balance' && isEdit && transaction?.category_is_unlisted && (
+        {txType !== 'transfer' && txType !== 'starting_balance' && isEdit && !!transaction?.category_is_unlisted && (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
             <div className="input-base text-sm text-muted cursor-not-allowed">
