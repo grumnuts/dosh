@@ -1,0 +1,32 @@
+CREATE TABLE rule_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id INTEGER NOT NULL REFERENCES rule_groups(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  condition_logic TEXT NOT NULL DEFAULT 'AND' CHECK (condition_logic IN ('AND', 'OR')),
+  is_enabled INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE rule_conditions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+  field TEXT NOT NULL,
+  operator TEXT NOT NULL,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE rule_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+  field TEXT NOT NULL,
+  value TEXT NOT NULL
+);

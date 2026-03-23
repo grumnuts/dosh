@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
+import { applyRules } from '../services/rules'
 
 const splitSchema = z.object({
   categoryId: z.number().int().nullable().optional(),
@@ -264,20 +265,34 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(201).send({ id })
     }
 
-    // Regular or split transaction
+    // Regular or split transaction — apply rules before inserting
     const splits = body.data.splits
+    const ruled = splits
+      ? body.data
+      : applyRules(
+          {
+            date: body.data.date,
+            accountId: body.data.accountId,
+            payee: body.data.payee ?? null,
+            description: body.data.description ?? null,
+            amount: body.data.amount,
+            categoryId: body.data.categoryId ?? null,
+          },
+          db,
+        )
+
     const result = db
       .prepare(
         `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, created_at, updated_at, created_by)
          VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?)`,
       )
       .run(
-        body.data.date,
-        body.data.accountId,
-        body.data.payee ?? null,
-        body.data.description ?? null,
-        body.data.amount,
-        splits ? null : (body.data.categoryId ?? null),
+        ruled.date,
+        ruled.accountId,
+        ruled.payee ?? null,
+        ruled.description ?? null,
+        ruled.amount,
+        splits ? null : (ruled.categoryId ?? null),
         now,
         now,
         request.user!.id,

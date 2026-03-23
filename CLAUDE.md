@@ -25,6 +25,7 @@ Dosh is a self-hosted zero-based envelope budgeting app. Single Docker container
 - Write clear commit messages: what changed and why, not just what
 - Format: short imperative subject line, optional body for context
 - Always ensure TypeScript compiles before committing
+- Do not add Claude/Anthropic as a co-author or contributor
 
 ### Pull Requests
 - When a feature or fix is ready, open a PR from the feature branch into `main`

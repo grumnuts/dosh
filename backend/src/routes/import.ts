@@ -4,6 +4,7 @@ import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
 import { parseCSV, mapRows, checkDuplicates } from '../services/import'
+import { applyRules } from '../services/rules'
 
 export async function importRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/import/preview — parse and return preview with duplicate flags
@@ -75,19 +76,31 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
     const now = new Date().toISOString()
 
     const insertStmt = db.prepare(
-      `INSERT INTO transactions (date, account_id, payee, description, amount, type, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, ?, ?, 'transaction', ?, ?, ?)`,
+      `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?)`,
     )
 
     db.exec('BEGIN TRANSACTION')
     try {
       for (const row of toImport) {
+        const ruled = applyRules(
+          {
+            date: row.date,
+            accountId: body.data.accountId,
+            payee: row.payee || null,
+            description: row.description || null,
+            amount: row.amount,
+            categoryId: null,
+          },
+          db,
+        )
         insertStmt.run(
-          row.date,
-          body.data.accountId,
-          row.payee || null,
-          row.description || null,
-          row.amount,
+          ruled.date,
+          ruled.accountId,
+          ruled.payee,
+          ruled.description,
+          ruled.amount,
+          ruled.categoryId,
           now,
           now,
           request.user!.id,

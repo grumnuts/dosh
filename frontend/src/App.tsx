@@ -9,6 +9,7 @@ import { BudgetPage } from './pages/BudgetPage'
 import { AccountsPage } from './pages/AccountsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditPage } from './pages/AuditPage'
+import { RulesPage } from './pages/RulesPage'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/audit" element={<AuditPage />} />
+        <Route path="/rules" element={<RulesPage />} />
         <Route path="*" element={<Navigate to="/budget" replace />} />
       </Routes>
     </Layout>

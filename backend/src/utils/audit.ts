@@ -23,6 +23,13 @@ export type AuditEventType =
   | 'budget_category.deleted'
   | 'budget.amount_changed'
   | 'budget.overspend_covered'
+  | 'rule_group.created'
+  | 'rule_group.updated'
+  | 'rule_group.deleted'
+  | 'rule.created'
+  | 'rule.updated'
+  | 'rule.deleted'
+  | 'rules.run'
 
 export interface AuditDetails {
   [key: string]: unknown
