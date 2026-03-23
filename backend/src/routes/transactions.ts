@@ -60,7 +60,56 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
 
-    let sql = `
+    // Build shared WHERE clause and params (reused for count + main query)
+    let where = ' WHERE 1=1'
+    const whereParams: (string | number)[] = []
+
+    if (query.startDate) {
+      where += ' AND t.date >= ?'
+      whereParams.push(query.startDate)
+    }
+    if (query.endDate) {
+      where += ' AND t.date <= ?'
+      whereParams.push(query.endDate)
+    }
+    if (query.accountId) {
+      where += ' AND t.account_id = ?'
+      whereParams.push(parseInt(query.accountId, 10))
+    }
+    if (query.categoryId) {
+      where += ' AND t.category_id = ?'
+      whereParams.push(parseInt(query.categoryId, 10))
+    }
+    if (query.uncategorised === 'true') {
+      where += ` AND t.category_id IS NULL AND t.type = 'transaction'`
+      where += ` AND NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)`
+    }
+    if (query.search) {
+      where += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`
+      const term = `%${query.search}%`
+      whereParams.push(term, term, term, term)
+      const numericSearch = query.search.replace(/[$,\s]/g, '')
+      const parsed = parseFloat(numericSearch)
+      if (!isNaN(parsed) && parsed > 0) {
+        where += ` OR ABS(t.amount) = ?`
+        whereParams.push(Math.round(parsed * 100))
+      }
+      where += `)`
+    }
+
+    const countRow = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM transactions t
+         JOIN accounts a ON a.id = t.account_id
+         LEFT JOIN budget_categories bc ON bc.id = t.category_id${where}`,
+      )
+      .get(...whereParams) as { count: number }
+    const total = countRow.count
+
+    const limit = Math.min(parseInt(query.limit ?? '100', 10), 500)
+    const offset = parseInt(query.offset ?? '0', 10)
+
+    const sql = `
       SELECT t.id, t.date, t.account_id, a.name as account_name,
              t.payee, t.description, t.amount, t.category_id,
              bc.name as category_name, bg.name as group_name,
@@ -71,52 +120,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       JOIN accounts a ON a.id = t.account_id
       LEFT JOIN budget_categories bc ON bc.id = t.category_id
       LEFT JOIN budget_groups bg ON bg.id = bc.group_id
-      WHERE 1=1
+      ${where} ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?
     `
-    const params: (string | number)[] = []
 
-    if (query.startDate) {
-      sql += ' AND t.date >= ?'
-      params.push(query.startDate)
-    }
-    if (query.endDate) {
-      sql += ' AND t.date <= ?'
-      params.push(query.endDate)
-    }
-    if (query.accountId) {
-      sql += ' AND t.account_id = ?'
-      params.push(parseInt(query.accountId, 10))
-    }
-    if (query.categoryId) {
-      sql += ' AND t.category_id = ?'
-      params.push(parseInt(query.categoryId, 10))
-    }
-    if (query.uncategorised === 'true') {
-      sql += ` AND t.category_id IS NULL AND t.type = 'transaction'`
-      sql += ` AND NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)`
-    }
-    if (query.search) {
-      sql += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`
-      const term = `%${query.search}%`
-      params.push(term, term, term, term)
-      // Also match by dollar amount if the search string looks numeric
-      const numericSearch = query.search.replace(/[$,\s]/g, '')
-      const parsed = parseFloat(numericSearch)
-      if (!isNaN(parsed) && parsed > 0) {
-        sql += ` OR ABS(t.amount) = ?`
-        params.push(Math.round(parsed * 100))
-      }
-      sql += `)`
-    }
-
-    sql += ' ORDER BY t.date DESC, t.id DESC'
-
-    const limit = Math.min(parseInt(query.limit ?? '200', 10), 500)
-    const offset = parseInt(query.offset ?? '0', 10)
-    sql += ' LIMIT ? OFFSET ?'
-    params.push(limit, offset)
-
-    const rows = db.prepare(sql).all(...params) as Array<Record<string, unknown> & { id: number }>
+    const rows = db.prepare(sql).all(...whereParams, limit, offset) as Array<Record<string, unknown> & { id: number }>
 
     // Attach splits in a single batch query
     if (rows.length > 0) {
@@ -147,11 +154,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         splitsByTx.set(s.transaction_id, arr)
       }
 
-      const rowsWithSplits = rows.map((r) => ({ ...r, splits: splitsByTx.get(r.id) ?? [] }))
-      return reply.send(rowsWithSplits)
+      const items = rows.map((r) => ({ ...r, splits: splitsByTx.get(r.id) ?? [] }))
+      return reply.send({ total, items })
     }
 
-    return reply.send(rows.map((r) => ({ ...r, splits: [] })))
+    return reply.send({ total, items: rows.map((r) => ({ ...r, splits: [] })) })
   })
 
   app.post('/api/transactions', { preHandler: authenticate }, async (request, reply) => {

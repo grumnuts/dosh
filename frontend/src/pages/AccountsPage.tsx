@@ -224,12 +224,15 @@ export function AccountsPage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [page, setPage] = useState(0)
+
+  const PAGE_SIZE = 100
 
   const { data: accounts, isLoading: accountsLoading } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
-  const { data: transactions, isLoading: txLoading } = useQuery({
-    queryKey: ['transactions', filters, uncategorisedOnly],
+  const { data: txData, isLoading: txLoading } = useQuery({
+    queryKey: ['transactions', filters, uncategorisedOnly, page],
     queryFn: () =>
       transactionsApi.list({
         startDate: filters.startDate || undefined,
@@ -238,9 +241,13 @@ export function AccountsPage() {
         categoryId: filters.categoryId ? parseInt(filters.categoryId, 10) : undefined,
         uncategorised: uncategorisedOnly || undefined,
         search: filters.search || undefined,
-        limit: 200,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
       }),
   })
+  const transactions = txData?.items
+  const totalTransactions = txData?.total ?? 0
+  const totalPages = Math.ceil(totalTransactions / PAGE_SIZE)
 
   const { data: uncategorisedData } = useQuery({
     queryKey: ['transactions', 'uncategorised-count'],
@@ -295,10 +302,11 @@ export function AccountsPage() {
     })
   }
 
-  const setFilter = (key: string, value: string) => setFilters((prev) => ({ ...prev, [key]: value }))
+  const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
     setUncategorisedOnly(false)
+    setPage(0)
   }
   const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly
 
@@ -407,7 +415,7 @@ export function AccountsPage() {
               {/* Mobile: ? icon */}
               <button
                 className={`sm:hidden p-1.5 rounded transition-colors ${uncategorisedOnly ? 'text-danger bg-danger/20' : 'text-danger hover:bg-danger/20'}`}
-                onClick={() => setUncategorisedOnly((v) => !v)}
+                onClick={() => { setUncategorisedOnly((v) => !v); setPage(0) }}
                 aria-label="Show uncategorised"
               >
                 <span className="text-lg font-bold leading-none">?</span>
@@ -415,7 +423,7 @@ export function AccountsPage() {
               {/* Desktop: text badge */}
               <button
                 className={`hidden sm:block text-xs px-2 py-1 rounded transition-colors ${uncategorisedOnly ? 'bg-danger/20 text-danger' : 'bg-danger/15 text-danger hover:bg-danger/25'}`}
-                onClick={() => setUncategorisedOnly((v) => !v)}
+                onClick={() => { setUncategorisedOnly((v) => !v); setPage(0) }}
               >
                 {uncategorisedData.count} Uncategorised
               </button>
@@ -556,7 +564,7 @@ export function AccountsPage() {
                   <th className="pl-1 pr-1 py-3 text-left font-medium w-px sm:w-auto sm:px-4">Date</th>
                   <th className="px-2 py-3 text-left font-medium sm:px-3">Account</th>
                   <th className="px-3 py-3 text-left font-medium hidden sm:table-cell">Payee</th>
-                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell lg:w-full">Description</th>
+                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell lg:w-72">Description</th>
                   <th className="px-3 py-3 text-left font-medium hidden md:table-cell lg:w-px lg:whitespace-nowrap">Category</th>
                   <th className="pl-2 pr-3 py-3 text-right font-medium w-px sm:w-auto sm:px-3">Amount</th>
                 </tr>
@@ -604,7 +612,7 @@ export function AccountsPage() {
                     <td className="px-3 py-2.5 max-w-0 hidden sm:table-cell text-sm text-primary">
                       <span className="truncate block">{tx.payee || '—'}</span>
                     </td>
-                    <td className="px-3 py-2.5 hidden lg:table-cell text-sm text-primary lg:w-full lg:max-w-none max-w-0">
+                    <td className="px-3 py-2.5 hidden lg:table-cell text-sm text-primary lg:w-72 max-w-0">
                       <span className="truncate block">{tx.description || '—'}</span>
                     </td>
                     <td className="px-3 py-2.5 hidden md:table-cell lg:w-px lg:whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -700,6 +708,36 @@ export function AccountsPage() {
                 ))}
               </tbody>
             </table>
+        )}
+        {!txLoading && totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-3">
+            <span className="text-xs text-muted">
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalTransactions)} of {totalTransactions}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                className="p-1.5 rounded text-muted hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 0}
+                aria-label="Previous page"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span className="text-xs text-secondary px-1">Page {page + 1} of {totalPages}</span>
+              <button
+                className="p-1.5 rounded text-muted hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages - 1}
+                aria-label="Next page"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
         )}
       </div>}
 
