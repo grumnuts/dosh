@@ -4,6 +4,13 @@
 
 ---
 
+## v1.0.1 — 2026-03-23
+
+### Bug Fixes
+- Fixed container failing to start when a named Docker volume is mounted at `/data` — volume directories are created as `root:root` by the Docker daemon, causing the non-root `dosh` user to be unable to open the database file
+
+---
+
 ## v1.0.0 — 2026-03-23
 
 ### New Features
