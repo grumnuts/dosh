@@ -129,12 +129,18 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
       const spentRow = db
         .prepare(
-          `SELECT COALESCE(SUM(amount), 0) as total
-           FROM transactions
-           WHERE category_id = ? AND date >= ? AND date <= ?
-             AND type = 'transaction' AND amount < 0`,
+          `SELECT COALESCE(SUM(total), 0) as total FROM (
+             SELECT t.amount as total FROM transactions t
+             WHERE t.category_id = ? AND t.date >= ? AND t.date <= ?
+               AND t.type = 'transaction' AND t.amount < 0
+             UNION ALL
+             SELECT ts.amount as total FROM transaction_splits ts
+             JOIN transactions t ON t.id = ts.transaction_id
+             WHERE ts.category_id = ? AND t.date >= ? AND t.date <= ?
+               AND t.type = 'transaction' AND ts.amount < 0
+           )`,
         )
-        .get(cat.id, bounds.start, bounds.end) as { total: number }
+        .get(cat.id, bounds.start, bounds.end, cat.id, bounds.start, bounds.end) as { total: number }
 
       const spent = Math.abs(spentRow.total)
 
@@ -183,12 +189,18 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
       const receivedRow = db
         .prepare(
-          `SELECT COALESCE(SUM(amount), 0) as total
-           FROM transactions
-           WHERE category_id = ? AND date >= ? AND date <= ?
-             AND type = 'transaction' AND amount > 0`,
+          `SELECT COALESCE(SUM(total), 0) as total FROM (
+             SELECT t.amount as total FROM transactions t
+             WHERE t.category_id = ? AND t.date >= ? AND t.date <= ?
+               AND t.type = 'transaction' AND t.amount > 0
+             UNION ALL
+             SELECT ts.amount as total FROM transaction_splits ts
+             JOIN transactions t ON t.id = ts.transaction_id
+             WHERE ts.category_id = ? AND t.date >= ? AND t.date <= ?
+               AND t.type = 'transaction' AND ts.amount > 0
+           )`,
         )
-        .get(cat.id, bounds.start, bounds.end) as { total: number }
+        .get(cat.id, bounds.start, bounds.end, cat.id, bounds.start, bounds.end) as { total: number }
 
       return {
         id: cat.id,
@@ -234,12 +246,18 @@ export function getCategoryOverspendAmount(categoryId: number, weekStart: string
 
   const spentRow = db
     .prepare(
-      `SELECT COALESCE(SUM(amount), 0) as total
-       FROM transactions
-       WHERE category_id = ? AND date >= ? AND date <= ?
-         AND type = 'transaction' AND amount < 0`,
+      `SELECT COALESCE(SUM(total), 0) as total FROM (
+         SELECT t.amount as total FROM transactions t
+         WHERE t.category_id = ? AND t.date >= ? AND t.date <= ?
+           AND t.type = 'transaction' AND t.amount < 0
+         UNION ALL
+         SELECT ts.amount as total FROM transaction_splits ts
+         JOIN transactions t ON t.id = ts.transaction_id
+         WHERE ts.category_id = ? AND t.date >= ? AND t.date <= ?
+           AND t.type = 'transaction' AND ts.amount < 0
+       )`,
     )
-    .get(categoryId, bounds.start, bounds.end) as { total: number }
+    .get(categoryId, bounds.start, bounds.end, categoryId, bounds.start, bounds.end) as { total: number }
 
   const spent = Math.abs(spentRow.total)
 

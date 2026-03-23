@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Input'
+import { formatMoney } from '../ui/AmountDisplay'
 import { transactionsApi, Transaction } from '../../api/transactions'
 import { accountsApi } from '../../api/accounts'
 import { budgetApi } from '../../api/budget'
@@ -23,6 +24,12 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
+
+interface SplitRow {
+  categoryId: string
+  amount: string
+  note: string
+}
 
 interface Props {
   open: boolean
@@ -98,6 +105,11 @@ function deriveEditType(tx: Transaction): 'debit' | 'credit' | 'transfer' {
   return tx.amount < 0 ? 'debit' : 'credit'
 }
 
+const blankSplits = (): SplitRow[] => [
+  { categoryId: '', amount: '', note: '' },
+  { categoryId: '', amount: '', note: '' },
+]
+
 export function TransactionForm({ open, onClose, transaction }: Props) {
   const qc = useQueryClient()
   const isEdit = !!transaction
@@ -126,10 +138,24 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
     },
   })
 
+  const [isSplit, setIsSplit] = useState(false)
+  const [splits, setSplits] = useState<SplitRow[]>(blankSplits())
+  const [splitError, setSplitError] = useState<string | null>(null)
+
   const txType = watch('type')
+  const amountStr = watch('amount')
+  const totalCents = !isNaN(parseFloat(amountStr)) ? Math.round(parseFloat(amountStr) * 100) : 0
+  const splitTotalCents = splits.reduce((sum, s) => {
+    const v = parseFloat(s.amount)
+    return sum + (!isNaN(v) ? Math.round(v * 100) : 0)
+  }, 0)
+  const splitRemainder = totalCents - splitTotalCents
+
+  const categories = budgetWeek as Array<{ id: number; group_id: number; name: string; period: string }> | undefined
 
   useEffect(() => {
     if (open) {
+      setSplitError(null)
       if (transaction) {
         reset({
           date: transaction.date,
@@ -141,6 +167,17 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           amount: (Math.abs(transaction.amount) / 100).toFixed(2),
           categoryId: transaction.category_id ? String(transaction.category_id) : '',
         })
+        if (transaction.splits.length > 0) {
+          setIsSplit(true)
+          setSplits(transaction.splits.map((s) => ({
+            categoryId: s.category_id ? String(s.category_id) : '',
+            amount: (Math.abs(s.amount) / 100).toFixed(2),
+            note: s.note ?? '',
+          })))
+        } else {
+          setIsSplit(false)
+          setSplits(blankSplits())
+        }
       } else {
         reset({
           date: today,
@@ -152,14 +189,60 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           amount: '',
           categoryId: '',
         })
+        setIsSplit(false)
+        setSplits(blankSplits())
       }
     }
   }, [open, transaction, reset, accounts, today])
+
+  const updateSplit = (i: number, field: keyof SplitRow, value: string) => {
+    setSplits((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
+  }
+
+  const addSplit = () => setSplits((prev) => [...prev, { categoryId: '', amount: '', note: '' }])
+
+  const removeSplit = (i: number) => {
+    if (splits.length <= 2) return
+    setSplits((prev) => prev.filter((_, idx) => idx !== i))
+  }
 
   const mutation = useMutation({
     mutationFn: async (data: FormData): Promise<{ id: number; pairedId?: number }> => {
       const absAmount = Math.round(parseFloat(data.amount) * 100)
       const amount = data.type === 'credit' || data.type === 'starting_balance' ? absAmount : -absAmount
+
+      // Validate splits if active
+      if (isSplit) {
+        if (splitTotalCents !== totalCents) {
+          throw new Error(`Splits total ${formatMoney(splitTotalCents)} — must equal ${formatMoney(totalCents)}`)
+        }
+        const splitsPayload = splits.map((s) => ({
+          categoryId: s.categoryId ? parseInt(s.categoryId, 10) : null,
+          amount: Math.round(parseFloat(s.amount) * 100) * (amount < 0 ? -1 : 1),
+          note: s.note || null,
+        }))
+
+        if (isEdit) {
+          await transactionsApi.update(transaction!.id, {
+            date: data.date,
+            accountId: parseInt(data.accountId, 10),
+            payee: data.payee || null,
+            description: data.description || null,
+            amount: transaction!.type === 'transfer' ? transaction!.amount : amount,
+            categoryId: null,
+            splits: splitsPayload,
+          })
+          return { id: transaction!.id }
+        }
+        return transactionsApi.create({
+          date: data.date,
+          accountId: parseInt(data.accountId, 10),
+          payee: data.payee || null,
+          description: data.description || null,
+          amount,
+          splits: splitsPayload,
+        })
+      }
 
       if (isEdit) {
         const isTransfer = transaction!.type === 'transfer'
@@ -168,9 +251,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           accountId: parseInt(data.accountId, 10),
           payee: data.payee || null,
           description: data.description || null,
-          // Preserve original amount and category for transfers
           amount: isTransfer ? transaction!.amount : amount,
           categoryId: isTransfer ? null : (data.categoryId ? parseInt(data.categoryId, 10) : null),
+          splits: [],
         })
         return { id: transaction!.id }
       }
@@ -217,7 +300,28 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
     },
   })
 
-  const categories = budgetWeek as Array<{ id: number; group_id: number; name: string; period: string }> | undefined
+  const canSplit = txType === 'debit' || txType === 'credit'
+
+  const CategorySelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="input-base text-sm"
+    >
+      <option value="">Uncategorised</option>
+      {groups?.map((group) => {
+        const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
+        if (groupCats.length === 0) return null
+        return (
+          <optgroup key={group.id} label={group.name}>
+            {groupCats.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </optgroup>
+        )
+      })}
+    </select>
+  )
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Transaction' : 'Add Transaction'}>
@@ -278,30 +382,109 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           error={errors.amount?.message}
         />
 
-        {txType !== 'transfer' && txType !== 'starting_balance' && (
-          isEdit && transaction?.category_is_unlisted ? (
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
-              <div className="input-base text-sm text-muted cursor-not-allowed">
-                {transaction.category_name ?? 'Uncategorised'}
+        {/* Category / Split section */}
+        {canSplit && !(isEdit && transaction?.category_is_unlisted) && (
+          isSplit ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-secondary uppercase tracking-wide">Splits</span>
+                <button
+                  type="button"
+                  className="text-xs text-muted hover:text-primary transition-colors"
+                  onClick={() => { setIsSplit(false); setSplits(blankSplits()); setSplitError(null) }}
+                >
+                  Remove split
+                </button>
               </div>
+
+              {splits.map((s, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <CategorySelect value={s.categoryId} onChange={(v) => updateSplit(i, 'categoryId', v)} />
+                  </div>
+                  <div className="w-28">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={s.amount}
+                      onChange={(e) => { updateSplit(i, 'amount', e.target.value); setSplitError(null) }}
+                      className="input-base text-sm text-right"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeSplit(i)}
+                    disabled={splits.length <= 2}
+                    className="mt-1 p-1 text-muted hover:text-danger disabled:opacity-30 transition-colors"
+                    aria-label="Remove split"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addSplit}
+                className="text-xs text-accent hover:text-accent/80 transition-colors"
+              >
+                + Add split
+              </button>
+
+              {/* Running total */}
+              <div className={`text-xs px-3 py-2 rounded flex items-center justify-between ${
+                splitRemainder === 0
+                  ? 'bg-accent/10 text-accent'
+                  : 'bg-surface-2 text-secondary'
+              }`}>
+                <span>{splitRemainder === 0 ? 'Fully allocated' : `Remaining: ${formatMoney(Math.abs(splitRemainder))}`}</span>
+                <span className="font-mono">{formatMoney(splitTotalCents)} / {formatMoney(totalCents)}</span>
+              </div>
+
+              {splitError && <p className="text-xs text-danger">{splitError}</p>}
             </div>
           ) : (
-            <Select label="Category (optional)" {...register('categoryId')}>
-              <option value="">Uncategorised</option>
-              {groups?.map((group) => {
-                const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
-                if (groupCats.length === 0) return null
-                return (
-                  <optgroup key={group.id} label={group.name}>
-                    {groupCats.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </optgroup>
-                )
-              })}
-            </Select>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-secondary uppercase tracking-wide">Category (optional)</span>
+                <button
+                  type="button"
+                  className="text-xs text-muted hover:text-accent transition-colors"
+                  onClick={() => setIsSplit(true)}
+                >
+                  Split
+                </button>
+              </div>
+              <select className="input-base text-sm w-full" {...register('categoryId')}>
+                <option value="">Uncategorised</option>
+                {groups?.map((group) => {
+                  const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
+                  if (groupCats.length === 0) return null
+                  return (
+                    <optgroup key={group.id} label={group.name}>
+                      {groupCats.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
+              </select>
+            </div>
           )
+        )}
+
+        {/* Read-only unlisted category */}
+        {txType !== 'transfer' && txType !== 'starting_balance' && isEdit && transaction?.category_is_unlisted && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
+            <div className="input-base text-sm text-muted cursor-not-allowed">
+              {transaction.category_name ?? 'Uncategorised'}
+            </div>
+          </div>
         )}
 
         {mutation.isError && (

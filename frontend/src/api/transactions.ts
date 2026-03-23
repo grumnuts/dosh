@@ -1,5 +1,14 @@
 import { api } from './client'
 
+export interface TransactionSplit {
+  id: number
+  transaction_id: number
+  category_id: number | null
+  category_name: string | null
+  amount: number
+  note: string | null
+}
+
 export interface Transaction {
   id: number
   date: string
@@ -16,6 +25,7 @@ export interface Transaction {
   transfer_pair_id: number | null
   cover_week_start: string | null
   created_at: string
+  splits: TransactionSplit[]
 }
 
 export interface TransactionFilters {
@@ -29,6 +39,12 @@ export interface TransactionFilters {
   offset?: number
 }
 
+export interface TransactionSplitInput {
+  categoryId?: number | null
+  amount: number
+  note?: string | null
+}
+
 export interface TransactionInput {
   date: string
   accountId: number
@@ -38,6 +54,7 @@ export interface TransactionInput {
   categoryId?: number | null
   type?: 'transaction' | 'transfer' | 'starting_balance'
   transferToAccountId?: number | null
+  splits?: TransactionSplitInput[]
 }
 
 export const transactionsApi = {

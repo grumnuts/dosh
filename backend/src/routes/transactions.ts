@@ -4,6 +4,12 @@ import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
 
+const splitSchema = z.object({
+  categoryId: z.number().int().nullable().optional(),
+  amount: z.number().int(),
+  note: z.string().max(256).optional().nullable(),
+})
+
 const transactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   accountId: z.number().int(),
@@ -13,6 +19,7 @@ const transactionSchema = z.object({
   categoryId: z.number().int().optional().nullable(),
   type: z.enum(['transaction', 'transfer', 'starting_balance']).optional().default('transaction'),
   transferToAccountId: z.number().int().optional().nullable(),
+  splits: z.array(splitSchema).min(2).optional(),
 })
 
 function upsertPayee(payeeName: string | null | undefined): void {
@@ -28,7 +35,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/transactions/uncategorised-count', { preHandler: authenticate }, async (_request, reply) => {
     const db = getDb()
     const row = db
-      .prepare(`SELECT COUNT(*) as count FROM transactions WHERE type = 'transaction' AND category_id IS NULL`)
+      .prepare(
+        `SELECT COUNT(*) as count FROM transactions
+         WHERE type = 'transaction' AND category_id IS NULL
+           AND NOT EXISTS (SELECT 1 FROM transaction_splits WHERE transaction_id = transactions.id)`,
+      )
       .get() as { count: number }
     return reply.send({ count: row.count })
   })
@@ -82,6 +93,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     }
     if (query.uncategorised === 'true') {
       sql += ` AND t.category_id IS NULL AND t.type = 'transaction'`
+      sql += ` AND NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)`
     }
     if (query.search) {
       sql += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`
@@ -104,8 +116,42 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     sql += ' LIMIT ? OFFSET ?'
     params.push(limit, offset)
 
-    const rows = db.prepare(sql).all(...params)
-    return reply.send(rows)
+    const rows = db.prepare(sql).all(...params) as Array<Record<string, unknown> & { id: number }>
+
+    // Attach splits in a single batch query
+    if (rows.length > 0) {
+      const ids = rows.map((r) => r.id)
+      const placeholders = ids.map(() => '?').join(',')
+      const splits = db
+        .prepare(
+          `SELECT ts.id, ts.transaction_id, ts.category_id, bc.name as category_name,
+                  ts.amount, ts.note
+           FROM transaction_splits ts
+           LEFT JOIN budget_categories bc ON bc.id = ts.category_id
+           WHERE ts.transaction_id IN (${placeholders})
+           ORDER BY ts.id`,
+        )
+        .all(...ids) as Array<{
+        id: number
+        transaction_id: number
+        category_id: number | null
+        category_name: string | null
+        amount: number
+        note: string | null
+      }>
+
+      const splitsByTx = new Map<number, typeof splits>()
+      for (const s of splits) {
+        const arr = splitsByTx.get(s.transaction_id) ?? []
+        arr.push(s)
+        splitsByTx.set(s.transaction_id, arr)
+      }
+
+      const rowsWithSplits = rows.map((r) => ({ ...r, splits: splitsByTx.get(r.id) ?? [] }))
+      return reply.send(rowsWithSplits)
+    }
+
+    return reply.send(rows.map((r) => ({ ...r, splits: [] })))
   })
 
   app.post('/api/transactions', { preHandler: authenticate }, async (request, reply) => {
@@ -211,7 +257,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(201).send({ id })
     }
 
-    // Regular transaction
+    // Regular or split transaction
+    const splits = body.data.splits
     const result = db
       .prepare(
         `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, created_at, updated_at, created_by)
@@ -223,13 +270,24 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         body.data.payee ?? null,
         body.data.description ?? null,
         body.data.amount,
-        body.data.categoryId ?? null,
+        splits ? null : (body.data.categoryId ?? null),
         now,
         now,
         request.user!.id,
       )
 
     const id = result.lastInsertRowid as number
+
+    if (splits) {
+      const insertSplit = db.prepare(
+        `INSERT INTO transaction_splits (transaction_id, category_id, amount, note, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      for (const s of splits) {
+        insertSplit.run(id, s.categoryId ?? null, s.amount, s.note ?? null, now)
+      }
+    }
+
     upsertPayee(body.data.payee)
 
     logAudit({
@@ -238,7 +296,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'transaction.created',
       entityType: 'transaction',
       entityId: id,
-      details: { amount: body.data.amount, date: body.data.date, accountId: body.data.accountId },
+      details: { amount: body.data.amount, date: body.data.date, accountId: body.data.accountId, split: !!splits },
     })
 
     return reply.code(201).send({ id })
@@ -255,6 +313,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         amount: z.number().int(),
         categoryId: z.number().int().optional().nullable(),
         accountId: z.number().int(),
+        splits: z.array(splitSchema).min(2).optional(),
       })
       .safeParse(request.body)
 
@@ -293,6 +352,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, now, existing.transfer_pair_id)
       }
     } else {
+      const newSplits = body.data.splits
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
          category_id = ?, updated_at = ? WHERE id = ?`,
@@ -302,11 +362,28 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         body.data.payee ?? null,
         body.data.description ?? null,
         body.data.amount,
-        // Preserve unlisted category — it cannot be reassigned via normal edit
-        categoryIsUnlisted ? existing.category_id : (body.data.categoryId ?? null),
+        categoryIsUnlisted
+          ? existing.category_id
+          : newSplits
+            ? null
+            : (body.data.categoryId ?? null),
         now,
         id,
       )
+
+      if (newSplits !== undefined) {
+        // Replace all splits
+        db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(id)
+        if (newSplits.length > 0) {
+          const insertSplit = db.prepare(
+            `INSERT INTO transaction_splits (transaction_id, category_id, amount, note, created_at)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          for (const s of newSplits) {
+            insertSplit.run(id, s.categoryId ?? null, s.amount, s.note ?? null, now)
+          }
+        }
+      }
     }
 
     upsertPayee(body.data.payee)

@@ -562,9 +562,10 @@ export function AccountsPage() {
               </thead>
               <tbody>
                 {transactions?.map((tx) => (
+                  <>
                   <tr
                     key={tx.id}
-                    className={`border-b border-border/50 hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
+                    className={`border-b ${tx.splits.length > 0 ? 'border-border/20' : 'border-border/50'} hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
                     onClick={() => {
                       if (someSelected && tx.type !== 'cover') { toggleOne(tx.id); return }
                       if (tx.type !== 'cover') setEditTx(tx)
@@ -586,9 +587,11 @@ export function AccountsPage() {
                     <td className="px-2 py-2.5 max-w-0 sm:px-3 sm:max-w-none">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
-                        {tx.category_name
-                          ? <span className="text-secondary">{tx.category_name}</span>
-                          : <span className="text-muted italic">Uncategorised</span>
+                        {tx.splits.length > 0
+                          ? <span className="text-muted italic">Split</span>
+                          : tx.category_name
+                            ? <span className="text-secondary">{tx.category_name}</span>
+                            : <span className="text-muted italic">Uncategorised</span>
                         }
                       </div>
                       {tx.description && (
@@ -604,7 +607,9 @@ export function AccountsPage() {
                       <span className="truncate block">{tx.description || '—'}</span>
                     </td>
                     <td className="px-3 py-2.5 hidden md:table-cell lg:w-px lg:whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      {tx.type === 'transaction' ? (
+                      {tx.splits.length > 0 ? (
+                        <span className="text-sm text-muted italic">Split</span>
+                      ) : tx.type === 'transaction' ? (
                         tx.category_is_unlisted ? (
                           <span className="text-sm text-secondary">{tx.category_name}</span>
                         ) : inlineCategoryTx === tx.id ? (
@@ -651,6 +656,38 @@ export function AccountsPage() {
                       <Amount cents={tx.amount} type={tx.type} />
                     </td>
                   </tr>
+                  {tx.splits.map((split, i) => (
+                    <tr
+                      key={`split-${split.id}`}
+                      className={`${i === tx.splits.length - 1 ? 'border-b border-border/50' : 'border-b border-border/20'} bg-surface-2/20 cursor-pointer hover:bg-surface-2/40`}
+                      onClick={() => setEditTx(tx)}
+                    >
+                      <td className="pl-3 pr-1 py-1.5 w-px" />
+                      <td className="pl-1 pr-1 py-1.5 w-px sm:w-auto sm:px-4" />
+                      <td className="px-2 py-1.5 sm:px-3">
+                        <div className="flex items-center gap-1.5 sm:hidden">
+                          <span className="text-muted text-xs">↳</span>
+                          <span className="text-xs text-secondary truncate">{split.category_name ?? <span className="italic text-muted">Uncategorised</span>}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5 hidden sm:table-cell" />
+                      <td className="px-3 py-1.5 hidden lg:table-cell">
+                        {split.note && <span className="text-xs text-muted truncate block">{split.note}</span>}
+                      </td>
+                      <td className="px-3 py-1.5 hidden md:table-cell">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted text-xs">↳</span>
+                          <span className="text-sm text-secondary">{split.category_name ?? <span className="italic text-muted">Uncategorised</span>}</span>
+                        </div>
+                      </td>
+                      <td className="pl-2 pr-3 py-1.5 text-right whitespace-nowrap w-px sm:w-auto sm:px-3">
+                        <span className={`text-sm font-mono ${split.amount < 0 ? 'text-danger' : 'text-accent'}`}>
+                          {formatMoney(Math.abs(split.amount))}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  </>
                 ))}
               </tbody>
             </table>
