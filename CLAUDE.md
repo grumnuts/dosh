@@ -37,6 +37,7 @@ Dosh is a self-hosted zero-based envelope budgeting app. Single Docker container
 ---
 
 ## Release Process
+Never build/push a new release unless asked.
 
 When asked to publish a new release, follow these steps **in order** and **ask for confirmation before publishing**:
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
@@ -133,7 +134,7 @@ function GroupSection({
   onAddCategory: (groupId: number, groupName: string) => void
 }) {
   const [editOpen, setEditOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:group:${group.id}`, false)
 
   const groupSpent = group.categories.reduce((s, c) => s + c.spent, 0)
   const groupBalance = group.categories.reduce((s, c) => s + c.balance, 0)
@@ -274,7 +275,7 @@ function IncomeGroupSection({
   group: IncomeGroup
   onAddCategory: (groupId: number, groupName: string) => void
 }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:income-group:${group.id}`, false)
   const [editOpen, setEditOpen] = useState(false)
 
   const groupReceived = group.categories.reduce((s, c) => s + c.received, 0)

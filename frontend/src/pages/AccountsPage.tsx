@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -204,8 +205,8 @@ export function AccountsPage() {
   const qc = useQueryClient()
 
   // Collapse state
-  const [accountsCollapsed, setAccountsCollapsed] = useState(false)
-  const [transactionsCollapsed, setTransactionsCollapsed] = useState(false)
+  const [accountsCollapsed, setAccountsCollapsed] = useLocalStorageBool('dosh:collapsed:accounts', false)
+  const [transactionsCollapsed, setTransactionsCollapsed] = useLocalStorageBool('dosh:collapsed:transactions', false)
 
   // Account state
   const [accountModal, setAccountModal] = useState<{ open: boolean; account?: Account | null }>({ open: false })
@@ -617,7 +618,14 @@ export function AccountsPage() {
                             <select
                               autoFocus
                               value={inlineCategoryValue}
-                              onChange={(e) => setInlineCategoryValue(e.target.value)}
+                              onChange={(e) => {
+                                if (e.target.value === '__split__') {
+                                  setInlineCategoryTx(null)
+                                  setEditTx(tx)
+                                } else {
+                                  setInlineCategoryValue(e.target.value)
+                                }
+                              }}
                               onBlur={() => {
                                 if (inlineCategoryValue !== String(tx.category_id ?? '')) {
                                   assignCategory.mutate({ id: tx.id, tx, categoryId: inlineCategoryValue ? parseInt(inlineCategoryValue, 10) : null })
@@ -627,6 +635,7 @@ export function AccountsPage() {
                               }}
                               className="input-base text-xs py-1 px-2"
                             >
+                              <option value="__split__">Split...</option>
                               <option value="">Uncategorised</option>
                               {groups?.map((group) => {
                                 const groupCats = (categories as Array<{ id: number; group_id: number; name: string }> | undefined)
