@@ -279,7 +279,7 @@ export function AccountsPage() {
     },
   })
 
-  const selectableIds = transactions?.filter((t) => t.type !== 'cover').map((t) => t.id) ?? []
+  const selectableIds = transactions?.map((t) => t.id) ?? []
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id))
   const someSelected = selectedIds.size > 0
 
@@ -574,19 +574,17 @@ export function AccountsPage() {
                     key={tx.id}
                     className={`border-b ${tx.splits.length > 0 ? 'border-border/20' : 'border-border/50'} hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
                     onClick={() => {
-                      if (someSelected && tx.type !== 'cover') { toggleOne(tx.id); return }
+                      if (someSelected) { toggleOne(tx.id); return }
                       if (tx.type !== 'cover') setEditTx(tx)
                     }}
                   >
                     <td className="pl-3 pr-1 py-2.5 w-px" onClick={(e) => e.stopPropagation()}>
-                      {tx.type !== 'cover' && (
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(tx.id)}
-                          onChange={() => toggleOne(tx.id)}
-                          className="w-3.5 h-3.5 accent-accent cursor-pointer"
-                        />
-                      )}
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(tx.id)}
+                        onChange={() => toggleOne(tx.id)}
+                        className="w-3.5 h-3.5 accent-accent cursor-pointer"
+                      />
                     </td>
                     <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
