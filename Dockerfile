@@ -33,12 +33,17 @@ COPY backend/src/db/migrations ./backend/dist/migrations
 
 WORKDIR /app/backend
 
-# Create data directory
-RUN mkdir -p /data
+# Install su-exec for privilege dropping in entrypoint
+RUN apk add --no-cache su-exec
 
-# Run as non-root
-RUN addgroup -S dosh && adduser -S dosh -G dosh && chown -R dosh:dosh /app /data
-USER dosh
+# Create data directory and non-root user
+RUN mkdir -p /data && \
+    addgroup -S dosh && adduser -S dosh -G dosh && \
+    chown -R dosh:dosh /app
+
+# Entrypoint fixes /data ownership at runtime (Docker volumes mount as root:root)
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3000
 
@@ -47,5 +52,4 @@ ENV DB_PATH=/data/dosh.db
 ENV PORT=3000
 ENV HOST=0.0.0.0
 
-# node:sqlite requires the --experimental-sqlite flag in Node 22
-CMD ["node", "--experimental-sqlite", "dist/server.js"]
+ENTRYPOINT ["/entrypoint.sh"]
