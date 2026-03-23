@@ -4,6 +4,21 @@
 
 ---
 
+## v1.3.0 — 2026-03-23
+
+### New Features
+- Rules engine — create rule groups with AND/OR conditions (date, account, payee, description, category, amount) and multiple actions (set any field); rules apply automatically on transaction creation and CSV import, and can be run on-demand against all transactions (all rules or a single rule)
+- Searchable category combobox in the transaction editor and the inline category column on the transactions list
+- "Split..." option in the inline category combobox opens the transaction editor directly in split mode
+
+### Bug Fixes
+- Cover (overspend) transactions can now be selected and deleted; deleting a cover reverts the category balance to negative
+
+### Enhancements
+- Category balance shown in orange when it falls below 10% of the budgeted amount
+
+---
+
 ## v1.2.1 — 2026-03-23
 
 ### Bug Fixes
