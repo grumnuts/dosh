@@ -94,11 +94,13 @@ export function getPeriodBoundaries(
 
 /**
  * Calculate the weekly equivalent amount (in cents) for a given period.
+ * Fractional cents are always rounded up (ceiling) so the weekly figure
+ * never underestimates what needs to be covered.
  * weekly:      as-is
  * fortnightly: × 2
- * monthly:     × 12 ÷ 52
- * quarterly:   × 4 ÷ 52
- * annually:    ÷ 52
+ * monthly:     ⌈× 12 ÷ 52⌉
+ * quarterly:   ⌈× 4 ÷ 52⌉
+ * annually:    ⌈÷ 52⌉
  */
 export function weeklyEquivalent(amountCents: number, period: string): number {
   switch (period) {
@@ -107,11 +109,11 @@ export function weeklyEquivalent(amountCents: number, period: string): number {
     case 'fortnightly':
       return amountCents * 2
     case 'monthly':
-      return Math.round((amountCents * 12) / 52)
+      return Math.ceil((amountCents * 12) / 52)
     case 'quarterly':
-      return Math.round((amountCents * 4) / 52)
+      return Math.ceil((amountCents * 4) / 52)
     case 'annually':
-      return Math.round(amountCents / 52)
+      return Math.ceil(amountCents / 52)
     default:
       return amountCents
   }

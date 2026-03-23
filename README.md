@@ -77,9 +77,11 @@ The **Weekly** column in the budget view shows a fixed weekly estimate derived f
 |---|---|
 | Weekly | Budgeted amount |
 | Fortnightly | Budgeted amount × 2 |
-| Monthly | (Budgeted amount × 12) ÷ 52 |
-| Quarterly | (Budgeted amount × 4) ÷ 52 |
-| Annually | Budgeted amount ÷ 52 |
+| Monthly | ⌈(Budgeted amount × 12) ÷ 52⌉ |
+| Quarterly | ⌈(Budgeted amount × 4) ÷ 52⌉ |
+| Annually | ⌈Budgeted amount ÷ 52⌉ |
+
+Fractional cents are always rounded up so the weekly figure never underestimates.
 
 This column is for planning purposes only — it has no effect on balance or overspend calculations, which always use the full budgeted amount over the category's own period.
 
