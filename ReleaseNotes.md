@@ -4,6 +4,14 @@
 
 ---
 
+## v1.2.1 — 2026-03-23
+
+### Bug Fixes
+- Fixed "Invalid input" error when saving an edited transaction — the update endpoint rejected an empty splits array, causing all non-split edits to fail
+- Fixed a stray "0" appearing in the transaction edit form for transactions with a non-unlisted category
+
+---
+
 ## v1.2.0 — 2026-03-23
 
 ### New Features
