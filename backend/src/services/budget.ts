@@ -110,7 +110,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const categories = db
     .prepare(
       `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order
-       FROM budget_categories WHERE is_active = 1 ORDER BY sort_order, name`,
+       FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
     )
     .all() as unknown as RawCategory[]
 

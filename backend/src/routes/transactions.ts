@@ -11,7 +11,7 @@ const transactionSchema = z.object({
   description: z.string().max(512).optional().nullable(),
   amount: z.number().int(),
   categoryId: z.number().int().optional().nullable(),
-  type: z.enum(['transaction', 'transfer']).optional().default('transaction'),
+  type: z.enum(['transaction', 'transfer', 'starting_balance']).optional().default('transaction'),
   transferToAccountId: z.number().int().optional().nullable(),
 })
 
@@ -53,6 +53,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       SELECT t.id, t.date, t.account_id, a.name as account_name,
              t.payee, t.description, t.amount, t.category_id,
              bc.name as category_name, bg.name as group_name,
+             bc.is_unlisted as category_is_unlisted,
              t.type, t.transfer_pair_id, t.cover_week_start,
              t.created_at
       FROM transactions t
@@ -168,6 +169,48 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(201).send({ id: debitId, pairedId: creditId })
     }
 
+    // Starting balance transaction
+    if (body.data.type === 'starting_balance') {
+      const startingBalanceCat = db
+        .prepare(`SELECT id FROM budget_categories WHERE name = 'Starting Balance' AND is_system = 1`)
+        .get() as { id: number } | undefined
+
+      if (!startingBalanceCat) {
+        return reply.code(500).send({ error: 'Starting Balance category not found' })
+      }
+
+      const result = db
+        .prepare(
+          `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?)`,
+        )
+        .run(
+          body.data.date,
+          body.data.accountId,
+          body.data.payee ?? null,
+          body.data.description ?? null,
+          Math.abs(body.data.amount),
+          startingBalanceCat.id,
+          now,
+          now,
+          request.user!.id,
+        )
+
+      const id = result.lastInsertRowid as number
+      upsertPayee(body.data.payee)
+
+      logAudit({
+        userId: request.user!.id,
+        username: request.user!.username,
+        eventType: 'transaction.created',
+        entityType: 'transaction',
+        entityId: id,
+        details: { amount: Math.abs(body.data.amount), date: body.data.date, accountId: body.data.accountId, type: 'starting_balance' },
+      })
+
+      return reply.code(201).send({ id })
+    }
+
     // Regular transaction
     const result = db
       .prepare(
@@ -220,21 +263,30 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const db = getDb()
-    const existing = db.prepare("SELECT id, type, transfer_pair_id FROM transactions WHERE id = ?").get(id) as
-      | { id: number; type: string; transfer_pair_id: number | null }
-      | undefined
+    const existing = db
+      .prepare('SELECT id, type, transfer_pair_id, category_id FROM transactions WHERE id = ?')
+      .get(id) as { id: number; type: string; transfer_pair_id: number | null; category_id: number | null } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Transaction not found' })
     if (existing.type === 'cover') {
       return reply.code(400).send({ error: 'Cover transactions cannot be edited' })
     }
 
+    // Check if this transaction's category is unlisted (system-managed) — if so, preserve it
+    const categoryIsUnlisted =
+      existing.category_id !== null &&
+      !!(
+        db
+          .prepare('SELECT id FROM budget_categories WHERE id = ? AND is_unlisted = 1')
+          .get(existing.category_id) as { id: number } | undefined
+      )
+
     const now = new Date().toISOString()
 
     if (existing.type === 'transfer') {
       // Update date, payee, description on both legs — amounts and accounts stay fixed
       const updateTransfer = db.prepare(
-        `UPDATE transactions SET date = ?, payee = ?, description = ?, updated_at = ? WHERE id = ?`
+        `UPDATE transactions SET date = ?, payee = ?, description = ?, updated_at = ? WHERE id = ?`,
       )
       updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, now, id)
       if (existing.transfer_pair_id) {
@@ -250,7 +302,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         body.data.payee ?? null,
         body.data.description ?? null,
         body.data.amount,
-        body.data.categoryId ?? null,
+        // Preserve unlisted category — it cannot be reassigned via normal edit
+        categoryIsUnlisted ? existing.category_id : (body.data.categoryId ?? null),
         now,
         id,
       )

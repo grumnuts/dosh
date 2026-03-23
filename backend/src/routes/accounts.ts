@@ -149,6 +149,69 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ ok: true })
   })
 
+  app.post('/api/accounts/:id/reconcile', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const body = z
+      .object({
+        actualBalance: z.number().int(),
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+      })
+      .safeParse(request.body)
+
+    if (!body.success) return reply.code(400).send({ error: 'Invalid input' })
+
+    const db = getDb()
+
+    const account = db
+      .prepare(
+        `SELECT a.id, a.name, a.starting_balance + COALESCE(SUM(t.amount), 0) as current_balance
+         FROM accounts a
+         LEFT JOIN transactions t ON t.account_id = a.id
+         WHERE a.id = ? AND a.is_active = 1
+         GROUP BY a.id`,
+      )
+      .get(id) as { id: number; name: string; current_balance: number } | undefined
+
+    if (!account) return reply.code(404).send({ error: 'Account not found' })
+
+    const adjustment = body.data.actualBalance - account.current_balance
+    if (adjustment === 0) {
+      return reply.send({ ok: true, adjustment: 0 })
+    }
+
+    const reconCat = db
+      .prepare(`SELECT id FROM budget_categories WHERE name = 'Reconciliation' AND is_system = 1`)
+      .get() as { id: number } | undefined
+
+    if (!reconCat) return reply.code(500).send({ error: 'Reconciliation category not found' })
+
+    const now = new Date().toISOString()
+    const txDate = body.data.date ?? now.slice(0, 10)
+
+    const result = db
+      .prepare(
+        `INSERT INTO transactions (date, account_id, payee, amount, category_id, type, created_at, updated_at, created_by)
+         VALUES (?, ?, 'Reconciliation', ?, ?, 'transaction', ?, ?, ?)`,
+      )
+      .run(txDate, account.id, adjustment, reconCat.id, now, now, request.user!.id)
+
+    const transactionId = result.lastInsertRowid as number
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'account.reconciled',
+      entityType: 'account',
+      entityId: account.id,
+      details: { name: account.name, adjustment, actualBalance: body.data.actualBalance },
+    })
+
+    return reply.send({ ok: true, adjustment, transactionId })
+  })
+
   app.delete('/api/accounts/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const db = getDb()

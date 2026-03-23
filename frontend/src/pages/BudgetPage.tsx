@@ -30,7 +30,7 @@ export function BudgetPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-row items-center gap-3">
         <h1 className="text-xl font-bold text-primary flex-1">Budget</h1>
 
         {/* Week navigation */}

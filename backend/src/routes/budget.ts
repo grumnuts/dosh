@@ -136,7 +136,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const cats = db
       .prepare(
         `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order
-         FROM budget_categories WHERE is_active = 1 ORDER BY sort_order, name`,
+         FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
       )
       .all()
     return reply.send(cats)
@@ -208,10 +208,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, name, budgeted_amount, period FROM budget_categories WHERE id = ? AND is_active = 1')
-      .get(id) as { id: number; name: string; budgeted_amount: number; period: string } | undefined
+      .prepare('SELECT id, name, budgeted_amount, period, is_unlisted FROM budget_categories WHERE id = ? AND is_active = 1')
+      .get(id) as { id: number; name: string; budgeted_amount: number; period: string; is_unlisted: number } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Category not found' })
+    if (existing.is_unlisted) return reply.code(400).send({ error: 'System categories cannot be edited' })
 
     const amountChanged =
       existing.budgeted_amount !== body.data.budgetedAmount || existing.period !== body.data.period

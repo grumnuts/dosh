@@ -105,7 +105,7 @@ export function weeklyEquivalent(amountCents: number, period: string): number {
     case 'weekly':
       return amountCents
     case 'fortnightly':
-      return Math.round(amountCents / 2)
+      return amountCents * 2
     case 'monthly':
       return Math.round((amountCents * 12) / 52)
     case 'quarterly':
@@ -115,9 +115,4 @@ export function weeklyEquivalent(amountCents: number, period: string): number {
     default:
       return amountCents
   }
-}
-
-/** Whether a period carries forward (quarterly/annually) or resets each short period */
-export function isRollingPeriod(period: string): boolean {
-  return period === 'quarterly' || period === 'annually'
 }

@@ -15,6 +15,82 @@ import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
 import { BulkEditModal } from '../components/transactions/BulkEditModal'
 
+function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [actualBalance, setActualBalance] = useState('')
+  const today = new Date().toISOString().slice(0, 10)
+  const [date, setDate] = useState(today)
+
+  const actualBalanceCents = actualBalance !== '' ? Math.round(parseFloat(actualBalance) * 100) : null
+  const adjustment = actualBalanceCents !== null ? actualBalanceCents - account.currentBalance : null
+  const isBalanced = adjustment === 0
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      accountsApi.reconcile(account.id, { actualBalance: actualBalanceCents!, date }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      onClose()
+    },
+  })
+
+  return (
+    <Modal open onClose={onClose} title={`Reconcile ${account.name}`}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between py-2 border-b border-border">
+          <span className="text-sm text-secondary">Current balance</span>
+          <span className={`font-mono font-bold ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+            {formatMoney(account.currentBalance)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Actual Balance ($)"
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            value={actualBalance}
+            onChange={(e) => setActualBalance(e.target.value)}
+            autoFocus
+          />
+          <Input
+            label="Date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        {adjustment !== null && (
+          <div className={`text-sm px-3 py-2 rounded ${isBalanced ? 'bg-accent/10 text-accent' : 'bg-surface-2 text-secondary'}`}>
+            {isBalanced
+              ? 'Account is already balanced — no transaction will be created.'
+              : `A ${adjustment > 0 ? 'credit' : 'debit'} of ${formatMoney(Math.abs(adjustment))} will be created.`}
+          </div>
+        )}
+
+        {mutation.isError && (
+          <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
+        )}
+
+        <div className="flex items-center gap-3 pt-2">
+          <div className="flex-1" />
+          <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => isBalanced ? onClose() : mutation.mutate()}
+            loading={mutation.isPending}
+            disabled={actualBalanceCents === null || isNaN(actualBalanceCents)}
+          >
+            {isBalanced ? 'Done' : 'Reconcile'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 const baseAccountSchema = z.object({
   name: z.string().min(1, 'Required'),
   type: z.enum(['transactional', 'savings', 'debt']),
@@ -133,6 +209,7 @@ export function AccountsPage() {
 
   // Account state
   const [accountModal, setAccountModal] = useState<{ open: boolean; account?: Account | null }>({ open: false })
+  const [reconcileAccount, setReconcileAccount] = useState<Account | null>(null)
 
   // Transaction state
   const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
@@ -143,6 +220,7 @@ export function AccountsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [inlineCategoryTx, setInlineCategoryTx] = useState<number | null>(null)
   const [inlineCategoryValue, setInlineCategoryValue] = useState<string>('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
 
@@ -189,6 +267,7 @@ export function AccountsPage() {
     mutationFn: (ids: number[]) => transactionsApi.bulkDelete(ids),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
       setSelectedIds(new Set())
     },
@@ -283,13 +362,21 @@ export function AccountsPage() {
                   <div className="text-xs text-muted mt-0.5 truncate max-w-[250px]">{account.notes}</div>
                 )}
               </div>
-              <div className="text-right">
-                <div className={`font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
-                  {formatMoney(account.currentBalance)}
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className={`font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+                    {formatMoney(account.currentBalance)}
+                  </div>
                 </div>
-                {account.startingBalance !== 0 && (
-                  <div className="text-xs text-muted font-mono">Start: {formatMoney(account.startingBalance)}</div>
-                )}
+                <button
+                  title="Reconcile"
+                  className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setReconcileAccount(account) }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
               </div>
             </div>
           ))}
@@ -315,41 +402,76 @@ export function AccountsPage() {
         </button>
         <div className="flex items-center gap-2">
           {!!uncategorisedData?.count && (
-            <button
-              className={`text-xs px-2 py-1 rounded transition-colors ${uncategorisedOnly ? 'bg-danger/20 text-danger' : 'bg-danger/15 text-danger hover:bg-danger/25'}`}
-              onClick={() => setUncategorisedOnly((v) => !v)}
-            >
-              {uncategorisedData.count} Uncategorised
-            </button>
+            <>
+              {/* Mobile: ? icon */}
+              <button
+                className={`sm:hidden p-1.5 rounded transition-colors ${uncategorisedOnly ? 'text-danger bg-danger/20' : 'text-danger hover:bg-danger/20'}`}
+                onClick={() => setUncategorisedOnly((v) => !v)}
+                aria-label="Show uncategorised"
+              >
+                <span className="text-lg font-bold leading-none">?</span>
+              </button>
+              {/* Desktop: text badge */}
+              <button
+                className={`hidden sm:block text-xs px-2 py-1 rounded transition-colors ${uncategorisedOnly ? 'bg-danger/20 text-danger' : 'bg-danger/15 text-danger hover:bg-danger/25'}`}
+                onClick={() => setUncategorisedOnly((v) => !v)}
+              >
+                {uncategorisedData.count} Uncategorised
+              </button>
+            </>
           )}
+          <button
+            className={`p-1.5 rounded transition-colors ${searchOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
+            onClick={() => setSearchOpen((o) => !o)}
+            aria-label="Toggle search"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+          </button>
           <button
             className={`p-1.5 rounded transition-colors ${filtersOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
             onClick={() => setFiltersOpen((o) => { if (o) clearFilters(); return !o; })}
             aria-label="Toggle filters"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
           </button>
-          <input
-            type="text"
-            placeholder="Search..."
-            value={filters.search}
-            onChange={(e) => setFilter('search', e.target.value)}
-            className="input-base text-sm w-32 sm:w-48"
-          />
+          {/* Upload: desktop only */}
           <button
-            className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+            className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
             onClick={() => setImportOpen(true)}
             aria-label="Import CSV"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
           </button>
-          <Button size="sm" onClick={() => setAddTxOpen(true)}>+ Add</Button>
+          {/* Add: mobile = icon, desktop = button */}
+          <button
+            className="sm:hidden p-1.5 rounded transition-colors text-muted hover:text-primary"
+            onClick={() => setAddTxOpen(true)}
+            aria-label="Add transaction"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <Button size="sm" onClick={() => setAddTxOpen(true)} className="hidden sm:inline-flex">+ Add</Button>
         </div>
       </div>
+
+      {searchOpen && (
+        <input
+          type="text"
+          placeholder="Search transactions..."
+          value={filters.search}
+          onChange={(e) => setFilter('search', e.target.value)}
+          autoFocus
+          className="input-base text-sm w-full"
+        />
+      )}
 
       {!transactionsCollapsed && filtersOpen && (
         <div className="card p-4 space-y-3">
@@ -483,7 +605,9 @@ export function AccountsPage() {
                     </td>
                     <td className="px-3 py-2.5 hidden md:table-cell lg:w-px lg:whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {tx.type === 'transaction' ? (
-                        inlineCategoryTx === tx.id ? (
+                        tx.category_is_unlisted ? (
+                          <span className="text-sm text-secondary">{tx.category_name}</span>
+                        ) : inlineCategoryTx === tx.id ? (
                           <div className="flex items-center gap-2">
                             <select
                               autoFocus
@@ -541,6 +665,7 @@ export function AccountsPage() {
       <TransactionForm open={addTxOpen} onClose={() => setAddTxOpen(false)} />
       {editTx && <TransactionForm open={true} onClose={() => setEditTx(null)} transaction={editTx} />}
       <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} />
+      {reconcileAccount && <ReconcileModal account={reconcileAccount} onClose={() => setReconcileAccount(null)} />}
       <BulkEditModal
         open={bulkEditOpen}
         onClose={() => { setBulkEditOpen(false); setSelectedIds(new Set()) }}

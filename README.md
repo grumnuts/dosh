@@ -1,6 +1,6 @@
 # Dosh
 
-A self-hosted, zero-based envelope budgeting app for households. Weekly budget periods (Sunday–Saturday), CSV import, and overspend tracking.
+A self-hosted, zero-based envelope budgeting app. Calculates weekly allocations based on various billing cycles - weekly, fortnightly, monthly, quaterly and annually. Support CSV imports and overspend tracking.
 
 ## Quick Start
 
@@ -67,8 +67,26 @@ docker cp dosh:/data/dosh.db ./dosh-backup.db
 - The overall budget cycle is **weekly** (Sunday–Saturday)
 - Each category has its own period: weekly, fortnightly, monthly, quarterly, or annually
 - "Spent" for a category is calculated over that category's own period
-- Short periods (weekly/fortnightly/monthly) reset each period
-- Long periods (quarterly/annually) accumulate spending — balance carries forward until the full budgeted amount is spent or the year resets
+- At the end of each period, spent resets and the full budgeted amount is available again
+
+### Weekly Equivalent
+
+The **Weekly** column shows how much needs to be allocated each week to cover a category's budgeted amount. The value is **fixed at the time the budget is set or edited** — it does not drift upward week by week.
+
+**How it's calculated when a budget is set or edited:**
+
+1. Sum all weekly allocations already committed in the current period by prior budget entries (weekly amount × weeks each was active)
+2. Subtract that from the new budgeted amount to get what remains to be covered
+3. Divide by the number of weeks left in the period (inclusive of the current week)
+
+**Examples:**
+
+- **Annual $500, added at the start of the year** — 52 weeks remaining → $9.62/week for the full year
+- **Annual $500, added mid-year with 26 weeks left** — $500 ÷ 26 = $19.23/week, fixed for the rest of the year
+- **Annual $200 → edited to $500 with 26 weeks left** — previous weekly was ~$3.85, already allocated $3.85 × 26 = $100.10, remaining = $399.90, new weekly = $399.90 ÷ 26 = $15.38/week
+- **Period rollover (new year, no edits)** — resets to $500 ÷ 52 = $9.62/week
+
+The Weekly column is for planning purposes only — it has no effect on balance or overspend calculations, which always use the full budgeted amount over the category's own period.
 
 ### Budget History
 
@@ -83,7 +101,7 @@ Dosh supports importing bank statements in CSV format. The import wizard lets yo
 4. Preview with duplicate detection (matches on date + amount)
 5. Confirm import
 
-After importing, assign categories to transactions from the Transactions page.
+After importing, assign categories to transactions from the Accounts page.
 
 ### Covering Overspend
 
@@ -91,11 +109,5 @@ When a category is overspent:
 1. Click "Cover" on the overspent category in the budget view
 2. Select which savings account to transfer from
 3. A transfer transaction is created (debit from savings, credit to spending), tagged to the overspent category
+4. Ensure you also transfer the exact amount in your bank account
 4. When you import next week's bank CSV, duplicate detection will match the corresponding real bank transfer so you can skip it
-
-## Tech Stack
-
-- **Backend:** Node.js, Fastify, TypeScript, better-sqlite3, argon2
-- **Frontend:** React, Vite, TailwindCSS, TanStack Query
-- **Database:** SQLite
-- **Container:** Single Docker container, non-root user

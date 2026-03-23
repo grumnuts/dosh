@@ -26,7 +26,7 @@ function AppRoutes() {
   if (loading || !setupChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-accent text-2xl font-bold animate-pulse">Dosh</div>
+        <img src="/DoshLogo.png" alt="Dosh" className="h-12 w-auto animate-pulse" />
       </div>
     )
   }

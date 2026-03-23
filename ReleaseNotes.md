@@ -4,6 +4,10 @@
 
 ### New Features
 - Initial application build
+
+### Enhancements
+- Weekly equivalent is now fixed at the time a budget is set or edited — mid-period edits account for amounts already allocated, and period rollover resets to the full-period rate
+- Reconciliation: adjust an account's balance to match the actual bank balance; creates a Reconciliation transaction for the difference
 - Zero-based envelope budgeting with weekly (Sunday–Saturday) periods
 - Budget categories with weekly, fortnightly, monthly, quarterly, and annually periods
 - Weekly equivalent calculation for all category periods

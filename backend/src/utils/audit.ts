@@ -9,6 +9,7 @@ export type AuditEventType =
   | 'account.created'
   | 'account.updated'
   | 'account.deleted'
+  | 'account.reconciled'
   | 'transaction.created'
   | 'transaction.updated'
   | 'transaction.deleted'

@@ -13,7 +13,7 @@ import { payeesApi } from '../../api/payees'
 
 const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Required'),
-  type: z.enum(['debit', 'credit', 'transfer']),
+  type: z.enum(['debit', 'credit', 'transfer', 'starting_balance']),
   accountId: z.string().min(1, 'Required'),
   transferToAccountId: z.string().optional(),
   payee: z.string().optional(),
@@ -159,7 +159,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   const mutation = useMutation({
     mutationFn: async (data: FormData): Promise<{ id: number; pairedId?: number }> => {
       const absAmount = Math.round(parseFloat(data.amount) * 100)
-      const amount = data.type === 'credit' ? absAmount : -absAmount
+      const amount = data.type === 'credit' || data.type === 'starting_balance' ? absAmount : -absAmount
 
       if (isEdit) {
         const isTransfer = transaction!.type === 'transfer'
@@ -174,6 +174,18 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         })
         return { id: transaction!.id }
       }
+
+      if (data.type === 'starting_balance') {
+        return transactionsApi.create({
+          date: data.date,
+          accountId: parseInt(data.accountId, 10),
+          payee: data.payee || null,
+          description: data.description || null,
+          amount: absAmount,
+          type: 'starting_balance',
+        })
+      }
+
       return transactionsApi.create({
         date: data.date,
         accountId: parseInt(data.accountId, 10),
@@ -219,6 +231,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             {(!isEdit || transaction?.type === 'transfer') && (
               <option value="transfer">Transfer</option>
             )}
+            {!isEdit && <option value="starting_balance">Starting Balance</option>}
           </Select>
         </div>
 
@@ -265,21 +278,30 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           error={errors.amount?.message}
         />
 
-        {txType !== 'transfer' && (
-          <Select label="Category (optional)" {...register('categoryId')}>
-            <option value="">Uncategorised</option>
-            {groups?.map((group) => {
-              const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
-              if (groupCats.length === 0) return null
-              return (
-                <optgroup key={group.id} label={group.name}>
-                  {groupCats.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </optgroup>
-              )
-            })}
-          </Select>
+        {txType !== 'transfer' && txType !== 'starting_balance' && (
+          isEdit && transaction?.category_is_unlisted ? (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
+              <div className="input-base text-sm text-muted cursor-not-allowed">
+                {transaction.category_name ?? 'Uncategorised'}
+              </div>
+            </div>
+          ) : (
+            <Select label="Category (optional)" {...register('categoryId')}>
+              <option value="">Uncategorised</option>
+              {groups?.map((group) => {
+                const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
+                if (groupCats.length === 0) return null
+                return (
+                  <optgroup key={group.id} label={group.name}>
+                    {groupCats.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </optgroup>
+                )
+              })}
+            </Select>
+          )
         )}
 
         {mutation.isError && (

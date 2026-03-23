@@ -11,6 +11,7 @@ export interface Transaction {
   category_id: number | null
   category_name: string | null
   group_name: string | null
+  category_is_unlisted: number | null
   type: 'transaction' | 'transfer' | 'cover'
   transfer_pair_id: number | null
   cover_week_start: string | null
@@ -35,7 +36,7 @@ export interface TransactionInput {
   description?: string | null
   amount: number
   categoryId?: number | null
-  type?: 'transaction' | 'transfer'
+  type?: 'transaction' | 'transfer' | 'starting_balance'
   transferToAccountId?: number | null
 }
 
