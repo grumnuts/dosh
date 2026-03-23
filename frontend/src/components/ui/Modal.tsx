@@ -32,12 +32,12 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
 
       {/* Dialog */}
       <div
-        className={`relative w-full ${maxWidth} bg-surface border border-border rounded-xl shadow-2xl`}
+        className={`relative w-full ${maxWidth} bg-surface border border-border rounded-xl shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)]`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 id="modal-title" className="text-base font-semibold text-primary">
             {title}
           </h2>
@@ -51,7 +51,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
             </svg>
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   )

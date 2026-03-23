@@ -491,7 +491,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
         )}
 
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center gap-3 pt-2 pb-safe">
           {isEdit && (
             <Button
               type="button"
