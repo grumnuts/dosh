@@ -78,7 +78,13 @@ function CategoryRow({
           </span>
         </td>
         <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums">
-          <span className={cat.isOverspent ? 'text-danger font-semibold' : 'text-primary'}>
+          <span className={
+            cat.isOverspent
+              ? 'text-danger font-semibold'
+              : cat.budgetedAmount > 0 && cat.balance < cat.budgetedAmount * 0.1
+                ? 'text-orange-400'
+                : 'text-primary'
+          }>
             {formatMoney(cat.balance)}
           </span>
         </td>
