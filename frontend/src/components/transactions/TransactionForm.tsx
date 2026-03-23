@@ -7,6 +7,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
+import { CategoryCombobox } from '../ui/CategoryCombobox'
 import { transactionsApi, Transaction } from '../../api/transactions'
 import { accountsApi } from '../../api/accounts'
 import { budgetApi } from '../../api/budget'
@@ -303,24 +304,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   const canSplit = txType === 'debit' || txType === 'credit'
 
   const CategorySelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <select
+    <CategoryCombobox
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="input-base text-sm"
-    >
-      <option value="">Uncategorised</option>
-      {groups?.map((group) => {
-        const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
-        if (groupCats.length === 0) return null
-        return (
-          <optgroup key={group.id} label={group.name}>
-            {groupCats.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </optgroup>
-        )
-      })}
-    </select>
+      onChange={onChange}
+      categories={categories ?? []}
+      groups={groups ?? []}
+    />
   )
 
   return (
@@ -459,20 +448,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
                   Split
                 </button>
               </div>
-              <select className="input-base text-sm w-full" {...register('categoryId')}>
-                <option value="">Uncategorised</option>
-                {groups?.map((group) => {
-                  const groupCats = categories?.filter((c) => c.group_id === group.id) ?? []
-                  if (groupCats.length === 0) return null
-                  return (
-                    <optgroup key={group.id} label={group.name}>
-                      {groupCats.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </optgroup>
-                  )
-                })}
-              </select>
+              <CategoryCombobox
+                value={watch('categoryId') ?? ''}
+                onChange={(v) => setValue('categoryId', v)}
+                categories={categories ?? []}
+                groups={groups ?? []}
+              />
             </div>
           )
         )}

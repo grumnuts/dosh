@@ -15,6 +15,7 @@ import { Input, Select, Textarea } from '../components/ui/Input'
 import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
 import { BulkEditModal } from '../components/transactions/BulkEditModal'
+import { CategoryCombobox } from '../components/ui/CategoryCombobox'
 
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const qc = useQueryClient()
@@ -219,8 +220,6 @@ export function AccountsPage() {
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [addTxOpen, setAddTxOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [inlineCategoryTx, setInlineCategoryTx] = useState<number | null>(null)
-  const [inlineCategoryValue, setInlineCategoryValue] = useState<string>('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
@@ -267,7 +266,6 @@ export function AccountsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
-      setInlineCategoryTx(null)
     },
   })
 
@@ -621,49 +619,17 @@ export function AccountsPage() {
                       ) : tx.type === 'transaction' ? (
                         tx.category_is_unlisted ? (
                           <span className="text-sm text-secondary">{tx.category_name}</span>
-                        ) : inlineCategoryTx === tx.id ? (
-                          <div className="flex items-center gap-2">
-                            <select
-                              autoFocus
-                              value={inlineCategoryValue}
-                              onChange={(e) => {
-                                if (e.target.value === '__split__') {
-                                  setInlineCategoryTx(null)
-                                  setEditTx(tx)
-                                } else {
-                                  setInlineCategoryValue(e.target.value)
-                                }
-                              }}
-                              onBlur={() => {
-                                if (inlineCategoryValue !== String(tx.category_id ?? '')) {
-                                  assignCategory.mutate({ id: tx.id, tx, categoryId: inlineCategoryValue ? parseInt(inlineCategoryValue, 10) : null })
-                                } else {
-                                  setInlineCategoryTx(null)
-                                }
-                              }}
-                              className="input-base text-xs py-1 px-2"
-                            >
-                              <option value="__split__">Split...</option>
-                              <option value="">Uncategorised</option>
-                              {groups?.map((group) => {
-                                const groupCats = (categories as Array<{ id: number; group_id: number; name: string }> | undefined)
-                                  ?.filter((c) => c.group_id === group.id) ?? []
-                                if (groupCats.length === 0) return null
-                                return (
-                                  <optgroup key={group.id} label={group.name}>
-                                    {groupCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                  </optgroup>
-                                )
-                              })}
-                            </select>
-                          </div>
                         ) : (
-                          <button
-                            className={`text-sm text-left ${tx.category_name ? 'text-primary hover:text-accent' : 'text-muted hover:text-accent italic'} transition-colors`}
-                            onClick={() => { setInlineCategoryTx(tx.id); setInlineCategoryValue(tx.category_id ? String(tx.category_id) : '') }}
-                          >
-                            {tx.category_name ?? 'Assign category'}
-                          </button>
+                          <CategoryCombobox
+                            value={tx.category_id ? String(tx.category_id) : ''}
+                            onChange={(v) => assignCategory.mutate({ id: tx.id, tx, categoryId: v ? parseInt(v, 10) : null })}
+                            categories={(categories as Array<{ id: number; group_id: number; name: string }> | undefined) ?? []}
+                            groups={groups ?? []}
+                            placeholder="Assign category"
+                            buttonClassName={`text-sm text-left ${tx.category_name ? 'text-primary hover:text-accent' : 'text-muted hover:text-accent italic'} transition-colors`}
+                            showSplit={tx.splits.length === 0}
+                            onSplitClick={() => setEditTx(tx)}
+                          />
                         )
                       ) : (
                         <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : 'Transfer'}</span>
