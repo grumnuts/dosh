@@ -20,6 +20,14 @@ const PERIOD_LABELS: Record<string, string> = {
   annually: 'yr',
 }
 
+const PERIOD_COLOURS: Record<string, string> = {
+  weekly:      'bg-blue-500/15 text-blue-400',
+  fortnightly: 'bg-violet-500/15 text-violet-400',
+  monthly:     'bg-amber-500/15 text-amber-400',
+  quarterly:   'bg-rose-500/15 text-rose-400',
+  annually:    'bg-teal-500/15 text-teal-400',
+}
+
 // ─── Expense category row ────────────────────────────────────────────────────
 
 function CategoryRow({
@@ -49,7 +57,7 @@ function CategoryRow({
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm text-primary">{cat.name}</span>
-            <span className="text-xs text-muted hidden sm:inline">
+            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
               {PERIOD_LABELS[cat.period]}
             </span>
             {isCovered && (
@@ -231,7 +239,9 @@ function IncomeCategoryRow({
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm text-primary">{cat.name}</span>
-            <span className="text-xs text-muted hidden sm:inline">{PERIOD_LABELS[cat.period]}</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+              {PERIOD_LABELS[cat.period]}
+            </span>
           </div>
         </td>
         <td className="hidden md:table-cell" />
