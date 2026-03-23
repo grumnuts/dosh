@@ -292,14 +292,30 @@ function conditionsCouldOverlap(
   conds2: RuleCondition[],
   logic2: ConditionLogic,
 ): boolean {
-  // Treat as mutually exclusive only when both rules use AND logic and share a
-  // pair of conditions on the same field using 'is' with different values.
+  // Rules are mutually exclusive (can never match the same transaction) when both
+  // use AND logic and share a pair of conditions on the same field that cannot
+  // both be satisfied simultaneously.
   if (logic1 === 'AND' && logic2 === 'AND') {
     for (const c1 of conds1) {
       for (const c2 of conds2) {
-        if (c1.field === c2.field && c1.operator === 'is' && c2.operator === 'is' && c1.value !== c2.value) {
-          return false
-        }
+        if (c1.field !== c2.field) continue
+        const v1 = c1.value.toLowerCase()
+        const v2 = c2.value.toLowerCase()
+
+        // field is X vs field is Y (different exact values)
+        if (c1.operator === 'is' && c2.operator === 'is' && v1 !== v2) return false
+
+        // field contains X vs field contains Y — mutually exclusive when neither
+        // value is a substring of the other (no real string can contain both)
+        if (c1.operator === 'contains' && c2.operator === 'contains' && v1 !== v2 && !v1.includes(v2) && !v2.includes(v1)) return false
+
+        // field starts_with X vs field starts_with Y — mutually exclusive when
+        // neither prefix starts with the other
+        if (c1.operator === 'starts_with' && c2.operator === 'starts_with' && v1 !== v2 && !v1.startsWith(v2) && !v2.startsWith(v1)) return false
+
+        // field ends_with X vs field ends_with Y — mutually exclusive when
+        // neither suffix ends with the other
+        if (c1.operator === 'ends_with' && c2.operator === 'ends_with' && v1 !== v2 && !v1.endsWith(v2) && !v2.endsWith(v1)) return false
       }
     }
   }
