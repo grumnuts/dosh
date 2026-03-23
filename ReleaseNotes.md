@@ -4,6 +4,13 @@
 
 ---
 
+## v1.3.1 — 2026-03-23
+
+### Bug Fixes
+- Fixed false positive conflict detection for rules using `contains`, `starts_with`, or `ends_with` conditions on the same field with different values (e.g. "Description contains CENTRELINK" no longer conflicts with "Description contains WESTPAC CARDS")
+
+---
+
 ## v1.3.0 — 2026-03-23
 
 ### New Features
