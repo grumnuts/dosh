@@ -4,6 +4,21 @@
 
 ---
 
+## v1.1.0 — 2026-03-23
+
+### New Features
+- Split transactions — assign a single transaction across multiple categories with individual amounts and optional notes
+- "Split..." option in the inline category dropdown on the transactions list, opening the transaction editor directly in split mode
+
+### Enhancements
+- Collapsed/expanded state for budget groups and page sections is now remembered across navigation
+- Period badges (wk / fn / mo / qtr / yr) are now colour-coded and visible on mobile
+
+### Bug Fixes
+- Weekly equivalent now rounds up (ceiling), so the displayed weekly amount never underestimates the true weekly cost
+
+---
+
 ## v1.0.1 — 2026-03-23
 
 ### Bug Fixes
