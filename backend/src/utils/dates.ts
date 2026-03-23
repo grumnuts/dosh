@@ -95,7 +95,7 @@ export function getPeriodBoundaries(
 /**
  * Calculate the weekly equivalent amount (in cents) for a given period.
  * weekly:      as-is
- * fortnightly: ÷ 2
+ * fortnightly: × 2
  * monthly:     × 12 ÷ 52
  * quarterly:   × 4 ÷ 52
  * annually:    ÷ 52

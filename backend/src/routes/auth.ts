@@ -95,6 +95,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString()
     const now = new Date().toISOString()
 
+    // Prune expired sessions for this user before creating a new one
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND expires_at < ?').run(user.id, now)
+
     db.prepare(
       'INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
     ).run(sessionId, user.id, expiresAt, now)

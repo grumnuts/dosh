@@ -48,7 +48,6 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
         id: a.id,
         name: a.name,
         type: a.type,
-        startingBalance: a.starting_balance,
         currentBalance: a.starting_balance + a.transaction_total,
         notes: a.notes,
         sortOrder: a.sort_order,

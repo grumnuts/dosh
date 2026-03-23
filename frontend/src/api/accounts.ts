@@ -4,7 +4,6 @@ export interface Account {
   id: number
   name: string
   type: 'transactional' | 'savings' | 'debt'
-  startingBalance: number
   currentBalance: number
   notes: string | null
   sortOrder: number

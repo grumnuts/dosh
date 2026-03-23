@@ -7,8 +7,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/audit', { preHandler: authenticate }, async (request, reply) => {
     const query = z
       .object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         userId: z.string().optional(),
         eventType: z.string().optional(),
         search: z.string().optional(),

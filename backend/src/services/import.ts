@@ -105,27 +105,39 @@ export function mapRows(
 
 /**
  * Check each row against existing transactions for duplicates.
- * Matches on date + amount. Description match is optional (logged but not blocking).
+ * Matches on date + amount. Fetches all candidates in one query.
  */
 export function checkDuplicates(
   rows: ParsedRow[],
   db: import('node:sqlite').DatabaseSync,
   accountId: number,
 ): ImportPreviewRow[] {
-  return rows.map((row) => {
-    const existing = db
-      .prepare(
-        `SELECT id FROM transactions
-         WHERE account_id = ? AND date = ? AND amount = ?
-         LIMIT 1`,
-      )
-      .get(accountId, row.date, row.amount) as { id: number } | undefined
+  if (rows.length === 0) return []
 
+  const minDate = rows.reduce((min, r) => (r.date < min ? r.date : min), rows[0].date)
+  const maxDate = rows.reduce((max, r) => (r.date > max ? r.date : max), rows[0].date)
+
+  const existing = db
+    .prepare(
+      `SELECT id, date, amount FROM transactions
+       WHERE account_id = ? AND date >= ? AND date <= ?`,
+    )
+    .all(accountId, minDate, maxDate) as { id: number; date: string; amount: number }[]
+
+  // "date:amount" -> first matching id
+  const lookup = new Map<string, number>()
+  for (const tx of existing) {
+    const key = `${tx.date}:${tx.amount}`
+    if (!lookup.has(key)) lookup.set(key, tx.id)
+  }
+
+  return rows.map((row) => {
+    const existingId = lookup.get(`${row.date}:${row.amount}`)
     return {
       ...row,
-      isDuplicate: !!existing,
-      existingId: existing?.id,
-      skip: !!existing,
+      isDuplicate: existingId !== undefined,
+      existingId,
+      skip: existingId !== undefined,
     }
   })
 }
