@@ -268,7 +268,7 @@ function GroupSection({
         <td className="px-2 py-2 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="px-4 py-2">
+        <td className="pl-2 pr-4 py-2">
           <div className="flex items-center gap-2">
             <button
               className="text-muted hover:text-primary transition-colors"
@@ -499,7 +499,7 @@ function IncomeGroupSection({
         <td className="px-2 py-2 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="px-4 py-2">
+        <td className="pl-2 pr-4 py-2">
           <div className="flex items-center gap-2">
             <button
               className="text-muted hover:text-primary transition-colors"
