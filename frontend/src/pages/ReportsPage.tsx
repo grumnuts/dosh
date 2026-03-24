@@ -32,7 +32,7 @@ export function ReportsPage() {
   const showYearSelector = YEAR_TABS.includes(tab)
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+    <div className="px-4 py-6 space-y-5 md:px-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">Reports</h1>
         {showYearSelector && (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -16,6 +16,60 @@ import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
 import { BulkEditModal } from '../components/transactions/BulkEditModal'
 import { CategoryCombobox } from '../components/ui/CategoryCombobox'
+
+// ─── Resizable columns ───────────────────────────────────────────────────────
+
+const DEFAULT_COL_WIDTHS: Record<string, number> = {
+  date: 90, account: 150, payee: 180, description: 280, category: 190, amount: 110,
+}
+
+function useResizableCols() {
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('dosh:tx-col-widths')
+      return saved ? { ...DEFAULT_COL_WIDTHS, ...JSON.parse(saved) } : DEFAULT_COL_WIDTHS
+    } catch { return DEFAULT_COL_WIDTHS }
+  })
+  const widthsRef = useRef(widths)
+  widthsRef.current = widths
+
+  const onResizeStart = useCallback((col: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = widthsRef.current[col]
+    const onMove = (ev: MouseEvent) => {
+      setWidths((prev) => {
+        const next = { ...prev, [col]: Math.max(60, startWidth + ev.clientX - startX) }
+        try { localStorage.setItem('dosh:tx-col-widths', JSON.stringify(next)) } catch { /* ignore */ }
+        return next
+      })
+    }
+    const onUp = () => {
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    document.body.style.userSelect = 'none'
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  return { widths, onResizeStart }
+}
+
+// Resize handle rendered at right edge of each <th>
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  return (
+    <div
+      className="absolute top-0 right-0 bottom-0 w-3 cursor-col-resize hidden md:flex items-center justify-center select-none group/rh z-10"
+      onMouseDown={onMouseDown}
+    >
+      <div className="w-px h-3.5 bg-border/60 group-hover/rh:bg-accent/60 transition-colors" />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const qc = useQueryClient()
@@ -319,6 +373,8 @@ export function AccountsPage() {
     })
   }
 
+  const { widths, onResizeStart } = useResizableCols()
+
   const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
@@ -334,7 +390,7 @@ export function AccountsPage() {
   const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-3">
+    <div className="px-4 py-6 space-y-3 md:px-6">
       {/* Accounts header */}
       <div className="flex items-center justify-between">
         <button
@@ -572,10 +628,10 @@ export function AccountsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm md:table-fixed">
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                  <th className="pl-3 pr-1 py-3 w-px">
+                  <th className="pl-3 pr-1 py-3 w-8">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -584,12 +640,27 @@ export function AccountsPage() {
                       className="w-3.5 h-3.5 accent-accent cursor-pointer"
                     />
                   </th>
-                  <th className="pl-1 pr-1 py-3 text-left font-medium w-px sm:w-auto sm:px-4">Date</th>
-                  <th className="px-2 py-3 text-left font-medium sm:px-3">Account</th>
-                  <th className="px-3 py-3 text-left font-medium hidden sm:table-cell">Payee</th>
-                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell lg:w-72">Description</th>
-                  <th className="px-3 py-3 text-left font-medium hidden md:table-cell lg:w-px lg:whitespace-nowrap">Category</th>
-                  <th className="pl-2 pr-3 py-3 text-right font-medium w-px sm:w-auto sm:px-3">Amount</th>
+                  <th className="pl-1 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
+                    Date
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('date', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium relative" style={{ width: widths.account }}>
+                    Account
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('account', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium hidden sm:table-cell relative" style={{ width: widths.payee }}>
+                    Payee
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('payee', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell relative" style={{ width: widths.description }}>
+                    Description
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('description', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium hidden md:table-cell relative" style={{ width: widths.category }}>
+                    Category
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} />
+                  </th>
+                  <th className="pl-2 pr-3 py-3 text-right font-medium" style={{ width: widths.amount }}>Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -614,7 +685,7 @@ export function AccountsPage() {
                     <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
-                    <td className="px-2 py-2.5 max-w-0 sm:px-3 sm:max-w-none">
+                    <td className="px-2 py-2.5 sm:px-3 overflow-hidden">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
                         {tx.splits.length > 0
@@ -630,13 +701,13 @@ export function AccountsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 max-w-0 hidden sm:table-cell text-sm text-primary">
+                    <td className="px-3 py-2.5 hidden sm:table-cell text-sm text-primary overflow-hidden">
                       <span className="truncate block">{tx.payee || '—'}</span>
                     </td>
-                    <td className="px-3 py-2.5 hidden lg:table-cell text-sm text-primary lg:w-72 max-w-0">
+                    <td className="px-3 py-2.5 hidden lg:table-cell text-sm text-primary overflow-hidden">
                       <span className="truncate block">{tx.description || '—'}</span>
                     </td>
-                    <td className="px-3 py-2.5 hidden md:table-cell lg:w-px lg:whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2.5 hidden md:table-cell overflow-hidden" onClick={(e) => e.stopPropagation()}>
                       {tx.splits.length > 0 ? (
                         <span className="text-sm text-muted italic">Split</span>
                       ) : tx.type === 'transaction' ? (
