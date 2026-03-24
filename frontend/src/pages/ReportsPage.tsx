@@ -47,12 +47,12 @@ export function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto">
+      <div className="flex border-b border-border">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+            className={`flex-1 py-2 text-sm font-medium transition-colors border-b-2 -mb-px text-center ${
               tab === id
                 ? 'border-accent text-accent'
                 : 'border-transparent text-secondary hover:text-primary'

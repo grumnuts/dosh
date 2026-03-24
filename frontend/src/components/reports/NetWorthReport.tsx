@@ -63,19 +63,19 @@ export function NetWorthReport({ section }: Props = {}) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-3 gap-3">
-          <div className="card px-4 py-3">
+          <div className="card px-3 py-3">
             <p className="text-xs text-secondary uppercase tracking-wide font-medium">Net Worth</p>
-            <p className={`text-lg font-bold tabular-nums mt-0.5 ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
+            <p className={`text-sm font-bold tabular-nums mt-0.5 break-all ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
               {formatMoney(latestNetWorth)}
             </p>
           </div>
-          <div className="card px-4 py-3">
+          <div className="card px-3 py-3">
             <p className="text-xs text-secondary uppercase tracking-wide font-medium">Assets</p>
             <p className="text-lg font-bold text-accent tabular-nums mt-0.5">
               {formatMoney(assets.reduce((s, a) => s + a.currentBalance, 0))}
             </p>
           </div>
-          <div className="card px-4 py-3">
+          <div className="card px-3 py-3">
             <p className="text-xs text-secondary uppercase tracking-wide font-medium">Liabilities</p>
             <p className="text-lg font-bold text-danger tabular-nums mt-0.5">
               {formatMoney(Math.abs(liabilities.reduce((s, a) => s + a.currentBalance, 0)))}
@@ -156,19 +156,19 @@ export function NetWorthReport({ section }: Props = {}) {
     <div className="space-y-6">
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="card px-4 py-3">
+        <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Net Worth</p>
-          <p className={`text-lg font-bold tabular-nums mt-0.5 ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
+          <p className={`text-sm font-bold tabular-nums mt-0.5 break-all ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
             {formatMoney(latestNetWorth)}
           </p>
         </div>
-        <div className="card px-4 py-3">
+        <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Assets</p>
           <p className="text-lg font-bold text-accent tabular-nums mt-0.5">
             {formatMoney(assets.reduce((s, a) => s + a.currentBalance, 0))}
           </p>
         </div>
-        <div className="card px-4 py-3">
+        <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Liabilities</p>
           <p className="text-lg font-bold text-danger tabular-nums mt-0.5">
             {formatMoney(Math.abs(liabilities.reduce((s, a) => s + a.currentBalance, 0)))}
