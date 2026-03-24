@@ -4,6 +4,18 @@
 
 ---
 
+## v1.4.0 — 2026-03-24
+
+### New Features
+- Reports section with four tabs: Cashflow (spending by category, in vs out, net worth, and account balances), Overspend (categories and months where spending exceeded budget), Payees (income and expenses per payee with search), and Goals (savings account balance history with projections to goal)
+- Drag-to-reorder budget groups and categories on the budget page (desktop only) — grip handles appear on hover, order is persisted
+- Resizable columns on all tables (desktop only) — drag the right edge of any column header to resize; widths are saved per table across sessions
+
+### Enhancements
+- Wider desktop layout (up from 1024px to 1280px max width) across Budget, Accounts, and Reports pages
+
+---
+
 ## v1.3.1 — 2026-03-23
 
 ### Bug Fixes

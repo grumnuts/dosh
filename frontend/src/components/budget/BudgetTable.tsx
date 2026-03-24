@@ -1,6 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DraggableAttributes,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
-import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory } from '../../api/budget'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
@@ -29,7 +47,49 @@ const PERIOD_COLOURS: Record<string, string> = {
   annually:    'bg-teal-500/15 text-teal-400',
 }
 
+// ─── Grip handle ─────────────────────────────────────────────────────────────
+
+type SyntheticListenerMap = Record<string, (event: Event) => void>
+
+function GripHandle({
+  listeners,
+  attributes,
+}: {
+  listeners?: SyntheticListenerMap
+  attributes?: DraggableAttributes
+}) {
+  return (
+    <div
+      {...attributes}
+      {...(listeners as React.HTMLAttributes<HTMLDivElement> | undefined)}
+      className="cursor-grab active:cursor-grabbing touch-none text-muted hover:text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+        <circle cx="5" cy="2.5" r="1.1" />
+        <circle cx="9" cy="2.5" r="1.1" />
+        <circle cx="5" cy="7" r="1.1" />
+        <circle cx="9" cy="7" r="1.1" />
+        <circle cx="5" cy="11.5" r="1.1" />
+        <circle cx="9" cy="11.5" r="1.1" />
+      </svg>
+    </div>
+  )
+}
+
 // ─── Expense category row ────────────────────────────────────────────────────
+
+type CategoryRowProps = {
+  cat: BudgetCategory
+  weekStart: string
+  accounts: Account[]
+  groupId: number
+  groupName: string
+  rowRef?: React.RefCallback<HTMLTableRowElement>
+  rowStyle?: React.CSSProperties
+  dragListeners?: SyntheticListenerMap
+  dragAttributes?: DraggableAttributes
+}
 
 function CategoryRow({
   cat,
@@ -37,13 +97,11 @@ function CategoryRow({
   accounts,
   groupId,
   groupName,
-}: {
-  cat: BudgetCategory
-  weekStart: string
-  accounts: Account[]
-  groupId: number
-  groupName: string
-}) {
+  rowRef,
+  rowStyle,
+  dragListeners,
+  dragAttributes,
+}: CategoryRowProps) {
   const [coverOpen, setCoverOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
@@ -52,9 +110,14 @@ function CategoryRow({
   return (
     <>
       <tr
+        ref={rowRef}
+        style={rowStyle}
         className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
         onClick={() => setEditOpen(true)}
       >
+        <td className="px-2 py-2.5 hidden md:table-cell w-8">
+          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+        </td>
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm text-primary">{cat.name}</span>
@@ -126,29 +189,85 @@ function CategoryRow({
   )
 }
 
+function SortableCategoryRow(props: Omit<CategoryRowProps, 'rowRef' | 'rowStyle' | 'dragListeners' | 'dragAttributes'>) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.cat.id })
+  return (
+    <CategoryRow
+      {...props}
+      rowRef={setNodeRef}
+      rowStyle={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        position: isDragging ? 'relative' : undefined,
+        zIndex: isDragging ? 1 : undefined,
+      }}
+      dragListeners={listeners as SyntheticListenerMap}
+      dragAttributes={attributes}
+    />
+  )
+}
+
 // ─── Expense group section ───────────────────────────────────────────────────
+
+type GroupSectionProps = {
+  group: BudgetGroup
+  weekStart: string
+  accounts: Account[]
+  onAddCategory: (groupId: number, groupName: string) => void
+  rowRef?: React.RefCallback<HTMLTableRowElement>
+  rowStyle?: React.CSSProperties
+  dragListeners?: SyntheticListenerMap
+  dragAttributes?: DraggableAttributes
+  isBeingDragged?: boolean
+}
 
 function GroupSection({
   group,
   weekStart,
   accounts,
   onAddCategory,
-}: {
-  group: BudgetGroup
-  weekStart: string
-  accounts: Account[]
-  onAddCategory: (groupId: number, groupName: string) => void
-}) {
+  rowRef,
+  rowStyle,
+  dragListeners,
+  dragAttributes,
+  isBeingDragged,
+}: GroupSectionProps) {
   const [editOpen, setEditOpen] = useState(false)
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:group:${group.id}`, false)
+  const [orderedCats, setOrderedCats] = useState<BudgetCategory[]>(group.categories)
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    setOrderedCats(group.categories)
+  }, [group.categories])
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleCatDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrderedCats((cats) => {
+      const oldIdx = cats.findIndex((c) => c.id === active.id)
+      const newIdx = cats.findIndex((c) => c.id === over.id)
+      const reordered = arrayMove(cats, oldIdx, newIdx)
+      budgetApi.reorderCategories(reordered.map((c, i) => ({ id: c.id, sortOrder: i })))
+      return reordered
+    })
+    queryClient.invalidateQueries({ queryKey: ['budget'] })
+  }
 
   const groupSpent = group.categories.reduce((s, c) => s + c.spent, 0)
   const groupBalance = group.categories.reduce((s, c) => s + c.balance, 0)
   const groupWeekly = group.categories.reduce((s, c) => s + c.weeklyEquivalent, 0)
+  const showCategories = !collapsed && !isBeingDragged
 
   return (
     <>
-      <tr className="bg-surface-2">
+      <tr ref={rowRef} style={rowStyle} className="bg-surface-2">
+        <td className="px-2 py-2 hidden md:table-cell w-8">
+          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+        </td>
         <td className="px-4 py-2">
           <div className="flex items-center gap-2">
             <button
@@ -196,23 +315,29 @@ function GroupSection({
         </td>
       </tr>
 
-      {!collapsed && group.categories.length === 0 ? (
+      {showCategories && orderedCats.length === 0 && (
         <tr>
-          <td colSpan={6} className="px-6 py-2 text-xs text-muted italic">
+          <td colSpan={7} className="px-6 py-2 text-xs text-muted italic">
             No categories yet — add one above
           </td>
         </tr>
-      ) : !collapsed && (
-        group.categories.map((cat) => (
-          <CategoryRow
-            key={cat.id}
-            cat={cat}
-            weekStart={weekStart}
-            accounts={accounts}
-            groupId={group.id}
-            groupName={group.name}
-          />
-        ))
+      )}
+
+      {showCategories && orderedCats.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCatDragEnd}>
+          <SortableContext items={orderedCats.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            {orderedCats.map((cat) => (
+              <SortableCategoryRow
+                key={cat.id}
+                cat={cat}
+                weekStart={weekStart}
+                accounts={accounts}
+                groupId={group.id}
+                groupName={group.name}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       )}
 
       <GroupModal
@@ -224,25 +349,60 @@ function GroupSection({
   )
 }
 
+function SortableGroupSection(props: Omit<GroupSectionProps, 'rowRef' | 'rowStyle' | 'dragListeners' | 'dragAttributes' | 'isBeingDragged'>) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.group.id })
+  return (
+    <GroupSection
+      {...props}
+      rowRef={setNodeRef}
+      rowStyle={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        position: isDragging ? 'relative' : undefined,
+        zIndex: isDragging ? 1 : undefined,
+      }}
+      dragListeners={listeners as SyntheticListenerMap}
+      dragAttributes={attributes}
+      isBeingDragged={isDragging}
+    />
+  )
+}
+
 // ─── Income category row ─────────────────────────────────────────────────────
+
+type IncomeCategoryRowProps = {
+  cat: IncomeCategory
+  groupId: number
+  groupName: string
+  rowRef?: React.RefCallback<HTMLTableRowElement>
+  rowStyle?: React.CSSProperties
+  dragListeners?: SyntheticListenerMap
+  dragAttributes?: DraggableAttributes
+}
 
 function IncomeCategoryRow({
   cat,
   groupId,
   groupName,
-}: {
-  cat: IncomeCategory
-  groupId: number
-  groupName: string
-}) {
+  rowRef,
+  rowStyle,
+  dragListeners,
+  dragAttributes,
+}: IncomeCategoryRowProps) {
   const [editOpen, setEditOpen] = useState(false)
 
   return (
     <>
       <tr
-        className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer"
+        ref={rowRef}
+        style={rowStyle}
+        className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
         onClick={() => setEditOpen(true)}
       >
+        <td className="px-2 py-2.5 hidden md:table-cell w-8">
+          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+        </td>
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm text-primary">{cat.name}</span>
@@ -272,23 +432,73 @@ function IncomeCategoryRow({
   )
 }
 
+function SortableIncomeCategoryRow(props: Omit<IncomeCategoryRowProps, 'rowRef' | 'rowStyle' | 'dragListeners' | 'dragAttributes'>) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.cat.id })
+  return (
+    <IncomeCategoryRow
+      {...props}
+      rowRef={setNodeRef}
+      rowStyle={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      dragListeners={listeners as SyntheticListenerMap}
+      dragAttributes={attributes}
+    />
+  )
+}
+
 // ─── Income group section ────────────────────────────────────────────────────
+
+type IncomeGroupSectionProps = {
+  group: IncomeGroup
+  onAddCategory: (groupId: number, groupName: string) => void
+  rowRef?: React.RefCallback<HTMLTableRowElement>
+  rowStyle?: React.CSSProperties
+  dragListeners?: SyntheticListenerMap
+  dragAttributes?: DraggableAttributes
+  isBeingDragged?: boolean
+}
 
 function IncomeGroupSection({
   group,
   onAddCategory,
-}: {
-  group: IncomeGroup
-  onAddCategory: (groupId: number, groupName: string) => void
-}) {
+  rowRef,
+  rowStyle,
+  dragListeners,
+  dragAttributes,
+  isBeingDragged,
+}: IncomeGroupSectionProps) {
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:income-group:${group.id}`, false)
   const [editOpen, setEditOpen] = useState(false)
+  const [orderedCats, setOrderedCats] = useState<IncomeCategory[]>(group.categories)
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    setOrderedCats(group.categories)
+  }, [group.categories])
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleCatDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrderedCats((cats) => {
+      const oldIdx = cats.findIndex((c) => c.id === active.id)
+      const newIdx = cats.findIndex((c) => c.id === over.id)
+      const reordered = arrayMove(cats, oldIdx, newIdx)
+      budgetApi.reorderCategories(reordered.map((c, i) => ({ id: c.id, sortOrder: i })))
+      return reordered
+    })
+    queryClient.invalidateQueries({ queryKey: ['budget'] })
+  }
 
   const groupReceived = group.categories.reduce((s, c) => s + c.received, 0)
+  const showCategories = !collapsed && !isBeingDragged
 
   return (
     <>
-      <tr className="bg-surface-2">
+      <tr ref={rowRef} style={rowStyle} className="bg-surface-2">
+        <td className="px-2 py-2 hidden md:table-cell w-8">
+          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+        </td>
         <td className="px-4 py-2">
           <div className="flex items-center gap-2">
             <button
@@ -330,21 +540,27 @@ function IncomeGroupSection({
         </td>
       </tr>
 
-      {!collapsed && group.categories.length === 0 ? (
+      {showCategories && orderedCats.length === 0 && (
         <tr>
-          <td colSpan={6} className="px-6 py-2 text-xs text-muted italic">
+          <td colSpan={7} className="px-6 py-2 text-xs text-muted italic">
             No categories yet — add one above
           </td>
         </tr>
-      ) : !collapsed && (
-        group.categories.map((cat) => (
-          <IncomeCategoryRow
-            key={cat.id}
-            cat={cat}
-            groupId={group.id}
-            groupName={group.name}
-          />
-        ))
+      )}
+
+      {showCategories && orderedCats.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCatDragEnd}>
+          <SortableContext items={orderedCats.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            {orderedCats.map((cat) => (
+              <SortableIncomeCategoryRow
+                key={cat.id}
+                cat={cat}
+                groupId={group.id}
+                groupName={group.name}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       )}
 
       <GroupModal
@@ -357,46 +573,106 @@ function IncomeGroupSection({
   )
 }
 
+function SortableIncomeGroupSection(props: Omit<IncomeGroupSectionProps, 'rowRef' | 'rowStyle' | 'dragListeners' | 'dragAttributes' | 'isBeingDragged'>) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.group.id })
+  return (
+    <IncomeGroupSection
+      {...props}
+      rowRef={setNodeRef}
+      rowStyle={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        position: isDragging ? 'relative' : undefined,
+        zIndex: isDragging ? 1 : undefined,
+      }}
+      dragListeners={listeners as SyntheticListenerMap}
+      dragAttributes={attributes}
+      isBeingDragged={isDragging}
+    />
+  )
+}
+
 // ─── Main table ──────────────────────────────────────────────────────────────
 
+const BUDGET_DEFAULT_COL_WIDTHS = { category: 220, budgeted: 110, weekly: 100, spent: 100, balance: 100 }
+
 export function BudgetTable({ data, accounts }: BudgetTableProps) {
+  const { widths, onResizeStart } = useResizableCols(BUDGET_DEFAULT_COL_WIDTHS, 'dosh:budget-col-widths')
   const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string; isIncome: boolean } | null>(null)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
   const [addIncomeGroupOpen, setAddIncomeGroupOpen] = useState(false)
+  const [orderedGroups, setOrderedGroups] = useState<BudgetGroup[]>(data.groups)
+  const [orderedIncomeGroups, setOrderedIncomeGroups] = useState<IncomeGroup[]>(data.incomeGroups ?? [])
+  const queryClient = useQueryClient()
 
-  const incomeGroups = data.incomeGroups ?? []
+  useEffect(() => { setOrderedGroups(data.groups) }, [data.groups])
+  useEffect(() => { setOrderedIncomeGroups(data.incomeGroups ?? []) }, [data.incomeGroups])
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleGroupDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrderedGroups((groups) => {
+      const oldIdx = groups.findIndex((g) => g.id === active.id)
+      const newIdx = groups.findIndex((g) => g.id === over.id)
+      const reordered = arrayMove(groups, oldIdx, newIdx)
+      budgetApi.reorderGroups(reordered.map((g, i) => ({ id: g.id, sortOrder: i })))
+      return reordered
+    })
+    queryClient.invalidateQueries({ queryKey: ['budget'] })
+  }
+
+  const handleIncomeGroupDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrderedIncomeGroups((groups) => {
+      const oldIdx = groups.findIndex((g) => g.id === active.id)
+      const newIdx = groups.findIndex((g) => g.id === over.id)
+      const reordered = arrayMove(groups, oldIdx, newIdx)
+      budgetApi.reorderGroups(reordered.map((g, i) => ({ id: g.id, sortOrder: i })))
+      return reordered
+    })
+    queryClient.invalidateQueries({ queryKey: ['budget'] })
+  }
 
   return (
     <div className="space-y-3">
       {/* Expense table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm md:table-fixed">
             <thead>
               <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                <th className="px-4 py-3 text-left font-medium">Category</th>
-                <th className="px-3 py-3 text-right font-medium hidden md:table-cell">Budgeted</th>
-                <th className="px-3 py-3 text-right font-medium hidden lg:table-cell">Weekly</th>
-                <th className="px-3 py-3 text-right font-medium hidden sm:table-cell">Spent</th>
-                <th className="px-3 py-3 text-right font-medium">Balance</th>
+                <th className="px-2 py-3 hidden md:table-cell w-8" />
+                <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
                 <th className="px-2 py-3 sm:px-3 sm:w-20" />
               </tr>
             </thead>
             <tbody>
-              {data.groups.map((group) => (
-                <GroupSection
-                  key={group.id}
-                  group={group}
-                  weekStart={data.weekStart}
-                  accounts={accounts}
-                  onAddCategory={(groupId, groupName) =>
-                    setAddCatState({ groupId, groupName, isIncome: false })
-                  }
-                />
-              ))}
-              {data.groups.length === 0 && (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+                <SortableContext items={orderedGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+                  {orderedGroups.map((group) => (
+                    <SortableGroupSection
+                      key={group.id}
+                      group={group}
+                      weekStart={data.weekStart}
+                      accounts={accounts}
+                      onAddCategory={(groupId, groupName) =>
+                        setAddCatState({ groupId, groupName, isIncome: false })
+                      }
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+              {orderedGroups.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-secondary">
+                  <td colSpan={7} className="px-4 py-8 text-center text-secondary">
                     No budget groups yet. Add a group to get started.
                   </td>
                 </tr>
@@ -420,27 +696,32 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       {/* Income table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm md:table-fixed">
             <thead>
               <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                <th className="px-4 py-3 text-left font-medium">Income</th>
-                <th className="hidden md:table-cell" />
-                <th className="hidden lg:table-cell" />
-                <th className="px-3 py-3 text-right font-medium">Received</th>
-                <th />
+                <th className="px-2 py-3 hidden md:table-cell w-8" />
+                <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Income<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                <th className="hidden md:table-cell" style={{ width: widths.budgeted }} />
+                <th className="hidden lg:table-cell" style={{ width: widths.weekly }} />
+                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.spent }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                <th style={{ width: widths.balance }} />
                 <th className="px-2 py-3 sm:px-3 sm:w-20" />
               </tr>
             </thead>
             <tbody>
-              {incomeGroups.map((group) => (
-                <IncomeGroupSection
-                  key={group.id}
-                  group={group}
-                  onAddCategory={(groupId, groupName) =>
-                    setAddCatState({ groupId, groupName, isIncome: true })
-                  }
-                />
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleIncomeGroupDragEnd}>
+                <SortableContext items={orderedIncomeGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+                  {orderedIncomeGroups.map((group) => (
+                    <SortableIncomeGroupSection
+                      key={group.id}
+                      group={group}
+                      onAddCategory={(groupId, groupName) =>
+                        setAddCatState({ groupId, groupName, isIncome: true })
+                      }
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </tbody>
           </table>
         </div>

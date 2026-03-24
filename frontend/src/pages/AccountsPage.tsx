@@ -16,6 +16,11 @@ import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
 import { BulkEditModal } from '../components/transactions/BulkEditModal'
 import { CategoryCombobox } from '../components/ui/CategoryCombobox'
+import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
+
+const DEFAULT_COL_WIDTHS = {
+  date: 90, account: 150, payee: 180, description: 280, category: 190, amount: 110,
+}
 
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const qc = useQueryClient()
@@ -97,6 +102,7 @@ const baseAccountSchema = z.object({
   name: z.string().min(1, 'Required'),
   type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().optional(),
+  goalAmount: z.string().optional(),
 })
 
 const createAccountSchema = baseAccountSchema.extend({
@@ -111,16 +117,19 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
   const isEdit = !!account
   const today = new Date().toISOString().slice(0, 10)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateAccountFormData>({
+  const { register, watch, handleSubmit, formState: { errors } } = useForm<CreateAccountFormData>({
     resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),
     defaultValues: {
       name: account?.name ?? '',
       type: account?.type ?? 'transactional',
       notes: account?.notes ?? '',
+      goalAmount: account?.goalAmount ? (account.goalAmount / 100).toFixed(2) : '',
       startingBalance: '0.00',
       startingBalanceDate: today,
     },
   })
+
+  const watchedType = watch('type')
 
   const mutation = useMutation({
     mutationFn: async (data: AccountInput | AccountCreateInput): Promise<{ id: number }> => {
@@ -146,14 +155,18 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
   })
 
   const onSubmit = (data: CreateAccountFormData) => {
+    const goalCents = data.type === 'savings' && data.goalAmount
+      ? Math.round(parseFloat(data.goalAmount) * 100) || null
+      : null
     if (isEdit) {
-      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null })
+      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents })
     } else {
       const balanceCents = Math.round(parseFloat(data.startingBalance || '0') * 100)
       mutation.mutate({
         name: data.name,
         type: data.type,
         notes: data.notes || null,
+        goalAmount: goalCents,
         startingBalance: balanceCents || undefined,
         startingBalanceDate: balanceCents ? data.startingBalanceDate : undefined,
       })
@@ -168,6 +181,17 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
         <option value="savings">Savings</option>
         <option value="debt">Debt</option>
       </Select>
+      {watchedType === 'savings' && (
+        <Input
+          label="Goal Amount ($)"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          {...register('goalAmount')}
+          hint="Target balance for this savings account"
+        />
+      )}
       {!isEdit && (
         <div className="grid grid-cols-2 gap-3">
           <Input
@@ -300,6 +324,8 @@ export function AccountsPage() {
     })
   }
 
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:tx-col-widths')
+
   const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
@@ -315,7 +341,7 @@ export function AccountsPage() {
   const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-3">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-3 md:px-6">
       {/* Accounts header */}
       <div className="flex items-center justify-between">
         <button
@@ -374,6 +400,12 @@ export function AccountsPage() {
                   <div className={`font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
                     {formatMoney(account.currentBalance)}
                   </div>
+                  {account.goalAmount != null && (
+                    <div className="text-xs text-muted mt-0.5">
+                      Goal: {formatMoney(account.goalAmount)}
+                      {' · '}{Math.min(Math.round(Math.max(account.currentBalance, 0) / account.goalAmount * 100), 100)}%
+                    </div>
+                  )}
                 </div>
                 <button
                   title="Reconcile"
@@ -547,10 +579,10 @@ export function AccountsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm md:table-fixed">
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                  <th className="pl-3 pr-1 py-3 w-px">
+                  <th className="pl-3 pr-1 py-3 w-8">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -559,12 +591,27 @@ export function AccountsPage() {
                       className="w-3.5 h-3.5 accent-accent cursor-pointer"
                     />
                   </th>
-                  <th className="pl-1 pr-1 py-3 text-left font-medium w-px sm:w-auto sm:px-4">Date</th>
-                  <th className="px-2 py-3 text-left font-medium sm:px-3">Account</th>
-                  <th className="px-3 py-3 text-left font-medium hidden sm:table-cell">Payee</th>
-                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell lg:w-72">Description</th>
-                  <th className="px-3 py-3 text-left font-medium hidden md:table-cell lg:w-px lg:whitespace-nowrap">Category</th>
-                  <th className="pl-2 pr-3 py-3 text-right font-medium w-px sm:w-auto sm:px-3">Amount</th>
+                  <th className="pl-1 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
+                    Date
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('date', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium relative" style={{ width: widths.account }}>
+                    Account
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('account', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium hidden sm:table-cell relative" style={{ width: widths.payee }}>
+                    Payee
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('payee', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell relative" style={{ width: widths.description }}>
+                    Description
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('description', e)} />
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium hidden md:table-cell relative" style={{ width: widths.category }}>
+                    Category
+                    <ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} />
+                  </th>
+                  <th className="pl-2 pr-3 py-3 text-right font-medium" style={{ width: widths.amount }}>Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -589,7 +636,7 @@ export function AccountsPage() {
                     <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
-                    <td className="px-2 py-2.5 max-w-0 sm:px-3 sm:max-w-none">
+                    <td className="px-2 py-2.5 sm:px-3 overflow-hidden">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
                         {tx.splits.length > 0
@@ -605,13 +652,13 @@ export function AccountsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 max-w-0 hidden sm:table-cell text-sm text-primary">
+                    <td className="px-3 py-2.5 hidden sm:table-cell text-sm text-primary overflow-hidden">
                       <span className="truncate block">{tx.payee || '—'}</span>
                     </td>
-                    <td className="px-3 py-2.5 hidden lg:table-cell text-sm text-primary lg:w-72 max-w-0">
+                    <td className="px-3 py-2.5 hidden lg:table-cell text-sm text-primary overflow-hidden">
                       <span className="truncate block">{tx.description || '—'}</span>
                     </td>
-                    <td className="px-3 py-2.5 hidden md:table-cell lg:w-px lg:whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2.5 hidden md:table-cell overflow-hidden" onClick={(e) => e.stopPropagation()}>
                       {tx.splits.length > 0 ? (
                         <span className="text-sm text-muted italic">Split</span>
                       ) : tx.type === 'transaction' ? (

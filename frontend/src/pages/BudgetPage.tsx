@@ -3,11 +3,14 @@ import { format, parseISO, addDays, getWeek } from 'date-fns'
 import { useWeek } from '../hooks/useWeek'
 import { budgetApi } from '../api/budget'
 import { accountsApi } from '../api/accounts'
+import { settingsApi } from '../api/settings'
 import { BudgetTable } from '../components/budget/BudgetTable'
 import { Button } from '../components/ui/Button'
 
 export function BudgetPage() {
-  const { weekStart, goNext, goPrev, goToday, isCurrentWeek } = useWeek()
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
+  const { weekStart, goNext, goPrev, goToday, isCurrentWeek } = useWeek(weekStartsOn)
 
   const { data: budgetData, isLoading, error } = useQuery({
     queryKey: ['budget', weekStart],
@@ -21,14 +24,14 @@ export function BudgetPage() {
 
   const parsedStart = weekStart ? parseISO(weekStart) : null
   const parsedEnd = parsedStart ? addDays(parsedStart, 6) : null
-  const weekNumber = parsedStart ? getWeek(parsedStart, { weekStartsOn: 0 }) : null
+  const weekNumber = parsedStart ? getWeek(parsedStart, { weekStartsOn }) : null
   const weekYear = parsedStart ? format(parsedStart, 'yyyy') : ''
   const weekRange = parsedStart && parsedEnd
     ? `${format(parsedStart, 'dd/MM')} - ${format(parsedEnd, 'dd/MM')}`
     : ''
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 md:px-6">
       {/* Header */}
       <div className="flex flex-row items-center gap-3">
         <h1 className="text-xl font-bold text-primary flex-1">Budget</h1>

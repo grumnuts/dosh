@@ -1,7 +1,7 @@
 /**
  * Date utilities for Dosh budget calculations.
  * All dates are stored as ISO strings (YYYY-MM-DD).
- * Budget periods are Sunday–Saturday.
+ * Week boundaries depend on the weekStartsOn setting (0 = Sunday, 1 = Monday).
  */
 
 /** Returns YYYY-MM-DD string for a Date */
@@ -14,31 +14,36 @@ export function parseDate(dateStr: string): Date {
   return new Date(dateStr + 'T00:00:00Z')
 }
 
-/** Returns the Sunday (week start) for a given date */
-export function getWeekStart(date: Date): Date {
+/** Returns the week start (Sunday or Monday) for a given date */
+export function getWeekStart(date: Date, weekStartsOn: 0 | 1 = 0): Date {
   const d = new Date(date)
-  const day = d.getUTCDay() // 0 = Sunday
-  d.setUTCDate(d.getUTCDate() - day)
+  const utcDay = d.getUTCDay() // 0 = Sunday, 1 = Monday, ...
+  // How many days to subtract to reach the week start
+  const offset = weekStartsOn === 1
+    ? (utcDay === 0 ? 6 : utcDay - 1) // Monday start: Sun wraps to -6
+    : utcDay                           // Sunday start: subtract day index
+  d.setUTCDate(d.getUTCDate() - offset)
   return d
 }
 
-/** Returns the Saturday (week end) for a given date */
-export function getWeekEnd(date: Date): Date {
-  const start = getWeekStart(date)
+/** Returns the week end (6 days after week start) for a given date */
+export function getWeekEnd(date: Date, weekStartsOn: 0 | 1 = 0): Date {
+  const start = getWeekStart(date, weekStartsOn)
   const end = new Date(start)
   end.setUTCDate(end.getUTCDate() + 6)
   return end
 }
 
-/** Returns the current week's Sunday as YYYY-MM-DD */
-export function currentWeekStart(): string {
-  return toDateString(getWeekStart(new Date()))
+/** Returns the current week's start date as YYYY-MM-DD */
+export function currentWeekStart(weekStartsOn: 0 | 1 = 0): string {
+  return toDateString(getWeekStart(new Date(), weekStartsOn))
 }
 
 /** Returns period boundaries (inclusive) for a category's period, given a week start date string */
 export function getPeriodBoundaries(
   weekStartStr: string,
   period: string,
+  weekStartsOn: 0 | 1 = 0,
 ): { start: string; end: string } {
   const weekStart = parseDate(weekStartStr)
 
@@ -46,13 +51,13 @@ export function getPeriodBoundaries(
     case 'weekly': {
       return {
         start: weekStartStr,
-        end: toDateString(getWeekEnd(weekStart)),
+        end: toDateString(getWeekEnd(weekStart, weekStartsOn)),
       }
     }
 
     case 'fortnightly': {
-      // Use 2025-01-05 (a Sunday) as fixed reference to align fortnights consistently
-      const REF = parseDate('2025-01-05')
+      // Reference date anchored to the correct week start day
+      const REF = parseDate(weekStartsOn === 1 ? '2025-01-06' : '2025-01-05')
       const msPerDay = 86400000
       const daysSinceRef = Math.round((weekStart.getTime() - REF.getTime()) / msPerDay)
       const weeksSinceRef = Math.floor(daysSinceRef / 7)

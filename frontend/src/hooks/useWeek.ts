@@ -1,27 +1,33 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { format, startOfWeek, addWeeks, subWeeks, parseISO } from 'date-fns'
 
-function getSundayStr(date: Date): string {
-  const sunday = startOfWeek(date, { weekStartsOn: 0 })
-  return format(sunday, 'yyyy-MM-dd')
+function getWeekStartStr(date: Date, weekStartsOn: 0 | 1): string {
+  return format(startOfWeek(date, { weekStartsOn }), 'yyyy-MM-dd')
 }
 
-export function useWeek() {
-  const [weekStart, setWeekStart] = useState<string>(() => getSundayStr(new Date()))
+export function useWeek(weekStartsOn: 0 | 1 = 0) {
+  const [weekStart, setWeekStart] = useState<string>(() =>
+    getWeekStartStr(new Date(), weekStartsOn),
+  )
+
+  // Reset to current week when weekStartsOn changes
+  useEffect(() => {
+    setWeekStart(getWeekStartStr(new Date(), weekStartsOn))
+  }, [weekStartsOn])
 
   const goNext = useCallback(() => {
-    setWeekStart((prev) => getSundayStr(addWeeks(parseISO(prev), 1)))
-  }, [])
+    setWeekStart((prev) => getWeekStartStr(addWeeks(parseISO(prev), 1), weekStartsOn))
+  }, [weekStartsOn])
 
   const goPrev = useCallback(() => {
-    setWeekStart((prev) => getSundayStr(subWeeks(parseISO(prev), 1)))
-  }, [])
+    setWeekStart((prev) => getWeekStartStr(subWeeks(parseISO(prev), 1), weekStartsOn))
+  }, [weekStartsOn])
 
   const goToday = useCallback(() => {
-    setWeekStart(getSundayStr(new Date()))
-  }, [])
+    setWeekStart(getWeekStartStr(new Date(), weekStartsOn))
+  }, [weekStartsOn])
 
-  const isCurrentWeek = weekStart === getSundayStr(new Date())
+  const isCurrentWeek = weekStart === getWeekStartStr(new Date(), weekStartsOn)
 
   return { weekStart, goNext, goPrev, goToday, isCurrentWeek }
 }

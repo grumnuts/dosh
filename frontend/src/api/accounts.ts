@@ -7,6 +7,7 @@ export interface Account {
   currentBalance: number
   notes: string | null
   sortOrder: number
+  goalAmount: number | null
 }
 
 export interface AccountInput {
@@ -14,6 +15,7 @@ export interface AccountInput {
   type: 'transactional' | 'savings' | 'debt'
   notes?: string | null
   sortOrder?: number
+  goalAmount?: number | null
 }
 
 export interface AccountCreateInput extends AccountInput {
