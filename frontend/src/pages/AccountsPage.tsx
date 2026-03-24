@@ -677,7 +677,7 @@ export function AccountsPage() {
       )}
 
       {/* Transaction list */}
-      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x md:bg-surface">
+      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x">
         {txLoading ? (
           <div className="text-center py-12 text-secondary">Loading...</div>
         ) : transactions?.length === 0 ? (

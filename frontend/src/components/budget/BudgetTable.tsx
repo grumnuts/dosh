@@ -640,7 +640,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   return (
     <div className="space-y-3">
       {/* Expense table */}
-      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x md:bg-surface">
+      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x">
         <div className="overflow-x-auto">
           <table className="w-full text-sm md:table-fixed">
             <thead>
@@ -694,7 +694,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       </div>
 
       {/* Income table */}
-      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x md:bg-surface">
+      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x">
         <div className="overflow-x-auto">
           <table className="w-full text-sm md:table-fixed">
             <thead>
