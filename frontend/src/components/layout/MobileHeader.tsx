@@ -2,51 +2,31 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
-const NAV_ITEMS = [
-  {
-    to: '/budget',
-    label: 'Budget',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a1 1 0 001-1V6a1 1 0 00-1-1H4a1 1 0 00-1 1v12a1 1 0 001 1z" />
-      </svg>
-    ),
-  },
-  {
-    to: '/accounts',
-    label: 'Accounts',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-      </svg>
-    ),
-  },
-  {
-    to: '/rules',
-    label: 'Rules',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
-      </svg>
-    ),
-  },
-]
-
 export function MobileHeader() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
 
+  const tabClass = ({ isActive }: { isActive: boolean }) =>
+    `px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+      isActive ? 'bg-accent-muted text-accent' : 'text-secondary hover:text-primary'
+    }`
+
   return (
     <>
       {/* Top bar */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-surface border-b border-border flex items-center justify-between px-4 h-14">
-        <img src="/DoshLogoFull.png" alt="Dosh" className="h-8 w-auto" />
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-surface border-b border-border h-14 flex items-center px-3 gap-2">
+        <img src="/DoshLogoFull.png" alt="Dosh" className="h-8 w-auto shrink-0" />
+
+        {/* Inline tabs */}
+        <nav className="flex-1 flex items-center justify-center gap-1">
+          <NavLink to="/budget" className={tabClass}>Budget</NavLink>
+          <NavLink to="/accounts" className={tabClass}>Accounts</NavLink>
+        </nav>
+
+        {/* Hamburger */}
         <button
           onClick={() => setOpen(true)}
-          className="p-2 text-secondary hover:text-primary transition-colors"
+          className="p-2 text-secondary hover:text-primary transition-colors shrink-0"
           aria-label="Open menu"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,23 +65,21 @@ export function MobileHeader() {
 
         {/* Nav items */}
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
-                  isActive
-                    ? 'bg-accent-muted text-accent font-medium'
-                    : 'text-secondary hover:bg-surface-2 hover:text-primary'
-                }`
-              }
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+          <NavLink
+            to="/rules"
+            onClick={() => setOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
+                isActive ? 'bg-accent-muted text-accent font-medium' : 'text-secondary hover:bg-surface-2 hover:text-primary'
+              }`
+            }
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+            Rules
+          </NavLink>
         </nav>
 
         {/* Settings + User / Logout */}
@@ -111,9 +89,7 @@ export function MobileHeader() {
             onClick={() => setOpen(false)}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
-                isActive
-                  ? 'bg-accent-muted text-accent font-medium'
-                  : 'text-secondary hover:bg-surface-2 hover:text-primary'
+                isActive ? 'bg-accent-muted text-accent font-medium' : 'text-secondary hover:bg-surface-2 hover:text-primary'
               }`
             }
           >
