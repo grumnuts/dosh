@@ -280,7 +280,7 @@ function SortableAccountRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 px-4 py-2.5 hover:bg-surface-2/50 cursor-pointer group border-b border-border last:border-0"
+      className="flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 hover:bg-surface-2/50 cursor-pointer group"
       onClick={onEdit}
     >
       <div className="hidden md:flex">
@@ -305,7 +305,7 @@ function SortableAccountRow({
         </div>
         <button
           title="Reconcile"
-          className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onReconcile() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -486,7 +486,7 @@ export function AccountsPage() {
           { label: 'Savings', value: savingsTotal },
           ...(hasDebt ? [{ label: 'Debt', value: debtTotal }] : []),
         ].map(({ label, value }) => (
-          <div key={label} className="card p-4">
+          <div key={label} className="border-y border-border p-4">
             <div className="text-xs text-muted mb-1 truncate">{label}</div>
             <div className={`text-lg font-bold font-mono truncate ${value < 0 ? 'text-danger' : 'text-accent'}`}>
               {formatMoney(value)}
@@ -499,27 +499,17 @@ export function AccountsPage() {
       {accountsLoading ? (
         <div className="text-center py-12 text-secondary">Loading...</div>
       ) : orderedAccounts.length === 0 ? (
-        <div className="card px-5 py-12 text-center text-secondary">No accounts yet.</div>
+        <div className="border-y border-border px-5 py-12 text-center text-secondary -mx-4 md:mx-0">No accounts yet.</div>
       ) : (
-        <div className="space-y-1.5">
-          {/* Mobile: Net Worth card */}
-          <div className="card flex items-center justify-between px-4 py-2 sm:hidden -mx-4 rounded-none border-x-0">
-            <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
-            <span className={`text-xs font-bold font-mono ${totalBalance < 0 ? 'text-danger' : 'text-accent'}`}>
-              {formatMoney(totalBalance)}
-            </span>
-          </div>
+        <div className="divide-y divide-border -mx-4 md:mx-0 overflow-hidden">
           {ACCOUNT_GROUP_ORDER.map((type) => {
             const groupAccounts = orderedAccounts.filter((a) => a.type === type)
             if (groupAccounts.length === 0) return null
             const groupTotal = groupAccounts.reduce((sum, a) => sum + a.currentBalance, 0)
             return (
-              <div key={type} className="card bg-transparent overflow-hidden -mx-4 rounded-none border-x-0 md:mx-0 md:rounded-xl md:border-x">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+              <div key={type} className="divide-y divide-border">
+                <div className="pl-2 pr-4 py-0.5">
                   <span className="text-xs font-medium text-muted uppercase tracking-wide">{ACCOUNT_GROUP_LABELS[type]}</span>
-                  <span className={`text-xs font-bold font-mono ${groupTotal < 0 ? 'text-danger' : 'text-accent'}`}>
-                    {formatMoney(groupTotal)}
-                  </span>
                 </div>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAccountDragEnd(type)}>
                   <SortableContext items={groupAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
@@ -536,6 +526,13 @@ export function AccountsPage() {
               </div>
             )
           })}
+          {/* Mobile: Net Worth footer */}
+          <div className="flex items-center justify-between px-4 py-2 sm:hidden">
+            <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
+            <span className={`text-xs font-bold font-mono ${totalBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+              {formatMoney(totalBalance)}
+            </span>
+          </div>
         </div>
       )}
 
@@ -693,7 +690,7 @@ export function AccountsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm md:table-fixed">
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
                   <th className="pl-3 pr-1 py-3 w-8 hidden sm:table-cell">
@@ -725,7 +722,7 @@ export function AccountsPage() {
                     Category
                     <ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} />
                   </th>
-                  <th className="pl-2 pr-3 py-3 text-right font-medium" style={{ width: widths.amount }}>Amount</th>
+                  <th className="pl-2 pr-3 py-3 text-right font-medium min-w-[100px]" style={{ width: widths.amount }}>Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -747,9 +744,8 @@ export function AccountsPage() {
                         className="w-3.5 h-3.5 accent-accent cursor-pointer"
                       />
                     </td>
-                    <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
-                      <span className="sm:hidden">{format(parseISO(tx.date), 'dd/MM')}</span>
-                      <span className="hidden sm:inline">{format(parseISO(tx.date), 'dd/MM/yy')}</span>
+                    <td className="pl-3 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
+                      {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
                     <td className="px-2 py-2.5 sm:px-3 overflow-hidden">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
@@ -795,7 +791,7 @@ export function AccountsPage() {
                         <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : 'Transfer'}</span>
                       )}
                     </td>
-                    <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap w-px sm:w-auto sm:px-3">
+                    <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap sm:w-auto sm:px-3">
                       <Amount cents={tx.amount} type={tx.type} />
                     </td>
                   </tr>
@@ -823,7 +819,7 @@ export function AccountsPage() {
                           <span className="text-sm text-secondary">{split.category_name ?? <span className="italic text-muted">Uncategorised</span>}</span>
                         </div>
                       </td>
-                      <td className="pl-2 pr-3 py-1.5 text-right whitespace-nowrap w-px sm:w-auto sm:px-3">
+                      <td className="pl-2 pr-3 py-1.5 text-right whitespace-nowrap sm:w-auto sm:px-3">
                         <span className={`text-sm font-mono ${split.amount < 0 ? 'text-danger' : 'text-accent'}`}>
                           {formatMoney(Math.abs(split.amount))}
                         </span>
