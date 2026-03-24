@@ -42,7 +42,8 @@ function GoalCard({ series }: { series: GoalSeries }) {
   const projectedEnd = series.projection.length > 0
     ? series.projection[series.projection.length - 1]
     : null
-  const reachedGoal = projectedEnd && projectedEnd.balance >= series.goalAmount
+  const goalAlreadyMet = series.currentBalance >= series.goalAmount
+  const projectionHitsGoal = projectedEnd && projectedEnd.balance >= series.goalAmount
   const progress = series.goalAmount > 0
     ? Math.min(100, Math.round(Math.max(0, series.currentBalance) / series.goalAmount * 100))
     : 0
@@ -56,15 +57,15 @@ function GoalCard({ series }: { series: GoalSeries }) {
             {formatMoney(series.currentBalance)} of {formatMoney(series.goalAmount)} goal &nbsp;·&nbsp; {progress}%
           </p>
         </div>
-        {series.projection.length > 0 && (
-          <div className="text-right shrink-0">
-            {reachedGoal ? (
-              <p className="text-sm text-accent">Goal reached {projectedEnd!.month}</p>
-            ) : (
-              <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
-            )}
-          </div>
-        )}
+        <div className="text-right shrink-0">
+          {goalAlreadyMet ? (
+            <p className="text-sm text-accent">Goal reached!</p>
+          ) : projectionHitsGoal ? (
+            <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
+          ) : projectedEnd ? (
+            <p className="text-sm text-muted">On track: {projectedEnd.month}</p>
+          ) : null}
+        </div>
       </div>
 
       {/* Progress bar */}
