@@ -109,7 +109,7 @@ export function InVsOutReport({ year }: Props) {
                 <td className={`py-1.5 pr-4 text-right tabular-nums font-medium hidden sm:table-cell ${net >= 0 ? 'text-accent' : 'text-danger'}`}>
                   {net < 0 ? '-' : ''}{formatMoney(Math.abs(net))}
                 </td>
-                <td className={`py-1.5 text-right tabular-nums hidden sm:table-cell ${savingsRate >= 0 ? 'text-secondary' : 'text-danger'}`}>
+                <td className={`py-1.5 text-right tabular-nums hidden sm:table-cell ${savingsRate >= 0 ? 'text-accent' : 'text-danger'}`}>
                   {savingsRate}%
                 </td>
               </tr>
@@ -124,7 +124,7 @@ export function InVsOutReport({ year }: Props) {
             <td className={`py-2 pr-4 text-right tabular-nums hidden sm:table-cell ${totalNet >= 0 ? 'text-accent' : 'text-danger'}`}>
               {totalNet < 0 ? '-' : ''}{formatMoney(Math.abs(totalNet))}
             </td>
-            <td className="py-2 text-right text-secondary tabular-nums hidden sm:table-cell">
+            <td className={`py-2 text-right tabular-nums hidden sm:table-cell ${totalNet >= 0 ? 'text-accent' : 'text-danger'}`}>
               {totalIncome > 0 ? Math.round((totalNet / totalIncome) * 100) : 0}%
             </td>
           </tr>
