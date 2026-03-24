@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { usersApi, User } from '../api/users'
@@ -87,6 +88,7 @@ function ChangePasswordModal({ user, onClose }: { user: User; onClose: () => voi
 export function SettingsPage() {
   const { user: currentUser } = useAuth()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [addOpen, setAddOpen] = useState(false)
   const [changePwUser, setChangePwUser] = useState<User | null>(null)
 
@@ -103,6 +105,15 @@ export function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-xl font-bold text-primary">Settings</h1>
+
+      {/* Audit Log */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Audit Log</h2>
+        <div className="card px-5 py-4 flex items-center justify-between">
+          <p className="text-sm text-secondary">View a full history of all changes made in Dosh.</p>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/audit')}>View Log</Button>
+        </div>
+      </section>
 
       {/* Users */}
       <section className="space-y-3">
