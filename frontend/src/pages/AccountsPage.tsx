@@ -527,7 +527,7 @@ export function AccountsPage() {
             )
           })}
           {/* Mobile: Net Worth footer */}
-          <div className="flex items-center justify-between px-4 py-2 sm:hidden">
+          <div className="flex items-center justify-between px-4 py-2 sm:hidden !border-t-0">
             <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
             <span className={`text-xs font-bold font-mono ${totalBalance < 0 ? 'text-danger' : 'text-accent'}`}>
               {formatMoney(totalBalance)}
@@ -677,7 +677,7 @@ export function AccountsPage() {
       )}
 
       {/* Transaction list */}
-      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none border-x-0 md:mx-0 md:rounded-xl md:border-x">
+      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0 md:rounded-xl md:border-x md:bg-surface">
         {txLoading ? (
           <div className="text-center py-12 text-secondary">Loading...</div>
         ) : transactions?.length === 0 ? (
