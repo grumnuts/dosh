@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -68,6 +68,91 @@ function defaultAction(): ActionRow {
   return { field: 'category', value: '' }
 }
 
+function CategoryCombobox({
+  value,
+  onChange,
+  categories,
+  budgetGroups,
+  emptyLabel = 'Uncategorised',
+}: {
+  value: string
+  onChange: (v: string) => void
+  categories: Array<{ id: number; group_id: number; name: string }>
+  budgetGroups: Array<{ id: number; name: string }>
+  emptyLabel?: string
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const selected = categories.find((c) => String(c.id) === value)
+
+  const filtered = query.trim()
+    ? categories.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
+    : categories
+
+  const grouped = budgetGroups
+    .map((g) => ({ group: g, cats: filtered.filter((c) => c.group_id === g.id) }))
+    .filter((g) => g.cats.length > 0)
+
+  const handleBlur = (e: React.FocusEvent) => {
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      setOpen(false)
+      setQuery('')
+    }
+  }
+
+  const select = (id: string) => {
+    onChange(id)
+    setOpen(false)
+    setQuery('')
+  }
+
+  return (
+    <div ref={containerRef} className="relative flex-1" onBlur={handleBlur}>
+      <input
+        type="text"
+        className="input-base text-sm w-full"
+        placeholder={emptyLabel}
+        value={open ? query : (selected?.name ?? '')}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+      />
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+          <button
+            type="button"
+            tabIndex={0}
+            className="w-full text-left px-3 py-1.5 text-sm text-muted hover:bg-surface-2"
+            onClick={() => select('')}
+          >
+            {emptyLabel}
+          </button>
+          {grouped.map(({ group, cats }) => (
+            <div key={group.id}>
+              <div className="px-3 py-1 text-xs text-muted uppercase tracking-wide bg-surface-2/60">{group.name}</div>
+              {cats.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  tabIndex={0}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-surface-2 ${String(c.id) === value ? 'text-accent' : 'text-primary'}`}
+                  onClick={() => select(String(c.id))}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          ))}
+          {grouped.length === 0 && (
+            <div className="px-3 py-2 text-sm text-muted">No categories found</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ConditionValueInput({
   field,
   value,
@@ -92,20 +177,7 @@ function ConditionValueInput({
     )
   }
   if (field === 'category') {
-    return (
-      <select className="input-base text-sm flex-1" value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Uncategorised</option>
-        {budgetGroups.map((g) => {
-          const cats = categories.filter((c) => c.group_id === g.id)
-          if (cats.length === 0) return null
-          return (
-            <optgroup key={g.id} label={g.name}>
-              {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-          )
-        })}
-      </select>
-    )
+    return <CategoryCombobox value={value} onChange={onChange} categories={categories} budgetGroups={budgetGroups} />
   }
   if (field === 'amount') {
     return (
@@ -165,20 +237,7 @@ function ActionValueInput({
     )
   }
   if (field === 'category') {
-    return (
-      <select className="input-base text-sm flex-1" value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Uncategorised</option>
-        {budgetGroups.map((g) => {
-          const cats = categories.filter((c) => c.group_id === g.id)
-          if (cats.length === 0) return null
-          return (
-            <optgroup key={g.id} label={g.name}>
-              {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-          )
-        })}
-      </select>
-    )
+    return <CategoryCombobox value={value} onChange={onChange} categories={categories} budgetGroups={budgetGroups} />
   }
   if (field === 'amount') {
     return (
