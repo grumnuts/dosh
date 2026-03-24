@@ -63,6 +63,11 @@ function GoalCard({ series }: { series: GoalSeries }) {
             ) : (
               <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
             )}
+            <p className="text-xs text-muted mt-0.5">
+              {series.goalMonthlyContribution
+                ? `Based on ${formatMoney(series.goalMonthlyContribution)}/mo budget`
+                : 'Based on last 3 months avg'}
+            </p>
           </div>
         )}
       </div>
@@ -96,7 +101,7 @@ function GoalCard({ series }: { series: GoalSeries }) {
             <Tooltip
               contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
               labelStyle={{ color: '#e5e7eb' }}
-              formatter={(value: number) => [formatMoney(Math.round(value * 100)), '']}
+              formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
             />
             <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
             <ReferenceLine

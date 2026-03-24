@@ -248,12 +248,12 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     const accounts = db
       .prepare(
-        `SELECT id, name, goal_amount,
+        `SELECT id, name, goal_amount, goal_monthly_contribution,
                 starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
          FROM accounts a
          WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1`,
       )
-      .all() as Array<{ id: number; name: string; goal_amount: number; current_balance: number }>
+      .all() as Array<{ id: number; name: string; goal_amount: number; goal_monthly_contribution: number | null; current_balance: number }>
 
     const result = accounts.map((account) => {
       // Monthly net changes
@@ -280,14 +280,18 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         history.push({ month: row.month, balance: running })
       }
 
-      // Project using average monthly delta over last 3 months
-      const last3 = history.slice(-3)
+      // Projection rate: use budgeted monthly contribution if set, otherwise avg of last 3 months
       let avgDelta = 0
-      if (last3.length >= 2) {
-        const totalDelta = last3[last3.length - 1].balance - last3[0].balance
-        avgDelta = totalDelta / (last3.length - 1)
-      } else if (last3.length === 1) {
-        avgDelta = last3[0].balance > 0 ? last3[0].balance / 12 : 0
+      if (account.goal_monthly_contribution != null && account.goal_monthly_contribution > 0) {
+        avgDelta = account.goal_monthly_contribution
+      } else {
+        const last3 = history.slice(-3)
+        if (last3.length >= 2) {
+          const totalDelta = last3[last3.length - 1].balance - last3[0].balance
+          avgDelta = totalDelta / (last3.length - 1)
+        } else if (last3.length === 1) {
+          avgDelta = last3[0].balance > 0 ? last3[0].balance / 12 : 0
+        }
       }
 
       const projection: Array<{ month: string; balance: number }> = []
@@ -311,6 +315,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       return {
         accountId: account.id,
         name: account.name,
+        goalMonthlyContribution: account.goal_monthly_contribution,
         goalAmount: account.goal_amount,
         currentBalance: account.current_balance,
         history,

@@ -118,7 +118,7 @@ export function PayeeReport({ year }: Props) {
                     <Tooltip
                       contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                       labelStyle={{ color: '#e5e7eb' }}
-                      formatter={(value: number) => [formatMoney(Math.round(value * 100)), '']}
+                      formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
                     />
                     <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
                     <Bar dataKey="income" name="Income" fill="#4ade80" radius={[3, 3, 0, 0]} />
