@@ -18,6 +18,7 @@ const updateAccountSchema = z.object({
   type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().max(500).optional().nullable(),
   sortOrder: z.number().int().optional(),
+  goalAmount: z.number().int().optional().nullable(),
 })
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
@@ -25,7 +26,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
     const accounts = db
       .prepare(
-        `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order,
+        `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order, a.goal_amount,
                 COALESCE(SUM(t.amount), 0) as transaction_total
          FROM accounts a
          LEFT JOIN transactions t ON t.account_id = a.id
@@ -40,6 +41,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       starting_balance: number
       notes: string | null
       sort_order: number
+      goal_amount: number | null
       transaction_total: number
     }>
 
@@ -51,6 +53,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
         currentBalance: a.starting_balance + a.transaction_total,
         notes: a.notes,
         sortOrder: a.sort_order,
+        goalAmount: a.goal_amount,
       })),
     )
   })
@@ -125,13 +128,14 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     if (!existing) return reply.code(404).send({ error: 'Account not found' })
 
     db.prepare(
-      `UPDATE accounts SET name = ?, type = ?, notes = ?, sort_order = COALESCE(?, sort_order), updated_at = ?
+      `UPDATE accounts SET name = ?, type = ?, notes = ?, sort_order = COALESCE(?, sort_order), goal_amount = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.name,
       body.data.type,
       body.data.notes ?? null,
       body.data.sortOrder ?? null,
+      body.data.goalAmount ?? null,
       new Date().toISOString(),
       id,
     )

@@ -97,6 +97,7 @@ const baseAccountSchema = z.object({
   name: z.string().min(1, 'Required'),
   type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().optional(),
+  goalAmount: z.string().optional(),
 })
 
 const createAccountSchema = baseAccountSchema.extend({
@@ -111,16 +112,19 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
   const isEdit = !!account
   const today = new Date().toISOString().slice(0, 10)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateAccountFormData>({
+  const { register, watch, handleSubmit, formState: { errors } } = useForm<CreateAccountFormData>({
     resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),
     defaultValues: {
       name: account?.name ?? '',
       type: account?.type ?? 'transactional',
       notes: account?.notes ?? '',
+      goalAmount: account?.goalAmount ? (account.goalAmount / 100).toFixed(2) : '',
       startingBalance: '0.00',
       startingBalanceDate: today,
     },
   })
+
+  const watchedType = watch('type')
 
   const mutation = useMutation({
     mutationFn: async (data: AccountInput | AccountCreateInput): Promise<{ id: number }> => {
@@ -146,14 +150,18 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
   })
 
   const onSubmit = (data: CreateAccountFormData) => {
+    const goalCents = data.type === 'savings' && data.goalAmount
+      ? Math.round(parseFloat(data.goalAmount) * 100) || null
+      : null
     if (isEdit) {
-      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null })
+      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents })
     } else {
       const balanceCents = Math.round(parseFloat(data.startingBalance || '0') * 100)
       mutation.mutate({
         name: data.name,
         type: data.type,
         notes: data.notes || null,
+        goalAmount: goalCents,
         startingBalance: balanceCents || undefined,
         startingBalanceDate: balanceCents ? data.startingBalanceDate : undefined,
       })
@@ -168,6 +176,17 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
         <option value="savings">Savings</option>
         <option value="debt">Debt</option>
       </Select>
+      {watchedType === 'savings' && (
+        <Input
+          label="Goal Amount ($)"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          {...register('goalAmount')}
+          hint="Target balance for this savings account"
+        />
+      )}
       {!isEdit && (
         <div className="grid grid-cols-2 gap-3">
           <Input
