@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { usersApi, User } from '../api/users'
+import { settingsApi } from '../api/settings'
 import { useAuth } from '../hooks/useAuth'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
-import { Input } from '../components/ui/Input'
+import { Input, Select } from '../components/ui/Input'
 
 function AddUserModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
@@ -89,6 +90,12 @@ export function SettingsPage() {
   const { user: currentUser } = useAuth()
   const qc = useQueryClient()
   const navigate = useNavigate()
+
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const updateSetting = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) => settingsApi.update(key, value),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  })
   const [addOpen, setAddOpen] = useState(false)
   const [changePwUser, setChangePwUser] = useState<User | null>(null)
 
@@ -105,6 +112,21 @@ export function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-xl font-bold text-primary">Settings</h1>
+
+      {/* General */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">General</h2>
+        <div className="card px-5 py-4">
+          <Select
+            label="First Day of Week"
+            value={settings?.week_start_day ?? '0'}
+            onChange={(e) => updateSetting.mutate({ key: 'week_start_day', value: e.target.value })}
+          >
+            <option value="0">Sunday (Default)</option>
+            <option value="1">Monday</option>
+          </Select>
+        </div>
+      </section>
 
       {/* Audit Log */}
       <section className="space-y-3">

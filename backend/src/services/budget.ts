@@ -1,6 +1,12 @@
 import { getDb } from '../db/client'
 import { getPeriodBoundaries, weeklyEquivalent, toDateString, getWeekStart } from '../utils/dates'
 
+function getWeekStartsOn(): 0 | 1 {
+  const db = getDb()
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('week_start_day') as { value: string } | undefined
+  return row?.value === '1' ? 1 : 0
+}
+
 interface RawCategory {
   id: number
   group_id: number
@@ -125,7 +131,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
     const builtCats: BudgetCategory[] = groupCats.map((cat) => {
       const { budgetedAmount, period } = getEffectiveBudget(cat.id, weekStart)
-      const bounds = getPeriodBoundaries(weekStart, period)
+      const bounds = getPeriodBoundaries(weekStart, period, getWeekStartsOn())
 
       const spentRow = db
         .prepare(
@@ -241,7 +247,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
  */
 export function getCategoryOverspendAmount(categoryId: number, weekStart: string): number {
   const { budgetedAmount, period } = getEffectiveBudget(categoryId, weekStart)
-  const bounds = getPeriodBoundaries(weekStart, period)
+  const bounds = getPeriodBoundaries(weekStart, period, getWeekStartsOn())
   const db = getDb()
 
   const spentRow = db
@@ -285,7 +291,7 @@ export function recordBudgetChange(
   userId: number,
 ): void {
   const db = getDb()
-  const weekStart = toDateString(getWeekStart(new Date()))
+  const weekStart = toDateString(getWeekStart(new Date(), getWeekStartsOn()))
   const now = new Date().toISOString()
 
   db.prepare(
