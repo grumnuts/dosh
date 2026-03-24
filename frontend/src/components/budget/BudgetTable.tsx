@@ -264,7 +264,7 @@ function GroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-surface-2">
+      <tr ref={rowRef} style={rowStyle} className="bg-transparent">
         <td className="px-2 py-2 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
@@ -495,7 +495,7 @@ function IncomeGroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-surface-2">
+      <tr ref={rowRef} style={rowStyle} className="bg-transparent">
         <td className="px-2 py-2 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
