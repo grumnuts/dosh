@@ -1,7 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DraggableAttributes,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
@@ -226,6 +242,88 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
   )
 }
 
+type SyntheticListenerMap = Record<string, (event: Event) => void>
+
+function GripHandle({ listeners, attributes }: { listeners?: SyntheticListenerMap; attributes?: DraggableAttributes }) {
+  return (
+    <div
+      {...attributes}
+      {...(listeners as React.HTMLAttributes<HTMLDivElement> | undefined)}
+      className="cursor-grab active:cursor-grabbing touch-none text-muted hover:text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 shrink-0"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+        <circle cx="5" cy="2.5" r="1.1" />
+        <circle cx="9" cy="2.5" r="1.1" />
+        <circle cx="5" cy="7" r="1.1" />
+        <circle cx="9" cy="7" r="1.1" />
+        <circle cx="5" cy="11.5" r="1.1" />
+        <circle cx="9" cy="11.5" r="1.1" />
+      </svg>
+    </div>
+  )
+}
+
+function SortableAccountRow({
+  account,
+  onEdit,
+  onReconcile,
+}: {
+  account: Account
+  onEdit: () => void
+  onReconcile: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 px-4 py-2.5 hover:bg-surface-2/50 cursor-pointer group border-b border-border last:border-0"
+      onClick={onEdit}
+    >
+      <div className="hidden md:flex">
+        <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-primary">{account.name}</span>
+        {account.notes && (
+          <span className="text-xs text-muted ml-2 truncate hidden sm:inline">{account.notes}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="text-right">
+          <div className={`text-sm font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+            {formatMoney(account.currentBalance)}
+          </div>
+          {account.goalAmount != null && (
+            <div className="text-xs text-muted">
+              {Math.min(Math.round(Math.max(account.currentBalance, 0) / account.goalAmount * 100), 100)}% of {formatMoney(account.goalAmount)}
+            </div>
+          )}
+        </div>
+        <button
+          title="Reconcile"
+          className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+          onClick={(e) => { e.stopPropagation(); onReconcile() }}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const ACCOUNT_GROUP_ORDER = ['transactional', 'savings', 'debt'] as const
+const ACCOUNT_GROUP_LABELS: Record<string, string> = {
+  transactional: 'Transactional',
+  savings: 'Savings',
+  debt: 'Debt',
+}
+
 export function AccountsPage() {
   const qc = useQueryClient()
 
@@ -236,6 +334,9 @@ export function AccountsPage() {
   // Account state
   const [accountModal, setAccountModal] = useState<{ open: boolean; account?: Account | null }>({ open: false })
   const [reconcileAccount, setReconcileAccount] = useState<Account | null>(null)
+  const [orderedAccounts, setOrderedAccounts] = useState<Account[]>([])
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   // Transaction state
   const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
@@ -252,6 +353,23 @@ export function AccountsPage() {
   const PAGE_SIZE = 100
 
   const { data: accounts, isLoading: accountsLoading } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
+
+  useEffect(() => { if (accounts) setOrderedAccounts(accounts) }, [accounts])
+
+  const handleAccountDragEnd = (type: string) => (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrderedAccounts((all) => {
+      const typed = all.filter((a) => a.type === type)
+      const rest = all.filter((a) => a.type !== type)
+      const oldIdx = typed.findIndex((a) => a.id === active.id)
+      const newIdx = typed.findIndex((a) => a.id === over.id)
+      const reordered = arrayMove(typed, oldIdx, newIdx)
+      accountsApi.reorder(reordered.map((a, i) => ({ id: a.id, sortOrder: i })))
+      return [...rest, ...reordered]
+    })
+  }
+
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
   const { data: txData, isLoading: txLoading } = useQuery({
@@ -360,68 +478,64 @@ export function AccountsPage() {
 
       {!accountsCollapsed && (
       <>
-      {/* Summary cards */}
-      <div className={`grid gap-3 ${hasDebt ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+      {/* Desktop summary cards */}
+      <div className={`hidden sm:grid gap-3 ${hasDebt ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         {[
           { label: 'Net Worth', value: totalBalance },
           { label: 'Transactional', value: transactionalTotal },
           { label: 'Savings', value: savingsTotal },
           ...(hasDebt ? [{ label: 'Debt', value: debtTotal }] : []),
         ].map(({ label, value }) => (
-          <div key={label} className="card p-3 sm:p-4">
+          <div key={label} className="card p-4">
             <div className="text-xs text-muted mb-1 truncate">{label}</div>
-            <div className={`text-sm sm:text-lg font-bold font-mono truncate ${value < 0 ? 'text-danger' : 'text-accent'}`}>
+            <div className={`text-lg font-bold font-mono truncate ${value < 0 ? 'text-danger' : 'text-accent'}`}>
               {formatMoney(value)}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Account list */}
+      {/* Account list grouped by type (mobile net worth card sits above groups with consistent spacing) */}
       {accountsLoading ? (
         <div className="text-center py-12 text-secondary">Loading...</div>
+      ) : orderedAccounts.length === 0 ? (
+        <div className="card px-5 py-12 text-center text-secondary">No accounts yet.</div>
       ) : (
-        <div className="card divide-y divide-border">
-          {accounts?.map((account) => (
-            <div
-              key={account.id}
-              className="flex items-center justify-between px-5 py-4 hover:bg-surface-2/50 cursor-pointer"
-              onClick={() => setAccountModal({ open: true, account })}
-            >
-              <div>
-                <div className="font-medium text-primary">{account.name}</div>
-                <div className="text-xs text-muted mt-0.5 capitalize">{account.type}</div>
-                {account.notes && (
-                  <div className="text-xs text-muted mt-0.5 truncate max-w-[250px]">{account.notes}</div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className={`font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
-                    {formatMoney(account.currentBalance)}
-                  </div>
-                  {account.goalAmount != null && (
-                    <div className="text-xs text-muted mt-0.5">
-                      Goal: {formatMoney(account.goalAmount)}
-                      {' · '}{Math.min(Math.round(Math.max(account.currentBalance, 0) / account.goalAmount * 100), 100)}%
-                    </div>
-                  )}
+        <div className="space-y-1.5">
+          {/* Mobile: Net Worth card */}
+          <div className="card flex items-center justify-between px-4 py-2 sm:hidden -mx-4 rounded-none border-x-0">
+            <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
+            <span className={`text-xs font-bold font-mono ${totalBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+              {formatMoney(totalBalance)}
+            </span>
+          </div>
+          {ACCOUNT_GROUP_ORDER.map((type) => {
+            const groupAccounts = orderedAccounts.filter((a) => a.type === type)
+            if (groupAccounts.length === 0) return null
+            const groupTotal = groupAccounts.reduce((sum, a) => sum + a.currentBalance, 0)
+            return (
+              <div key={type} className="card bg-transparent overflow-hidden -mx-4 rounded-none border-x-0 md:mx-0 md:rounded-xl md:border-x">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                  <span className="text-xs font-medium text-muted uppercase tracking-wide">{ACCOUNT_GROUP_LABELS[type]}</span>
+                  <span className={`text-xs font-bold font-mono ${groupTotal < 0 ? 'text-danger' : 'text-accent'}`}>
+                    {formatMoney(groupTotal)}
+                  </span>
                 </div>
-                <button
-                  title="Reconcile"
-                  className="p-1.5 rounded text-muted hover:text-primary transition-colors"
-                  onClick={(e) => { e.stopPropagation(); setReconcileAccount(account) }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAccountDragEnd(type)}>
+                  <SortableContext items={groupAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+                    {groupAccounts.map((account) => (
+                      <SortableAccountRow
+                        key={account.id}
+                        account={account}
+                        onEdit={() => setAccountModal({ open: true, account })}
+                        onReconcile={() => setReconcileAccount(account)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </div>
-            </div>
-          ))}
-          {accounts?.length === 0 && (
-            <div className="px-5 py-12 text-center text-secondary">No accounts yet.</div>
-          )}
+            )
+          })}
         </div>
       )}
 
@@ -579,10 +693,10 @@ export function AccountsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full text-sm md:table-fixed">
+          <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                  <th className="pl-3 pr-1 py-3 w-8">
+                  <th className="pl-3 pr-1 py-3 w-8 hidden sm:table-cell">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -625,7 +739,7 @@ export function AccountsPage() {
                       if (tx.type !== 'cover') setEditTx(tx)
                     }}
                   >
-                    <td className="pl-3 pr-1 py-2.5 w-px" onClick={(e) => e.stopPropagation()}>
+                    <td className="pl-3 pr-1 py-2.5 w-px hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(tx.id)}
@@ -634,7 +748,8 @@ export function AccountsPage() {
                       />
                     </td>
                     <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
-                      {format(parseISO(tx.date), 'dd/MM/yy')}
+                      <span className="sm:hidden">{format(parseISO(tx.date), 'dd/MM')}</span>
+                      <span className="hidden sm:inline">{format(parseISO(tx.date), 'dd/MM/yy')}</span>
                     </td>
                     <td className="px-2 py-2.5 sm:px-3 overflow-hidden">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
@@ -690,7 +805,7 @@ export function AccountsPage() {
                       className={`${i === tx.splits.length - 1 ? 'border-b border-border/50' : 'border-b border-border/20'} bg-surface-2/20 cursor-pointer hover:bg-surface-2/40`}
                       onClick={() => setEditTx(tx)}
                     >
-                      <td className="pl-3 pr-1 py-1.5 w-px" />
+                      <td className="pl-3 pr-1 py-1.5 w-px hidden sm:table-cell" />
                       <td className="pl-1 pr-1 py-1.5 w-px sm:w-auto sm:px-4" />
                       <td className="px-2 py-1.5 sm:px-3">
                         <div className="flex items-center gap-1.5 sm:hidden">
