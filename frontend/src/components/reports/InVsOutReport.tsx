@@ -11,6 +11,9 @@ import {
 } from 'recharts'
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+
+const DEFAULT_COL_WIDTHS = { month: 80, income: 110, expense: 110, net: 110, savingsRate: 110 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -19,6 +22,7 @@ interface Props {
 }
 
 export function InVsOutReport({ year }: Props) {
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:invsout-col-widths')
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'invsout', year],
     queryFn: () => reportsApi.invsout(year),
@@ -87,14 +91,14 @@ export function InVsOutReport({ year }: Props) {
       </div>
 
       {/* Table */}
-      <table className="w-full text-sm">
+      <table className="w-full text-sm md:table-fixed">
         <thead>
           <tr className="text-left border-b border-border">
-            <th className="pb-2 pr-4 text-secondary font-medium">Month</th>
-            <th className="pb-2 pr-4 text-right text-secondary font-medium">In</th>
-            <th className="pb-2 text-right text-secondary font-medium sm:pr-4">Out</th>
-            <th className="pb-2 pr-4 text-right text-secondary font-medium hidden sm:table-cell">Net</th>
-            <th className="pb-2 text-right text-secondary font-medium hidden sm:table-cell">Savings Rate</th>
+            <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.month }}>Month<ResizeHandle onMouseDown={(e) => onResizeStart('month', e)} /></th>
+            <th className="pb-2 pr-4 text-right text-secondary font-medium relative" style={{ width: widths.income }}>In<ResizeHandle onMouseDown={(e) => onResizeStart('income', e)} /></th>
+            <th className="pb-2 text-right text-secondary font-medium sm:pr-4 relative" style={{ width: widths.expense }}>Out<ResizeHandle onMouseDown={(e) => onResizeStart('expense', e)} /></th>
+            <th className="pb-2 pr-4 text-right text-secondary font-medium hidden sm:table-cell relative" style={{ width: widths.net }}>Net<ResizeHandle onMouseDown={(e) => onResizeStart('net', e)} /></th>
+            <th className="pb-2 text-right text-secondary font-medium hidden sm:table-cell relative" style={{ width: widths.savingsRate }}>Savings Rate<ResizeHandle onMouseDown={(e) => onResizeStart('savingsRate', e)} /></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">

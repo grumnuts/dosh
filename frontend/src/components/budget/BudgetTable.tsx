@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
@@ -594,7 +595,10 @@ function SortableIncomeGroupSection(props: Omit<IncomeGroupSectionProps, 'rowRef
 
 // ─── Main table ──────────────────────────────────────────────────────────────
 
+const BUDGET_DEFAULT_COL_WIDTHS = { category: 220, budgeted: 110, weekly: 100, spent: 100, balance: 100 }
+
 export function BudgetTable({ data, accounts }: BudgetTableProps) {
+  const { widths, onResizeStart } = useResizableCols(BUDGET_DEFAULT_COL_WIDTHS, 'dosh:budget-col-widths')
   const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string; isIncome: boolean } | null>(null)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
   const [addIncomeGroupOpen, setAddIncomeGroupOpen] = useState(false)
@@ -638,15 +642,15 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       {/* Expense table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm md:table-fixed">
             <thead>
               <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
                 <th className="px-2 py-3 hidden md:table-cell w-8" />
-                <th className="px-4 py-3 text-left font-medium">Category</th>
-                <th className="px-3 py-3 text-right font-medium hidden md:table-cell">Budgeted</th>
-                <th className="px-3 py-3 text-right font-medium hidden lg:table-cell">Weekly</th>
-                <th className="px-3 py-3 text-right font-medium hidden sm:table-cell">Spent</th>
-                <th className="px-3 py-3 text-right font-medium">Balance</th>
+                <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
                 <th className="px-2 py-3 sm:px-3 sm:w-20" />
               </tr>
             </thead>
@@ -692,15 +696,15 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       {/* Income table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm md:table-fixed">
             <thead>
               <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
                 <th className="px-2 py-3 hidden md:table-cell w-8" />
-                <th className="px-4 py-3 text-left font-medium">Income</th>
-                <th className="hidden md:table-cell" />
-                <th className="hidden lg:table-cell" />
-                <th className="px-3 py-3 text-right font-medium">Received</th>
-                <th />
+                <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Income<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                <th className="hidden md:table-cell" style={{ width: widths.budgeted }} />
+                <th className="hidden lg:table-cell" style={{ width: widths.weekly }} />
+                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.spent }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                <th style={{ width: widths.balance }} />
                 <th className="px-2 py-3 sm:px-3 sm:w-20" />
               </tr>
             </thead>

@@ -10,12 +10,16 @@ import {
 } from 'recharts'
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+
+const DEFAULT_COL_WIDTHS = { category: 160, group: 130, period: 80, budgeted: 95, spent: 95, over: 95 }
 
 interface Props {
   year: string
 }
 
 export function OverspendReport({ year }: Props) {
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:overspend-col-widths')
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'overspend', year],
     queryFn: () => reportsApi.overspend(year),
@@ -60,15 +64,15 @@ export function OverspendReport({ year }: Props) {
         </div>
       )}
 
-      <table className="w-full text-sm">
+      <table className="w-full text-sm md:table-fixed">
         <thead>
           <tr className="text-left border-b border-border">
-            <th className="pb-2 pr-2 text-secondary font-medium">Category</th>
-            <th className="pb-2 pr-2 text-secondary font-medium hidden sm:table-cell">Group</th>
-            <th className="pb-2 pr-2 text-secondary font-medium">Period</th>
-            <th className="pb-2 pr-2 text-right text-secondary font-medium">Budgeted</th>
-            <th className="pb-2 pr-2 text-right text-secondary font-medium">Spent</th>
-            <th className="pb-2 text-right text-secondary font-medium">Over</th>
+            <th className="pb-2 pr-2 text-secondary font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+            <th className="pb-2 pr-2 text-secondary font-medium hidden sm:table-cell relative" style={{ width: widths.group }}>Group<ResizeHandle onMouseDown={(e) => onResizeStart('group', e)} /></th>
+            <th className="pb-2 pr-2 text-secondary font-medium relative" style={{ width: widths.period }}>Period<ResizeHandle onMouseDown={(e) => onResizeStart('period', e)} /></th>
+            <th className="pb-2 pr-2 text-right text-secondary font-medium relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+            <th className="pb-2 pr-2 text-right text-secondary font-medium relative" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+            <th className="pb-2 text-right text-secondary font-medium relative" style={{ width: widths.over }}>Over<ResizeHandle onMouseDown={(e) => onResizeStart('over', e)} /></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">

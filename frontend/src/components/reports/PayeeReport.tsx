@@ -12,6 +12,9 @@ import {
 } from 'recharts'
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+
+const DEFAULT_COL_WIDTHS = { month: 80, income: 110, expense: 110, net: 110 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -20,6 +23,7 @@ interface Props {
 }
 
 export function PayeeReport({ year }: Props) {
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:payee-col-widths')
   const [search, setSearch] = useState('')
   const [selectedPayee, setSelectedPayee] = useState<string | null>(null)
 
@@ -127,13 +131,13 @@ export function PayeeReport({ year }: Props) {
                 </ResponsiveContainer>
               </div>
 
-              <table className="w-full text-sm">
+              <table className="w-full text-sm md:table-fixed">
                 <thead>
                   <tr className="text-left border-b border-border">
-                    <th className="pb-2 pr-4 text-secondary font-medium">Month</th>
-                    <th className="pb-2 pr-4 text-right text-secondary font-medium">Income</th>
-                    <th className="pb-2 pr-4 text-right text-secondary font-medium">Expense</th>
-                    <th className="pb-2 text-right text-secondary font-medium">Net</th>
+                    <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.month }}>Month<ResizeHandle onMouseDown={(e) => onResizeStart('month', e)} /></th>
+                    <th className="pb-2 pr-4 text-right text-secondary font-medium relative" style={{ width: widths.income }}>Income<ResizeHandle onMouseDown={(e) => onResizeStart('income', e)} /></th>
+                    <th className="pb-2 pr-4 text-right text-secondary font-medium relative" style={{ width: widths.expense }}>Expense<ResizeHandle onMouseDown={(e) => onResizeStart('expense', e)} /></th>
+                    <th className="pb-2 text-right text-secondary font-medium relative" style={{ width: widths.net }}>Net<ResizeHandle onMouseDown={(e) => onResizeStart('net', e)} /></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">

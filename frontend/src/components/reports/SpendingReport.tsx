@@ -13,6 +13,9 @@ import {
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Select } from '../ui/Input'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+
+const DEFAULT_COL_WIDTHS = { category: 176, m01: 64, m02: 64, m03: 64, m04: 64, m05: 64, m06: 64, m07: 64, m08: 64, m09: 64, m10: 64, m11: 64, m12: 64, total: 80 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -26,6 +29,7 @@ interface Props {
 }
 
 export function SpendingReport({ year }: Props) {
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:spending-col-widths')
   const defaultMonth = String(new Date().getMonth() + 1).padStart(2, '0')
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth)
 
@@ -143,14 +147,19 @@ export function SpendingReport({ year }: Props) {
 
       {/* Desktop: full 12-month table */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="min-w-[900px] w-full text-sm">
+        <table className="min-w-[900px] w-full text-sm md:table-fixed">
           <thead>
             <tr className="text-left border-b border-border">
-              <th className="pb-2 pr-4 text-secondary font-medium w-44">Category</th>
-              {MONTH_LABELS.map((m) => (
-                <th key={m} className="pb-2 px-1 text-right text-secondary font-medium w-16">{m}</th>
-              ))}
-              <th className="pb-2 pl-2 text-right text-secondary font-medium w-20">Total</th>
+              <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+              {MONTH_LABELS.map((m, i) => {
+                const key = `m${String(i + 1).padStart(2, '0')}` as keyof typeof widths
+                return (
+                  <th key={m} className="pb-2 px-1 text-right text-secondary font-medium relative" style={{ width: widths[key] }}>
+                    {m}<ResizeHandle onMouseDown={(e) => onResizeStart(key, e)} />
+                  </th>
+                )
+              })}
+              <th className="pb-2 pl-2 text-right text-secondary font-medium relative" style={{ width: widths.total }}>Total<ResizeHandle onMouseDown={(e) => onResizeStart('total', e)} /></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

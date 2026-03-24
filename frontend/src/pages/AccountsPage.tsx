@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState } from 'react'
 import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -16,60 +16,11 @@ import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
 import { BulkEditModal } from '../components/transactions/BulkEditModal'
 import { CategoryCombobox } from '../components/ui/CategoryCombobox'
+import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
 
-// ─── Resizable columns ───────────────────────────────────────────────────────
-
-const DEFAULT_COL_WIDTHS: Record<string, number> = {
+const DEFAULT_COL_WIDTHS = {
   date: 90, account: 150, payee: 180, description: 280, category: 190, amount: 110,
 }
-
-function useResizableCols() {
-  const [widths, setWidths] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('dosh:tx-col-widths')
-      return saved ? { ...DEFAULT_COL_WIDTHS, ...JSON.parse(saved) } : DEFAULT_COL_WIDTHS
-    } catch { return DEFAULT_COL_WIDTHS }
-  })
-  const widthsRef = useRef(widths)
-  widthsRef.current = widths
-
-  const onResizeStart = useCallback((col: string, e: React.MouseEvent) => {
-    e.preventDefault()
-    const startX = e.clientX
-    const startWidth = widthsRef.current[col]
-    const onMove = (ev: MouseEvent) => {
-      setWidths((prev) => {
-        const next = { ...prev, [col]: Math.max(60, startWidth + ev.clientX - startX) }
-        try { localStorage.setItem('dosh:tx-col-widths', JSON.stringify(next)) } catch { /* ignore */ }
-        return next
-      })
-    }
-    const onUp = () => {
-      document.body.style.userSelect = ''
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    document.body.style.userSelect = 'none'
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [])
-
-  return { widths, onResizeStart }
-}
-
-// Resize handle rendered at right edge of each <th>
-function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
-  return (
-    <div
-      className="absolute top-0 right-0 bottom-0 w-3 cursor-col-resize hidden md:flex items-center justify-center select-none group/rh z-10"
-      onMouseDown={onMouseDown}
-    >
-      <div className="w-px h-3.5 bg-border/60 group-hover/rh:bg-accent/60 transition-colors" />
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const qc = useQueryClient()
@@ -373,7 +324,7 @@ export function AccountsPage() {
     })
   }
 
-  const { widths, onResizeStart } = useResizableCols()
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:tx-col-widths')
 
   const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
@@ -390,7 +341,7 @@ export function AccountsPage() {
   const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
 
   return (
-    <div className="px-4 py-6 space-y-3 md:px-6">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-3 md:px-6">
       {/* Accounts header */}
       <div className="flex items-center justify-between">
         <button

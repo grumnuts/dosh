@@ -11,6 +11,9 @@ import {
 } from 'recharts'
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
+import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+
+const DEFAULT_COL_WIDTHS = { account: 200, type: 100, balance: 150 }
 
 const ACCOUNT_COLOURS = [
   '#60a5fa', '#a78bfa', '#fb923c', '#34d399', '#f472b6',
@@ -22,6 +25,7 @@ interface Props {
 }
 
 export function NetWorthReport({ section }: Props = {}) {
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:networth-col-widths')
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'networth'],
     queryFn: reportsApi.networth,
@@ -120,36 +124,34 @@ export function NetWorthReport({ section }: Props = {}) {
             </ResponsiveContainer>
           </div>
         )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b border-border">
-                <th className="pb-2 pr-4 text-secondary font-medium">Account</th>
-                <th className="pb-2 pr-4 text-secondary font-medium">Type</th>
-                <th className="pb-2 text-right text-secondary font-medium">Current Balance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {accountCurrentBalances.map((a) => (
-                <tr key={a.id} className="hover:bg-surface-2">
-                  <td className="py-1.5 pr-4 text-primary">{a.name}</td>
-                  <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
-                  <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
-                    {formatMoney(a.currentBalance)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-border font-semibold">
-                <td colSpan={2} className="py-2 text-secondary">Net Worth</td>
-                <td className={`py-2 text-right tabular-nums ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {formatMoney(latestNetWorth)}
+        <table className="w-full text-sm md:table-fixed">
+          <thead>
+            <tr className="text-left border-b border-border">
+              <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.account }}>Account<ResizeHandle onMouseDown={(e) => onResizeStart('account', e)} /></th>
+              <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.type }}>Type<ResizeHandle onMouseDown={(e) => onResizeStart('type', e)} /></th>
+              <th className="pb-2 text-right text-secondary font-medium relative" style={{ width: widths.balance }}>Current Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {accountCurrentBalances.map((a) => (
+              <tr key={a.id} className="hover:bg-surface-2">
+                <td className="py-1.5 pr-4 text-primary">{a.name}</td>
+                <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
+                <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
+                  {formatMoney(a.currentBalance)}
                 </td>
               </tr>
-            </tfoot>
-          </table>
-        </div>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-border font-semibold">
+              <td colSpan={2} className="py-2 text-secondary">Net Worth</td>
+              <td className={`py-2 text-right tabular-nums ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
+                {formatMoney(latestNetWorth)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     )
   }
@@ -259,36 +261,34 @@ export function NetWorthReport({ section }: Props = {}) {
       )}
 
       {/* Current balances table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b border-border">
-              <th className="pb-2 pr-4 text-secondary font-medium">Account</th>
-              <th className="pb-2 pr-4 text-secondary font-medium">Type</th>
-              <th className="pb-2 text-right text-secondary font-medium">Current Balance</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {accountCurrentBalances.map((a) => (
-              <tr key={a.id} className="hover:bg-surface-2">
-                <td className="py-1.5 pr-4 text-primary">{a.name}</td>
-                <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
-                <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
-                  {formatMoney(a.currentBalance)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-border font-semibold">
-              <td colSpan={2} className="py-2 text-secondary">Net Worth</td>
-              <td className={`py-2 text-right tabular-nums ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {formatMoney(latestNetWorth)}
+      <table className="w-full text-sm md:table-fixed">
+        <thead>
+          <tr className="text-left border-b border-border">
+            <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.account }}>Account<ResizeHandle onMouseDown={(e) => onResizeStart('account', e)} /></th>
+            <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.type }}>Type<ResizeHandle onMouseDown={(e) => onResizeStart('type', e)} /></th>
+            <th className="pb-2 text-right text-secondary font-medium relative" style={{ width: widths.balance }}>Current Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {accountCurrentBalances.map((a) => (
+            <tr key={a.id} className="hover:bg-surface-2">
+              <td className="py-1.5 pr-4 text-primary">{a.name}</td>
+              <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
+              <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
+                {formatMoney(a.currentBalance)}
               </td>
             </tr>
-          </tfoot>
-        </table>
-      </div>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border font-semibold">
+            <td colSpan={2} className="py-2 text-secondary">Net Worth</td>
+            <td className={`py-2 text-right tabular-nums ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
+              {formatMoney(latestNetWorth)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   )
 }

@@ -100,6 +100,25 @@ Dosh supports importing bank statements in CSV format. The import wizard lets yo
 
 After importing, assign categories to transactions from the Accounts page.
 
+### Reports
+
+The **Reports** section provides financial insights across four tabs:
+
+- **Cashflow** — spending by category (stacked bar chart + table), income vs expenses by month, net worth trend, and current account balances
+- **Overspend** — categories and months where spending exceeded the budgeted amount, with budgeted vs spent comparison
+- **Payees** — income and expense totals per payee per month, with a searchable payee list and per-payee bar chart
+- **Goals** — savings account balance history with a projected line to the goal amount based on recent monthly trends
+
+A year selector filters the Cashflow, Overspend, and Payee reports. The Goals tab always shows current data.
+
+### Drag-to-Reorder Budget
+
+On desktop, budget groups and categories can be reordered by dragging the grip handle on the left of each row. Order is persisted and reflected everywhere groups and categories appear.
+
+### Resizable Table Columns
+
+On desktop, any column in any table can be resized by dragging the right edge of its column header. Widths are saved per table in the browser and restored on next visit.
+
 ### Covering Overspend
 
 When a category is overspent:
