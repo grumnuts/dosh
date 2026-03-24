@@ -8,7 +8,6 @@ export interface Account {
   notes: string | null
   sortOrder: number
   goalAmount: number | null
-  goalMonthlyContribution: number | null
 }
 
 export interface AccountInput {
@@ -17,7 +16,6 @@ export interface AccountInput {
   notes?: string | null
   sortOrder?: number
   goalAmount?: number | null
-  goalMonthlyContribution?: number | null
 }
 
 export interface AccountCreateInput extends AccountInput {

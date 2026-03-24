@@ -63,11 +63,6 @@ function GoalCard({ series }: { series: GoalSeries }) {
             ) : (
               <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
             )}
-            <p className="text-xs text-muted mt-0.5">
-              {series.goalMonthlyContribution
-                ? `Based on ${formatMoney(series.goalMonthlyContribution)}/mo budget`
-                : 'Based on last 3 months avg'}
-            </p>
           </div>
         )}
       </div>

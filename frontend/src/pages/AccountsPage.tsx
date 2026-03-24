@@ -98,7 +98,6 @@ const baseAccountSchema = z.object({
   type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().optional(),
   goalAmount: z.string().optional(),
-  goalMonthlyContribution: z.string().optional(),
 })
 
 const createAccountSchema = baseAccountSchema.extend({
@@ -120,7 +119,6 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       type: account?.type ?? 'transactional',
       notes: account?.notes ?? '',
       goalAmount: account?.goalAmount ? (account.goalAmount / 100).toFixed(2) : '',
-      goalMonthlyContribution: account?.goalMonthlyContribution ? (account.goalMonthlyContribution / 100).toFixed(2) : '',
       startingBalance: '0.00',
       startingBalanceDate: today,
     },
@@ -155,11 +153,8 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     const goalCents = data.type === 'savings' && data.goalAmount
       ? Math.round(parseFloat(data.goalAmount) * 100) || null
       : null
-    const contributionCents = data.type === 'savings' && data.goalMonthlyContribution
-      ? Math.round(parseFloat(data.goalMonthlyContribution) * 100) || null
-      : null
     if (isEdit) {
-      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents, goalMonthlyContribution: contributionCents })
+      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents })
     } else {
       const balanceCents = Math.round(parseFloat(data.startingBalance || '0') * 100)
       mutation.mutate({
@@ -167,7 +162,6 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
         type: data.type,
         notes: data.notes || null,
         goalAmount: goalCents,
-        goalMonthlyContribution: contributionCents,
         startingBalance: balanceCents || undefined,
         startingBalanceDate: balanceCents ? data.startingBalanceDate : undefined,
       })
@@ -183,26 +177,15 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
         <option value="debt">Debt</option>
       </Select>
       {watchedType === 'savings' && (
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Goal Amount ($)"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            {...register('goalAmount')}
-            hint="Target balance"
-          />
-          <Input
-            label="Monthly Contribution ($)"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            {...register('goalMonthlyContribution')}
-            hint="Used for goal projection"
-          />
-        </div>
+        <Input
+          label="Goal Amount ($)"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          {...register('goalAmount')}
+          hint="Target balance for this savings account"
+        />
       )}
       {!isEdit && (
         <div className="grid grid-cols-2 gap-3">

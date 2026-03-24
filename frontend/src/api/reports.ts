@@ -37,7 +37,6 @@ export interface GoalSeries {
   accountId: number
   name: string
   goalAmount: number
-  goalMonthlyContribution: number | null
   currentBalance: number
   history: GoalPoint[]
   projection: GoalPoint[]
