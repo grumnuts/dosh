@@ -26,7 +26,6 @@ interface Props {
 }
 
 export function SpendingReport({ year }: Props) {
-  const currentYear = new Date().getFullYear().toString()
   const defaultMonth = String(new Date().getMonth() + 1).padStart(2, '0')
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth)
 
@@ -101,43 +100,95 @@ export function SpendingReport({ year }: Props) {
         </ResponsiveContainer>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-secondary">Breakdown</p>
-        <div className="w-28">
-          <Select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
-            {MONTH_LABELS.map((label, i) => (
-              <option key={i} value={String(i + 1).padStart(2, '0')}>{label} {year !== currentYear ? year : ''}</option>
-            ))}
-          </Select>
+      {/* Mobile: month selector + single-month breakdown */}
+      <div className="sm:hidden space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-secondary">Breakdown</p>
+          <div className="w-28">
+            <Select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
+              {MONTH_LABELS.map((label, i) => (
+                <option key={i} value={String(i + 1).padStart(2, '0')}>{label}</option>
+              ))}
+            </Select>
+          </div>
         </div>
+
+        {hasDataForSelectedMonth ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left border-b border-border">
+                <th className="pb-2 pr-4 text-secondary font-medium">Category</th>
+                <th className="pb-2 text-right text-secondary font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredRows.map((r) => (
+                <tr key={`${r.group}::${r.category}`} className="hover:bg-surface-2">
+                  <td className="py-1.5 pr-4 text-primary">{r.category}</td>
+                  <td className="py-1.5 text-right text-secondary tabular-nums">{formatMoney(r.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-border font-semibold">
+                <td className="py-2 text-primary">Total</td>
+                <td className="py-2 text-right text-accent tabular-nums">{formatMoney(monthTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        ) : (
+          <p className="py-6 text-center text-secondary text-sm">No spending in {MONTH_LABELS[monthIdx]}.</p>
+        )}
       </div>
 
-      {hasDataForSelectedMonth ? (
-        <table className="w-full text-sm">
+      {/* Desktop: full 12-month table */}
+      <div className="hidden sm:block overflow-x-auto">
+        <table className="min-w-[900px] w-full text-sm">
           <thead>
             <tr className="text-left border-b border-border">
-              <th className="pb-2 pr-4 text-secondary font-medium">Category</th>
-              <th className="pb-2 text-right text-secondary font-medium">Amount</th>
+              <th className="pb-2 pr-4 text-secondary font-medium w-44">Category</th>
+              {MONTH_LABELS.map((m) => (
+                <th key={m} className="pb-2 px-1 text-right text-secondary font-medium w-16">{m}</th>
+              ))}
+              <th className="pb-2 pl-2 text-right text-secondary font-medium w-20">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filteredRows.map((r) => (
-              <tr key={`${r.group}::${r.category}`} className="hover:bg-surface-2">
-                <td className="py-1.5 pr-4 text-primary">{r.category}</td>
-                <td className="py-1.5 text-right text-secondary tabular-nums">{formatMoney(r.amount)}</td>
-              </tr>
-            ))}
+            {Array.from(catMap.values())
+              .sort((a, b) => a.group !== b.group ? a.group.localeCompare(b.group) : a.category.localeCompare(b.category))
+              .map((r) => {
+                const total = r.months.reduce((s, v) => s + v, 0)
+                return (
+                  <tr key={`${r.group}::${r.category}`} className="hover:bg-surface-2">
+                    <td className="py-1.5 pr-4 text-primary truncate max-w-[176px]">{r.category}</td>
+                    {r.months.map((v, i) => (
+                      <td key={i} className="py-1.5 px-1 text-right text-secondary tabular-nums">
+                        {v > 0 ? formatMoney(v) : <span className="text-muted">–</span>}
+                      </td>
+                    ))}
+                    <td className="py-1.5 pl-2 text-right font-medium text-primary tabular-nums">{formatMoney(total)}</td>
+                  </tr>
+                )
+              })}
           </tbody>
           <tfoot>
             <tr className="border-t border-border font-semibold">
-              <td className="py-2 text-primary">Total</td>
-              <td className="py-2 text-right text-accent tabular-nums">{formatMoney(monthTotal)}</td>
+              <td className="py-2 pr-4 text-primary">Total</td>
+              {Array(12).fill(0).map((_, i) => {
+                const total = Array.from(catMap.values()).reduce((s, r) => s + r.months[i], 0)
+                return (
+                  <td key={i} className="py-2 px-1 text-right text-primary tabular-nums">
+                    {total > 0 ? formatMoney(total) : <span className="text-muted">–</span>}
+                  </td>
+                )
+              })}
+              <td className="py-2 pl-2 text-right text-accent tabular-nums">
+                {formatMoney(Array.from(catMap.values()).reduce((s, r) => s + r.months.reduce((a, v) => a + v, 0), 0))}
+              </td>
             </tr>
           </tfoot>
         </table>
-      ) : (
-        <p className="py-6 text-center text-secondary text-sm">No spending in {MONTH_LABELS[monthIdx]}.</p>
-      )}
+      </div>
     </div>
   )
 }

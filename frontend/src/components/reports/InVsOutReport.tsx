@@ -47,15 +47,15 @@ export function InVsOutReport({ year }: Props) {
       <div className="grid grid-cols-3 gap-3">
         <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Total In</p>
-          <p className="text-sm font-bold text-accent tabular-nums mt-0.5 break-all">{formatMoney(totalIncome)}</p>
+          <p className="text-sm sm:text-lg font-bold text-accent tabular-nums mt-0.5">{formatMoney(totalIncome)}</p>
         </div>
         <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Total Out</p>
-          <p className="text-sm font-bold text-danger tabular-nums mt-0.5 break-all">{formatMoney(totalExpense)}</p>
+          <p className="text-sm sm:text-lg font-bold text-danger tabular-nums mt-0.5">{formatMoney(totalExpense)}</p>
         </div>
         <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Net</p>
-          <p className={`text-sm font-bold tabular-nums mt-0.5 break-all ${totalNet >= 0 ? 'text-accent' : 'text-danger'}`}>
+          <p className={`text-sm sm:text-lg font-bold tabular-nums mt-0.5 ${totalNet >= 0 ? 'text-accent' : 'text-danger'}`}>
             {totalNet < 0 ? '-' : ''}{formatMoney(Math.abs(totalNet))}
           </p>
         </div>
@@ -90,25 +90,43 @@ export function InVsOutReport({ year }: Props) {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left border-b border-border">
-            <th className="pb-2 text-secondary font-medium">Month</th>
-            <th className="pb-2 text-right text-secondary font-medium">In</th>
-            <th className="pb-2 text-right text-secondary font-medium">Out</th>
+            <th className="pb-2 pr-4 text-secondary font-medium">Month</th>
+            <th className="pb-2 pr-4 text-right text-secondary font-medium">In</th>
+            <th className="pb-2 text-right text-secondary font-medium sm:pr-4">Out</th>
+            <th className="pb-2 pr-4 text-right text-secondary font-medium hidden sm:table-cell">Net</th>
+            <th className="pb-2 text-right text-secondary font-medium hidden sm:table-cell">Savings Rate</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {data.map((row) => (
-            <tr key={row.month} className="hover:bg-surface-2">
-              <td className="py-1.5 pr-4 text-secondary">{MONTH_LABELS[parseInt(row.month, 10) - 1]}</td>
-              <td className="py-1.5 pr-2 text-right text-accent tabular-nums">{formatMoney(row.income_cents)}</td>
-              <td className="py-1.5 text-right text-danger tabular-nums">{formatMoney(row.expense_cents)}</td>
-            </tr>
-          ))}
+          {data.map((row) => {
+            const net = row.income_cents - row.expense_cents
+            const savingsRate = row.income_cents > 0 ? Math.round((net / row.income_cents) * 100) : 0
+            return (
+              <tr key={row.month} className="hover:bg-surface-2">
+                <td className="py-1.5 pr-4 text-secondary">{MONTH_LABELS[parseInt(row.month, 10) - 1]}</td>
+                <td className="py-1.5 pr-4 text-right text-accent tabular-nums">{formatMoney(row.income_cents)}</td>
+                <td className="py-1.5 text-right text-danger tabular-nums sm:pr-4">{formatMoney(row.expense_cents)}</td>
+                <td className={`py-1.5 pr-4 text-right tabular-nums font-medium hidden sm:table-cell ${net >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {net < 0 ? '-' : ''}{formatMoney(Math.abs(net))}
+                </td>
+                <td className={`py-1.5 text-right tabular-nums hidden sm:table-cell ${savingsRate >= 0 ? 'text-secondary' : 'text-danger'}`}>
+                  {savingsRate}%
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
         <tfoot>
           <tr className="border-t border-border font-semibold">
-            <td className="py-2 text-primary">Total</td>
-            <td className="py-2 pr-2 text-right text-accent tabular-nums">{formatMoney(totalIncome)}</td>
-            <td className="py-2 text-right text-danger tabular-nums">{formatMoney(totalExpense)}</td>
+            <td className="py-2 pr-4 text-primary">Total</td>
+            <td className="py-2 pr-4 text-right text-accent tabular-nums">{formatMoney(totalIncome)}</td>
+            <td className="py-2 text-right text-danger tabular-nums sm:pr-4">{formatMoney(totalExpense)}</td>
+            <td className={`py-2 pr-4 text-right tabular-nums hidden sm:table-cell ${totalNet >= 0 ? 'text-accent' : 'text-danger'}`}>
+              {totalNet < 0 ? '-' : ''}{formatMoney(Math.abs(totalNet))}
+            </td>
+            <td className="py-2 text-right text-secondary tabular-nums hidden sm:table-cell">
+              {totalIncome > 0 ? Math.round((totalNet / totalIncome) * 100) : 0}%
+            </td>
           </tr>
         </tfoot>
       </table>
