@@ -322,4 +322,78 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send(result)
   })
+
+  // GET /api/reports/invsout?year=YYYY — total income vs expenses by month
+  app.get('/api/reports/invsout', { preHandler: authenticate }, async (request, reply) => {
+    const query = yearSchema.safeParse(request.query)
+    if (!query.success) return reply.code(400).send({ error: 'Invalid year' })
+    const { year } = query.data
+    const db = getDb()
+
+    const rows = db
+      .prepare(
+        `SELECT strftime('%m', t.date) AS month,
+                SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
+                SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
+         FROM transactions t
+         LEFT JOIN budget_categories bc ON bc.id = t.category_id
+         WHERE t.type = 'transaction'
+           AND strftime('%Y', t.date) = ?
+           AND (bc.is_system = 0 OR bc.id IS NULL)
+         GROUP BY month
+         ORDER BY month`,
+      )
+      .all(year) as Array<{ month: string; income_cents: number; expense_cents: number }>
+
+    return reply.send(rows)
+  })
+
+  // GET /api/reports/networth — all-time monthly account balances and net worth
+  app.get('/api/reports/networth', { preHandler: authenticate }, async (_req, reply) => {
+    const db = getDb()
+
+    const accounts = db
+      .prepare(
+        `SELECT id, name, type, starting_balance FROM accounts WHERE is_active = 1 ORDER BY sort_order, name`,
+      )
+      .all() as Array<{ id: number; name: string; type: string; starting_balance: number }>
+
+    const accountHistories = accounts.map((account) => {
+      const monthlyChanges = db
+        .prepare(
+          `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
+           FROM transactions
+           WHERE account_id = ?
+           GROUP BY month
+           ORDER BY month`,
+        )
+        .all(account.id) as Array<{ month: string; net_change: number }>
+
+      let running = account.starting_balance
+      const history: Array<{ month: string; balance: number }> = []
+      for (const row of monthlyChanges) {
+        running += row.net_change
+        history.push({ month: row.month, balance: running })
+      }
+
+      return { id: account.id, name: account.name, type: account.type, history }
+    })
+
+    // Collect all distinct months across all accounts
+    const allMonths = Array.from(
+      new Set(accountHistories.flatMap((a) => a.history.map((h) => h.month))),
+    ).sort()
+
+    // Net worth per month: sum latest known balance for each account
+    const netWorth = allMonths.map((month) => {
+      const total = accountHistories.reduce((sum, account) => {
+        // Use the most recent balance at or before this month
+        const point = [...account.history].reverse().find((h) => h.month <= month)
+        return sum + (point ? point.balance : account.history.length === 0 ? 0 : 0)
+      }, 0)
+      return { month, balance: total }
+    })
+
+    return reply.send({ accounts: accountHistories, netWorth })
+  })
 }
