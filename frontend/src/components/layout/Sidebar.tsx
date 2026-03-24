@@ -8,10 +8,7 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col w-56 bg-surface border-r border-border h-screen sticky top-0 shrink-0">
       {/* Logo */}
       <div className="px-5 py-4 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <img src="/DoshLogo.png" alt="Dosh" className="h-10 w-auto" />
-          <span className="text-xl font-bold tracking-tight text-primary">Dosh</span>
-        </div>
+        <img src="/DoshLogoFull.png" alt="Dosh" className="h-10 w-auto" />
       </div>
 
       {/* Nav */}
