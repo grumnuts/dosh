@@ -214,6 +214,7 @@ function CategoryCombobox({
 
 function ConditionValueInput({
   field,
+  operator,
   value,
   onChange,
   accounts,
@@ -222,6 +223,7 @@ function ConditionValueInput({
   payees,
 }: {
   field: ConditionField
+  operator: Operator
   value: string
   onChange: (v: string) => void
   accounts: Account[]
@@ -229,7 +231,7 @@ function ConditionValueInput({
   budgetGroups: Array<{ id: number; name: string }>
   payees: Payee[]
 }) {
-  if (field === 'payee') {
+  if (field === 'payee' && (operator === 'is' || operator === 'is_not')) {
     return <PayeeCombobox value={value} onChange={onChange} payees={payees} />
   }
   if (field === 'account') {
@@ -486,6 +488,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
               </select>
               <ConditionValueInput
                 field={cond.field}
+                operator={cond.operator}
                 value={cond.value}
                 onChange={(v) => updateCondition(i, { value: v })}
                 accounts={accounts}
