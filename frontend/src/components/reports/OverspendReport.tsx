@@ -60,40 +60,39 @@ export function OverspendReport({ year }: Props) {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-[600px] w-full text-sm">
-          <thead>
-            <tr className="text-left border-b border-border">
-              <th className="pb-2 pr-4 text-secondary font-medium">Category</th>
-              <th className="pb-2 pr-4 text-secondary font-medium">Group</th>
-              <th className="pb-2 pr-4 text-secondary font-medium">Period</th>
-              <th className="pb-2 pr-2 text-right text-secondary font-medium">Budgeted</th>
-              <th className="pb-2 pr-2 text-right text-secondary font-medium">Spent</th>
-              <th className="pb-2 text-right text-secondary font-medium">Overspend</th>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left border-b border-border">
+            <th className="pb-2 pr-2 text-secondary font-medium">Category</th>
+            <th className="pb-2 pr-2 text-secondary font-medium hidden sm:table-cell">Group</th>
+            <th className="pb-2 pr-2 text-secondary font-medium">Period</th>
+            <th className="pb-2 pr-2 text-right text-secondary font-medium">Budgeted</th>
+            <th className="pb-2 pr-2 text-right text-secondary font-medium">Spent</th>
+            <th className="pb-2 text-right text-secondary font-medium">Over</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {data.map((row, i) => (
+            <tr key={i} className="hover:bg-surface-2">
+              <td className="py-1.5 pr-2 text-primary">{row.category}</td>
+              <td className="py-1.5 pr-2 text-secondary hidden sm:table-cell">{row.group_name}</td>
+              <td className="py-1.5 pr-2 text-secondary">{row.period_label}</td>
+              <td className="py-1.5 pr-2 text-right text-secondary tabular-nums">{formatMoney(row.budgeted_cents)}</td>
+              <td className="py-1.5 pr-2 text-right text-secondary tabular-nums">{formatMoney(row.spent_cents)}</td>
+              <td className="py-1.5 text-right text-danger font-medium tabular-nums">{formatMoney(row.overspend_cents)}</td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {data.map((row, i) => (
-              <tr key={i} className="hover:bg-surface-2">
-                <td className="py-1.5 pr-4 text-primary">{row.category}</td>
-                <td className="py-1.5 pr-4 text-secondary">{row.group_name}</td>
-                <td className="py-1.5 pr-4 text-secondary">{row.period_label}</td>
-                <td className="py-1.5 pr-2 text-right text-secondary tabular-nums">{formatMoney(row.budgeted_cents)}</td>
-                <td className="py-1.5 pr-2 text-right text-secondary tabular-nums">{formatMoney(row.spent_cents)}</td>
-                <td className="py-1.5 text-right text-danger font-medium tabular-nums">{formatMoney(row.overspend_cents)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-border font-semibold">
-              <td colSpan={5} className="py-2 pr-2 text-right text-secondary">Total overspend</td>
-              <td className="py-2 text-right text-danger tabular-nums">
-                {formatMoney(data.reduce((s, r) => s + r.overspend_cents, 0))}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border font-semibold">
+            <td colSpan={4} className="py-2 pr-2 text-right text-secondary sm:hidden">Total</td>
+            <td colSpan={5} className="py-2 pr-2 text-right text-secondary hidden sm:table-cell">Total overspend</td>
+            <td className="py-2 text-right text-danger tabular-nums">
+              {formatMoney(data.reduce((s, r) => s + r.overspend_cents, 0))}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   )
 }

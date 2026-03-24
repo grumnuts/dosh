@@ -65,7 +65,7 @@ export function NetWorthReport({ section }: Props = {}) {
         <div className="grid grid-cols-3 gap-3">
           <div className="card px-3 py-3">
             <p className="text-xs text-secondary uppercase tracking-wide font-medium">Net Worth</p>
-            <p className={`text-sm font-bold tabular-nums mt-0.5 break-all ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
+            <p className={`text-xs font-bold tabular-nums mt-1 leading-snug ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
               {formatMoney(latestNetWorth)}
             </p>
           </div>
@@ -158,7 +158,7 @@ export function NetWorthReport({ section }: Props = {}) {
       <div className="grid grid-cols-3 gap-3">
         <div className="card px-3 py-3">
           <p className="text-xs text-secondary uppercase tracking-wide font-medium">Net Worth</p>
-          <p className={`text-sm font-bold tabular-nums mt-0.5 break-all ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
+          <p className={`text-xs font-bold tabular-nums mt-1 leading-snug ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
             {formatMoney(latestNetWorth)}
           </p>
         </div>
