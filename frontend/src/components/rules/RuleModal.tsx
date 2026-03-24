@@ -14,6 +14,7 @@ import {
   type ConditionLogic,
 } from '../../api/rules'
 import { accountsApi, type Account } from '../../api/accounts'
+import { payeesApi, type Payee } from '../../api/payees'
 import { budgetApi } from '../../api/budget'
 
 interface Props {
@@ -66,6 +67,64 @@ function defaultCondition(): ConditionRow {
 
 function defaultAction(): ActionRow {
   return { field: 'category', value: '' }
+}
+
+function PayeeCombobox({
+  value,
+  onChange,
+  payees,
+}: {
+  value: string
+  onChange: (v: string) => void
+  payees: Payee[]
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const filtered = value.trim()
+    ? payees.filter((p) => p.name.toLowerCase().includes(value.toLowerCase()))
+    : payees
+
+  const exactMatch = payees.some((p) => p.name.toLowerCase() === value.trim().toLowerCase())
+  const showAdd = value.trim() && !exactMatch
+
+  return (
+    <div ref={containerRef} className="relative flex-1">
+      <input
+        type="text"
+        className="input-base text-sm w-full"
+        placeholder="Payee…"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 100)}
+        autoComplete="off"
+      />
+      {open && (filtered.length > 0 || showAdd) && (
+        <div className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+          {filtered.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-2 transition-colors"
+              onMouseDown={(e) => { e.preventDefault(); onChange(p.name); setOpen(false) }}
+            >
+              {p.name}
+            </button>
+          ))}
+          {showAdd && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm text-accent hover:bg-surface-2 transition-colors border-t border-border/50"
+              onMouseDown={(e) => { e.preventDefault(); onChange(value.trim()); setOpen(false) }}
+            >
+              + Use "{value.trim()}"
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function CategoryCombobox({
@@ -160,6 +219,7 @@ function ConditionValueInput({
   accounts,
   categories,
   budgetGroups,
+  payees,
 }: {
   field: ConditionField
   value: string
@@ -167,7 +227,11 @@ function ConditionValueInput({
   accounts: Account[]
   categories: Array<{ id: number; group_id: number; name: string }>
   budgetGroups: Array<{ id: number; name: string }>
+  payees: Payee[]
 }) {
+  if (field === 'payee') {
+    return <PayeeCombobox value={value} onChange={onChange} payees={payees} />
+  }
   if (field === 'account') {
     return (
       <select className="input-base text-sm flex-1" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -220,6 +284,7 @@ function ActionValueInput({
   accounts,
   categories,
   budgetGroups,
+  payees,
 }: {
   field: ActionField
   value: string
@@ -227,7 +292,11 @@ function ActionValueInput({
   accounts: Account[]
   categories: Array<{ id: number; group_id: number; name: string }>
   budgetGroups: Array<{ id: number; name: string }>
+  payees: Payee[]
 }) {
+  if (field === 'payee') {
+    return <PayeeCombobox value={value} onChange={onChange} payees={payees} />
+  }
   if (field === 'account') {
     return (
       <select className="input-base text-sm flex-1" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -278,6 +347,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
   const isEdit = !!rule
 
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list, enabled: open })
+  const { data: payees = [] } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list, enabled: open })
   const { data: categoriesRaw = [] } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories, enabled: open })
   const { data: budgetGroupsRaw = [] } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups, enabled: open })
 
@@ -421,6 +491,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
                 accounts={accounts}
                 categories={categories}
                 budgetGroups={budgetGroups}
+                payees={payees}
               />
               <button
                 type="button"
@@ -464,6 +535,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
                 accounts={accounts}
                 categories={categories}
                 budgetGroups={budgetGroups}
+                payees={payees}
               />
               <button
                 type="button"
