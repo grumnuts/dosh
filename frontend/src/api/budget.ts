@@ -76,6 +76,11 @@ export const budgetApi = {
     api.put<{ ok: boolean }>(`/api/budget/categories/${id}`, data),
   deleteCategory: (id: number) => api.delete<{ ok: boolean }>(`/api/budget/categories/${id}`),
 
+  reorderGroups: (items: { id: number; sortOrder: number }[]) =>
+    api.patch<{ ok: boolean }>('/api/budget/groups/reorder', items),
+  reorderCategories: (items: { id: number; sortOrder: number }[]) =>
+    api.patch<{ ok: boolean }>('/api/budget/categories/reorder', items),
+
   coverOverspend: (data: {
     categoryId: number
     weekStart: string
