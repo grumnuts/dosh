@@ -29,8 +29,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT bc.name AS category, bg.name AS group_name,
                 bc.id AS category_id, bg.sort_order AS group_sort, bc.sort_order AS cat_sort,
-                strftime('%m', t.date) AS month,
-                SUM(ABS(amount)) AS total_cents
+                strftime('%m', combined.date) AS month,
+                SUM(ABS(combined.amount)) AS total_cents
          FROM (
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
