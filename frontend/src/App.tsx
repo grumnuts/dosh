@@ -10,6 +10,7 @@ import { AccountsPage } from './pages/AccountsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AuditPage } from './pages/AuditPage'
 import { RulesPage } from './pages/RulesPage'
+import { ReportsPage } from './pages/ReportsPage'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -59,6 +60,7 @@ function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/rules" element={<RulesPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route path="*" element={<Navigate to="/budget" replace />} />
       </Routes>
     </Layout>
