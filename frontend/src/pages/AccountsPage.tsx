@@ -393,6 +393,12 @@ export function AccountsPage() {
                   <div className={`font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
                     {formatMoney(account.currentBalance)}
                   </div>
+                  {account.goalAmount != null && (
+                    <div className="text-xs text-muted mt-0.5">
+                      Goal: {formatMoney(account.goalAmount)}
+                      {' · '}{Math.min(Math.round(Math.max(account.currentBalance, 0) / account.goalAmount * 100), 100)}%
+                    </div>
+                  )}
                 </div>
                 <button
                   title="Reconcile"
