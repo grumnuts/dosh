@@ -15,7 +15,7 @@ export interface OverspendRow {
   group_name: string
   group_sort: number
   cat_sort: number
-  month: string
+  period_label: string
   spent_cents: number
   budgeted_cents: number
   overspend_cents: number

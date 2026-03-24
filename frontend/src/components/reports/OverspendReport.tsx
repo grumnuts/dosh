@@ -11,8 +11,6 @@ import {
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
 
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
 interface Props {
   year: string
 }
@@ -26,15 +24,15 @@ export function OverspendReport({ year }: Props) {
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.length === 0) return <div className="py-12 text-center text-secondary">No overspend recorded for {year}.</div>
 
-  // Chart: overspend by month (totalled across all categories)
-  const monthlyOverspend = Array(12).fill(0) as number[]
+  // Chart: total overspend grouped by period_label
+  const byLabel = new Map<string, number>()
   for (const row of data) {
-    monthlyOverspend[parseInt(row.month, 10) - 1] += row.overspend_cents
+    byLabel.set(row.period_label, (byLabel.get(row.period_label) ?? 0) + row.overspend_cents)
   }
-  const chartData = MONTH_LABELS.map((label, i) => ({
-    month: label,
-    overspend: monthlyOverspend[i] / 100,
-  })).filter((d) => d.overspend > 0)
+  const chartData = Array.from(byLabel.entries()).map(([label, cents]) => ({
+    period: label,
+    overspend: cents / 100,
+  }))
 
   return (
     <div className="space-y-6">
@@ -43,7 +41,7 @@ export function OverspendReport({ year }: Props) {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="period" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis
                 tick={{ fill: '#6b7280', fontSize: 12 }}
                 axisLine={false}
@@ -68,7 +66,7 @@ export function OverspendReport({ year }: Props) {
             <tr className="text-left border-b border-border">
               <th className="pb-2 pr-4 text-secondary font-medium">Category</th>
               <th className="pb-2 pr-4 text-secondary font-medium">Group</th>
-              <th className="pb-2 pr-4 text-secondary font-medium">Month</th>
+              <th className="pb-2 pr-4 text-secondary font-medium">Period</th>
               <th className="pb-2 pr-2 text-right text-secondary font-medium">Budgeted</th>
               <th className="pb-2 pr-2 text-right text-secondary font-medium">Spent</th>
               <th className="pb-2 text-right text-secondary font-medium">Overspend</th>
@@ -79,7 +77,7 @@ export function OverspendReport({ year }: Props) {
               <tr key={i} className="hover:bg-surface-2">
                 <td className="py-1.5 pr-4 text-primary">{row.category}</td>
                 <td className="py-1.5 pr-4 text-secondary">{row.group_name}</td>
-                <td className="py-1.5 pr-4 text-secondary">{MONTH_LABELS[parseInt(row.month, 10) - 1]}</td>
+                <td className="py-1.5 pr-4 text-secondary">{row.period_label}</td>
                 <td className="py-1.5 pr-2 text-right text-secondary tabular-nums">{formatMoney(row.budgeted_cents)}</td>
                 <td className="py-1.5 pr-2 text-right text-secondary tabular-nums">{formatMoney(row.spent_cents)}</td>
                 <td className="py-1.5 text-right text-danger font-medium tabular-nums">{formatMoney(row.overspend_cents)}</td>

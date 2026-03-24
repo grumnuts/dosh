@@ -67,12 +67,20 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(rows)
   })
 
-  // GET /api/reports/overspend?year=YYYY — monthly overspend per category
+  // GET /api/reports/overspend?year=YYYY — overspend per category, period-aware
   app.get('/api/reports/overspend', { preHandler: authenticate }, async (request, reply) => {
     const query = yearSchema.safeParse(request.query)
     if (!query.success) return reply.code(400).send({ error: 'Invalid year' })
     const { year } = query.data
     const db = getDb()
+
+    // Normalize period strings to canonical forms
+    function normalizePeriod(p: string): 'weekly' | 'monthly' | 'quarterly' | 'annual' {
+      if (p === 'annually' || p === 'annual') return 'annual'
+      if (p === 'quarterly') return 'quarterly'
+      if (p === 'monthly') return 'monthly'
+      return 'weekly'
+    }
 
     // Get all expense categories
     const categories = db
@@ -83,15 +91,9 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
          JOIN budget_groups bg ON bg.id = bc.group_id
          WHERE bc.is_active = 1 AND bc.is_unlisted = 0 AND bg.is_income = 0`,
       )
-      .all() as Array<{
-      id: number
-      category: string
-      group_name: string
-      group_sort: number
-      cat_sort: number
-    }>
+      .all() as Array<{ id: number; category: string; group_name: string; group_sort: number; cat_sort: number }>
 
-    // Get spending per category per month
+    // Get spending per category per month for the year
     const spendingRows = db
       .prepare(
         `SELECT combined.category_id,
@@ -118,52 +120,40 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       )
       .all(year, year) as Array<{ category_id: number; month: string; spent_cents: number }>
 
-    // Get budget history (most recent budget for each category per month)
-    // We use the average weekly budget for the year * 52/12 as monthly equivalent
-    const budgetRows = db
+    // Budget amounts: prefer history, fall back to current
+    const currentBudgets = db
       .prepare(
-        `SELECT bh.category_id, bc.period,
-                AVG(bh.budgeted_amount) AS avg_weekly_amount
+        `SELECT id AS category_id, budgeted_amount, period FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0`,
+      )
+      .all() as Array<{ category_id: number; budgeted_amount: number; period: string }>
+
+    const historyBudgets = db
+      .prepare(
+        `SELECT bh.category_id, AVG(bh.budgeted_amount) AS budgeted_amount, bc.period
          FROM budget_history bh
          JOIN budget_categories bc ON bc.id = bh.category_id
          WHERE strftime('%Y', bh.effective_from) <= ?
          GROUP BY bh.category_id`,
       )
-      .all(year) as Array<{
-      category_id: number
-      period: string
-      avg_weekly_amount: number
-    }>
+      .all(year) as Array<{ category_id: number; budgeted_amount: number; period: string }>
 
-    // Fallback: categories with no history use their current budgeted_amount
-    const currentBudgets = db
-      .prepare(
-        `SELECT id AS category_id, budgeted_amount, period
-         FROM budget_categories
-         WHERE is_active = 1 AND is_unlisted = 0`,
-      )
-      .all() as Array<{ category_id: number; budgeted_amount: number; period: string }>
-
-    const budgetMap = new Map<number, { weeklyAmount: number; period: string }>()
+    const budgetMap = new Map<number, { amount: number; period: 'weekly' | 'monthly' | 'quarterly' | 'annual' }>()
     for (const cb of currentBudgets) {
-      budgetMap.set(cb.category_id, { weeklyAmount: cb.budgeted_amount, period: cb.period })
+      budgetMap.set(cb.category_id, { amount: cb.budgeted_amount, period: normalizePeriod(cb.period) })
     }
-    for (const bh of budgetRows) {
-      budgetMap.set(bh.category_id, { weeklyAmount: bh.avg_weekly_amount, period: bh.period })
-    }
-
-    function monthlyEquivalent(weeklyAmount: number, period: string): number {
-      if (period === 'monthly') return weeklyAmount
-      if (period === 'quarterly') return weeklyAmount / 3
-      if (period === 'annual') return weeklyAmount / 12
-      // weekly — convert to monthly: weekly * 52 / 12
-      return Math.round((weeklyAmount * 52) / 12)
+    for (const bh of historyBudgets) {
+      budgetMap.set(bh.category_id, { amount: bh.budgeted_amount, period: normalizePeriod(bh.period) })
     }
 
-    // Build spending lookup: category_id -> month -> spent
-    const spendMap = new Map<string, number>()
+    // Build monthly spend lookup: `catId:month` -> cents
+    const spendByMonth = new Map<string, number>()
     for (const s of spendingRows) {
-      spendMap.set(`${s.category_id}:${s.month}`, s.spent_cents)
+      spendByMonth.set(`${s.category_id}:${s.month}`, s.spent_cents)
+    }
+
+    const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const QUARTER_MONTHS: Record<string, string[]> = {
+      Q1: ['01','02','03'], Q2: ['04','05','06'], Q3: ['07','08','09'], Q4: ['10','11','12'],
     }
 
     const results: Array<{
@@ -171,7 +161,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       group_name: string
       group_sort: number
       cat_sort: number
-      month: string
+      period_label: string
       spent_cents: number
       budgeted_cents: number
       overspend_cents: number
@@ -179,34 +169,46 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     for (const cat of categories) {
       const budget = budgetMap.get(cat.id)
-      if (!budget || budget.weeklyAmount === 0) continue
-      const budgetedMonthly = monthlyEquivalent(budget.weeklyAmount, budget.period)
+      if (!budget || budget.amount === 0) continue
 
-      for (let m = 1; m <= 12; m++) {
-        const monthStr = String(m).padStart(2, '0')
-        const spent = spendMap.get(`${cat.id}:${monthStr}`) ?? 0
-        const overspend = Math.max(0, spent - budgetedMonthly)
+      if (budget.period === 'annual') {
+        // Compare full year spending against annual budget
+        const spent = spendingRows
+          .filter((r) => r.category_id === cat.id)
+          .reduce((s, r) => s + r.spent_cents, 0)
+        const overspend = Math.max(0, spent - budget.amount)
         if (overspend > 0) {
-          results.push({
-            category: cat.category,
-            group_name: cat.group_name,
-            group_sort: cat.group_sort,
-            cat_sort: cat.cat_sort,
-            month: monthStr,
-            spent_cents: spent,
-            budgeted_cents: budgetedMonthly,
-            overspend_cents: overspend,
-          })
+          results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: year, spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
+        }
+      } else if (budget.period === 'quarterly') {
+        // Compare each quarter's spending against quarterly budget
+        for (const [quarter, months] of Object.entries(QUARTER_MONTHS)) {
+          const spent = months.reduce((s, m) => s + (spendByMonth.get(`${cat.id}:${m}`) ?? 0), 0)
+          const overspend = Math.max(0, spent - budget.amount)
+          if (overspend > 0) {
+            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: quarter, spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
+          }
+        }
+      } else {
+        // weekly/monthly: compare per month
+        const monthlyBudget = budget.period === 'monthly'
+          ? budget.amount
+          : Math.round((budget.amount * 52) / 12)
+        for (let m = 1; m <= 12; m++) {
+          const monthStr = String(m).padStart(2, '0')
+          const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
+          const overspend = Math.max(0, spent - monthlyBudget)
+          if (overspend > 0) {
+            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: MONTH_LABELS[m - 1], spent_cents: spent, budgeted_cents: monthlyBudget, overspend_cents: overspend })
+          }
         }
       }
     }
 
     results.sort((a, b) =>
-      a.group_sort !== b.group_sort
-        ? a.group_sort - b.group_sort
-        : a.cat_sort !== b.cat_sort
-          ? a.cat_sort - b.cat_sort
-          : a.month.localeCompare(b.month),
+      a.group_sort !== b.group_sort ? a.group_sort - b.group_sort
+        : a.cat_sort !== b.cat_sort ? a.cat_sort - b.cat_sort
+          : a.period_label.localeCompare(b.period_label),
     )
 
     return reply.send(results)
