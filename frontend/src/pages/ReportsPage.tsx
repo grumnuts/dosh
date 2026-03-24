@@ -1,26 +1,22 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { reportsApi } from '../api/reports'
-import { SpendingReport } from '../components/reports/SpendingReport'
+import { CashflowReport } from '../components/reports/CashflowReport'
 import { OverspendReport } from '../components/reports/OverspendReport'
 import { PayeeReport } from '../components/reports/PayeeReport'
 import { GoalReport } from '../components/reports/GoalReport'
-import { InVsOutReport } from '../components/reports/InVsOutReport'
-import { NetWorthReport } from '../components/reports/NetWorthReport'
 import { Select } from '../components/ui/Input'
 
-type Tab = 'cashflow' | 'invsout' | 'overspend' | 'payees' | 'goals' | 'networth'
+type Tab = 'cashflow' | 'overspend' | 'payees' | 'goals'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'cashflow', label: 'Cashflow' },
-  { id: 'invsout', label: 'In vs Out' },
   { id: 'overspend', label: 'Overspend' },
   { id: 'payees', label: 'Payees' },
   { id: 'goals', label: 'Goals' },
-  { id: 'networth', label: 'Net Worth' },
 ]
 
-const YEAR_TABS: Tab[] = ['cashflow', 'invsout', 'overspend', 'payees']
+const YEAR_TABS: Tab[] = ['cashflow', 'overspend', 'payees']
 
 export function ReportsPage() {
   const [tab, setTab] = useState<Tab>('cashflow')
@@ -68,12 +64,10 @@ export function ReportsPage() {
       </div>
 
       {/* Content */}
-      {tab === 'cashflow' && <SpendingReport year={year} />}
-      {tab === 'invsout' && <InVsOutReport year={year} />}
+      {tab === 'cashflow' && <CashflowReport year={year} />}
       {tab === 'overspend' && <OverspendReport year={year} />}
       {tab === 'payees' && <PayeeReport year={year} />}
       {tab === 'goals' && <GoalReport />}
-      {tab === 'networth' && <NetWorthReport />}
     </div>
   )
 }
