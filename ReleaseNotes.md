@@ -4,6 +4,21 @@
 
 ---
 
+## v1.5.0 — 2026-03-25
+
+### New Features
+- Drag-to-reorder accounts on the Accounts page (desktop only) — grip handles appear on hover, order is persisted across sessions; accounts can be dragged freely across all account types
+
+### Enhancements
+- Transaction and budget tables are now edge-to-edge on mobile (no side borders or rounded corners)
+- Account list redesigned with explicit Name, Type, Notes, and Balance columns; type grouping removed in favour of free-form ordering
+- Bulk transaction actions (Edit, Delete, Clear) moved inline into the transactions toolbar instead of a separate bar
+- Income "Received" totals in the budget table now align under the Balance column
+- Budget group rows and table headers use a subtle tint (`bg-white/5`) for better visual separation
+- Cover button repositioned as an absolute overlay so it no longer affects table column widths
+
+---
+
 ## v1.4.0 — 2026-03-24
 
 ### New Features
