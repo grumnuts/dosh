@@ -157,7 +157,7 @@ export function AuditPage() {
       )}
 
       {/* Log entries */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0">
         {isLoading ? (
           <div className="text-center py-12 text-secondary">Loading...</div>
         ) : entries?.length === 0 ? (

@@ -1,7 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DraggableAttributes,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
@@ -19,7 +35,7 @@ import { CategoryCombobox } from '../components/ui/CategoryCombobox'
 import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
 
 const DEFAULT_COL_WIDTHS = {
-  date: 90, account: 150, payee: 180, description: 280, category: 190, amount: 110,
+  date: 68, account: 205, payee: 160, description: 240, category: 160, amount: 110,
 }
 
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
@@ -226,6 +242,87 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
   )
 }
 
+type SyntheticListenerMap = Record<string, (event: Event) => void>
+
+function GripHandle({ listeners, attributes }: { listeners?: SyntheticListenerMap; attributes?: DraggableAttributes }) {
+  return (
+    <div
+      {...attributes}
+      {...(listeners as React.HTMLAttributes<HTMLDivElement> | undefined)}
+      className="cursor-grab active:cursor-grabbing touch-none text-muted hover:text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 shrink-0"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+        <circle cx="5" cy="2.5" r="1.1" />
+        <circle cx="9" cy="2.5" r="1.1" />
+        <circle cx="5" cy="7" r="1.1" />
+        <circle cx="9" cy="7" r="1.1" />
+        <circle cx="5" cy="11.5" r="1.1" />
+        <circle cx="9" cy="11.5" r="1.1" />
+      </svg>
+    </div>
+  )
+}
+
+function SortableAccountRow({
+  account,
+  onEdit,
+  onReconcile,
+}: {
+  account: Account
+  onEdit: () => void
+  onReconcile: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined }
+
+  const typeLabel = account.type.charAt(0).toUpperCase() + account.type.slice(1)
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 hover:bg-surface-2/50 cursor-pointer group border-t border-border"
+      onClick={onEdit}
+    >
+      <div className="hidden md:flex">
+        <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />
+      </div>
+      <div className="w-36 min-w-0 shrink-0">
+        <div className="text-sm font-medium text-primary truncate">{account.name}</div>
+        <div className="text-xs text-muted sm:hidden">{typeLabel}</div>
+      </div>
+      <div className="hidden sm:block w-28 shrink-0">
+        <span className="text-sm text-secondary">{typeLabel}</span>
+      </div>
+      <div className="hidden sm:block flex-1 min-w-0">
+        <span className="text-sm text-muted truncate block">{account.notes ?? ''}</span>
+      </div>
+      <div className="flex items-center gap-3 shrink-0 ml-auto">
+        <div className="text-right">
+          <div className={`text-sm font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+            {formatMoney(account.currentBalance)}
+          </div>
+          {account.goalAmount != null && (
+            <div className="text-xs text-muted">
+              {Math.min(Math.round(Math.max(account.currentBalance, 0) / account.goalAmount * 100), 100)}% of {formatMoney(account.goalAmount)}
+            </div>
+          )}
+        </div>
+        <button
+          title="Reconcile"
+          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
+          onClick={(e) => { e.stopPropagation(); onReconcile() }}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function AccountsPage() {
   const qc = useQueryClient()
 
@@ -236,6 +333,9 @@ export function AccountsPage() {
   // Account state
   const [accountModal, setAccountModal] = useState<{ open: boolean; account?: Account | null }>({ open: false })
   const [reconcileAccount, setReconcileAccount] = useState<Account | null>(null)
+  const [orderedAccounts, setOrderedAccounts] = useState<Account[]>([])
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   // Transaction state
   const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
@@ -252,6 +352,21 @@ export function AccountsPage() {
   const PAGE_SIZE = 100
 
   const { data: accounts, isLoading: accountsLoading } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
+
+  useEffect(() => { if (accounts) setOrderedAccounts(accounts) }, [accounts])
+
+  const handleAccountDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrderedAccounts((all) => {
+      const oldIdx = all.findIndex((a) => a.id === active.id)
+      const newIdx = all.findIndex((a) => a.id === over.id)
+      const reordered = arrayMove(all, oldIdx, newIdx)
+      accountsApi.reorder(reordered.map((a, i) => ({ id: a.id, sortOrder: i })))
+      return reordered
+    })
+  }
+
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
   const { data: txData, isLoading: txLoading } = useQuery({
@@ -324,7 +439,7 @@ export function AccountsPage() {
     })
   }
 
-  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:tx-col-widths')
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:tx-col-widths-v2')
 
   const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
@@ -360,68 +475,64 @@ export function AccountsPage() {
 
       {!accountsCollapsed && (
       <>
-      {/* Summary cards */}
-      <div className={`grid gap-3 ${hasDebt ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+      {/* Desktop summary cards */}
+      <div className={`hidden sm:grid gap-3 ${hasDebt ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         {[
           { label: 'Net Worth', value: totalBalance },
           { label: 'Transactional', value: transactionalTotal },
           { label: 'Savings', value: savingsTotal },
           ...(hasDebt ? [{ label: 'Debt', value: debtTotal }] : []),
         ].map(({ label, value }) => (
-          <div key={label} className="card p-3 sm:p-4">
+          <div key={label} className="border border-border p-4 bg-white/5 rounded-xl">
             <div className="text-xs text-muted mb-1 truncate">{label}</div>
-            <div className={`text-sm sm:text-lg font-bold font-mono truncate ${value < 0 ? 'text-danger' : 'text-accent'}`}>
+            <div className={`text-lg font-bold font-mono truncate ${value < 0 ? 'text-danger' : 'text-accent'}`}>
               {formatMoney(value)}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Account list */}
+      {/* Account list grouped by type (mobile net worth card sits above groups with consistent spacing) */}
       {accountsLoading ? (
         <div className="text-center py-12 text-secondary">Loading...</div>
+      ) : orderedAccounts.length === 0 ? (
+        <div className="border-y border-border px-5 py-12 text-center text-secondary -mx-4 md:mx-0">No accounts yet.</div>
       ) : (
-        <div className="card divide-y divide-border">
-          {accounts?.map((account) => (
-            <div
-              key={account.id}
-              className="flex items-center justify-between px-5 py-4 hover:bg-surface-2/50 cursor-pointer"
-              onClick={() => setAccountModal({ open: true, account })}
-            >
-              <div>
-                <div className="font-medium text-primary">{account.name}</div>
-                <div className="text-xs text-muted mt-0.5 capitalize">{account.type}</div>
-                {account.notes && (
-                  <div className="text-xs text-muted mt-0.5 truncate max-w-[250px]">{account.notes}</div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className={`font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
-                    {formatMoney(account.currentBalance)}
-                  </div>
-                  {account.goalAmount != null && (
-                    <div className="text-xs text-muted mt-0.5">
-                      Goal: {formatMoney(account.goalAmount)}
-                      {' · '}{Math.min(Math.round(Math.max(account.currentBalance, 0) / account.goalAmount * 100), 100)}%
-                    </div>
-                  )}
-                </div>
-                <button
-                  title="Reconcile"
-                  className="p-1.5 rounded text-muted hover:text-primary transition-colors"
-                  onClick={(e) => { e.stopPropagation(); setReconcileAccount(account) }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-              </div>
+        <div className="-mx-4 md:mx-0 overflow-hidden md:rounded-t-lg">
+          {/* Header */}
+          <div className="flex items-center gap-2 pl-7 md:pl-9 pr-4 py-1.5 border-b border-border bg-white/5">
+            <div className="w-36 shrink-0">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Name</span>
             </div>
-          ))}
-          {accounts?.length === 0 && (
-            <div className="px-5 py-12 text-center text-secondary">No accounts yet.</div>
-          )}
+            <div className="hidden sm:block w-28 shrink-0">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Type</span>
+            </div>
+            <div className="hidden sm:block flex-1 min-w-0">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Notes</span>
+            </div>
+            <div className="ml-auto shrink-0 pr-9">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Balance</span>
+            </div>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAccountDragEnd}>
+            <SortableContext items={orderedAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+              {orderedAccounts.map((account) => (
+                <SortableAccountRow
+                  key={account.id}
+                  account={account}
+                  onEdit={() => setAccountModal({ open: true, account })}
+                  onReconcile={() => setReconcileAccount(account)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+          {/* Mobile: Net Worth footer */}
+          <div className="flex items-center justify-between px-4 py-2 sm:hidden border-t border-b border-border">
+            <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
+            <span className={`text-xs font-bold font-mono ${totalBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+              {formatMoney(totalBalance)}
+            </span>
+          </div>
         </div>
       )}
 
@@ -440,6 +551,26 @@ export function AccountsPage() {
           Transactions
         </button>
         <div className="flex items-center gap-2">
+          {someSelected && (
+            <>
+              <span className="text-sm text-secondary shrink-0">{selectedIds.size} selected</span>
+              <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>Edit</Button>
+              <Button
+                size="sm"
+                variant="danger"
+                loading={bulkDelete.isPending}
+                onClick={() => {
+                  if (confirm(`Delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`)) {
+                    bulkDelete.mutate([...selectedIds])
+                  }
+                }}
+              >
+                Delete
+              </Button>
+              <button className="text-xs text-muted hover:text-primary shrink-0" onClick={() => setSelectedIds(new Set())}>Clear</button>
+              <div className="w-px h-4 bg-border shrink-0" />
+            </>
+          )}
           {!!uncategorisedData?.count && (
             <>
               {/* Mobile: ? icon */}
@@ -538,35 +669,9 @@ export function AccountsPage() {
         </div>
       )}
 
-      {/* Bulk action bar */}
-      {!transactionsCollapsed && someSelected && (
-        <div className="card px-4 py-2.5 flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-secondary shrink-0">{selectedIds.size} selected</span>
-          <div className="flex items-center gap-2 ml-auto">
-            <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant="danger"
-              loading={bulkDelete.isPending}
-              onClick={() => {
-                if (confirm(`Delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`)) {
-                  bulkDelete.mutate([...selectedIds])
-                }
-              }}
-            >
-              Delete
-            </Button>
-            <button className="text-xs text-muted hover:text-primary" onClick={() => setSelectedIds(new Set())}>
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Transaction list */}
-      {!transactionsCollapsed && <div className="card overflow-hidden">
+      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         {txLoading ? (
           <div className="text-center py-12 text-secondary">Loading...</div>
         ) : transactions?.length === 0 ? (
@@ -579,10 +684,10 @@ export function AccountsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full text-sm md:table-fixed">
+          <table className="w-full text-sm table-fixed">
               <thead>
-                <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
-                  <th className="pl-3 pr-1 py-3 w-8">
+                <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
+                  <th className="pl-3 pr-1 py-3 w-8 hidden sm:table-cell">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -591,11 +696,11 @@ export function AccountsPage() {
                       className="w-3.5 h-3.5 accent-accent cursor-pointer"
                     />
                   </th>
-                  <th className="pl-1 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
+                  <th className="pl-2 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
                     Date
                     <ResizeHandle onMouseDown={(e) => onResizeStart('date', e)} />
                   </th>
-                  <th className="px-3 py-3 text-left font-medium relative" style={{ width: widths.account }}>
+                  <th className="pl-5 pr-3 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.account }}>
                     Account
                     <ResizeHandle onMouseDown={(e) => onResizeStart('account', e)} />
                   </th>
@@ -611,7 +716,7 @@ export function AccountsPage() {
                     Category
                     <ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} />
                   </th>
-                  <th className="pl-2 pr-3 py-3 text-right font-medium" style={{ width: widths.amount }}>Amount</th>
+                  <th className="pl-2 pr-3 py-3 text-right font-medium min-w-[100px]" style={{ width: widths.amount }}>Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -625,7 +730,7 @@ export function AccountsPage() {
                       if (tx.type !== 'cover') setEditTx(tx)
                     }}
                   >
-                    <td className="pl-3 pr-1 py-2.5 w-px" onClick={(e) => e.stopPropagation()}>
+                    <td className="pl-3 pr-1 py-2.5 w-px hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(tx.id)}
@@ -633,10 +738,10 @@ export function AccountsPage() {
                         className="w-3.5 h-3.5 accent-accent cursor-pointer"
                       />
                     </td>
-                    <td className="pl-1 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
+                    <td className="pl-2 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
-                    <td className="px-2 py-2.5 sm:px-3 overflow-hidden">
+                    <td className="pl-5 pr-2 py-2.5 sm:px-3 overflow-hidden">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
                         {tx.splits.length > 0
@@ -680,7 +785,7 @@ export function AccountsPage() {
                         <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : 'Transfer'}</span>
                       )}
                     </td>
-                    <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap w-px sm:w-auto sm:px-3">
+                    <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap sm:w-auto sm:px-3">
                       <Amount cents={tx.amount} type={tx.type} />
                     </td>
                   </tr>
@@ -690,7 +795,7 @@ export function AccountsPage() {
                       className={`${i === tx.splits.length - 1 ? 'border-b border-border/50' : 'border-b border-border/20'} bg-surface-2/20 cursor-pointer hover:bg-surface-2/40`}
                       onClick={() => setEditTx(tx)}
                     >
-                      <td className="pl-3 pr-1 py-1.5 w-px" />
+                      <td className="pl-3 pr-1 py-1.5 w-px hidden sm:table-cell" />
                       <td className="pl-1 pr-1 py-1.5 w-px sm:w-auto sm:px-4" />
                       <td className="px-2 py-1.5 sm:px-3">
                         <div className="flex items-center gap-1.5 sm:hidden">
@@ -708,7 +813,7 @@ export function AccountsPage() {
                           <span className="text-sm text-secondary">{split.category_name ?? <span className="italic text-muted">Uncategorised</span>}</span>
                         </div>
                       </td>
-                      <td className="pl-2 pr-3 py-1.5 text-right whitespace-nowrap w-px sm:w-auto sm:px-3">
+                      <td className="pl-2 pr-3 py-1.5 text-right whitespace-nowrap sm:w-auto sm:px-3">
                         <span className={`text-sm font-mono ${split.amount < 0 ? 'text-danger' : 'text-accent'}`}>
                           {formatMoney(Math.abs(split.amount))}
                         </span>

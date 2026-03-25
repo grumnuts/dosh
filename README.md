@@ -111,9 +111,9 @@ The **Reports** section provides financial insights across four tabs:
 
 A year selector filters the Cashflow, Overspend, and Payee reports. The Goals tab always shows current data.
 
-### Drag-to-Reorder Budget
+### Drag-to-Reorder
 
-On desktop, budget groups and categories can be reordered by dragging the grip handle on the left of each row. Order is persisted and reflected everywhere groups and categories appear.
+On desktop, budget groups, categories, and accounts can all be reordered by dragging the grip handle on the left of each row. Order is persisted across sessions. Accounts can be dragged freely — there is no fixed grouping by type.
 
 ### Resizable Table Columns
 
