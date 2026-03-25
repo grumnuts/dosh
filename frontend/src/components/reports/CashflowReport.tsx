@@ -9,7 +9,7 @@ interface Props {
 function SectionHeader({ title }: { title: string }) {
   return (
     <div className="pt-4">
-      <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide border-b border-border pb-2">
+      <h2 className="text-sm font-semibold text-primary uppercase tracking-wide border-b border-border pb-2">
         {title}
       </h2>
     </div>

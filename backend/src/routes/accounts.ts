@@ -113,6 +113,15 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(201).send({ id })
   })
 
+  app.patch('/api/accounts/reorder', { preHandler: authenticate }, async (request, reply) => {
+    const body = z.array(z.object({ id: z.number().int(), sortOrder: z.number().int() })).safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Invalid input' })
+    const db = getDb()
+    const stmt = db.prepare('UPDATE accounts SET sort_order = ? WHERE id = ?')
+    for (const { id, sortOrder } of body.data) stmt.run(sortOrder, id)
+    return reply.send({ ok: true })
+  })
+
   app.put('/api/accounts/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const body = updateAccountSchema.safeParse(request.body)

@@ -118,7 +118,7 @@ function CategoryRow({
         <td className="px-2 py-2.5 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="px-4 py-2.5">
+        <td className="pl-12 pr-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm text-primary">{cat.name}</span>
             <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
@@ -151,19 +151,21 @@ function CategoryRow({
             {formatMoney(cat.balance)}
           </span>
         </td>
-        <td className="px-2 py-2.5 text-right sm:px-3">
+        <td className="text-right relative">
           {cat.isOverspent && (
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={(e) => {
-                e.stopPropagation()
-                setCoverOpen(true)
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              Cover
-            </Button>
+            <div className="absolute inset-0 hidden sm:flex items-center justify-end px-2 sm:px-3">
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setCoverOpen(true)
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                Cover
+              </Button>
+            </div>
           )}
         </td>
       </tr>
@@ -264,11 +266,11 @@ function GroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-transparent">
-        <td className="px-2 py-2 hidden md:table-cell w-8">
+      <tr ref={rowRef} style={rowStyle} className="bg-white/5">
+        <td className="px-2 py-2.5 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-2 pr-4 py-2">
+        <td className="pl-2 pr-4 py-2.5">
           <div className="flex items-center gap-2">
             <button
               className="text-muted hover:text-primary transition-colors"
@@ -291,18 +293,18 @@ function GroupSection({
           </div>
         </td>
         <td className="hidden md:table-cell" />
-        <td className="px-3 py-2 text-right font-mono text-xs text-muted tabular-nums hidden lg:table-cell">
+        <td className="px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden lg:table-cell">
           {formatMoney(groupWeekly)}
         </td>
-        <td className="px-3 py-2 text-right font-mono text-xs text-muted tabular-nums hidden sm:table-cell">
+        <td className="px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden sm:table-cell">
           {formatMoney(groupSpent)}
         </td>
-        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">
           <span className={groupBalance < 0 ? 'text-danger' : 'text-secondary'}>
             {formatMoney(groupBalance)}
           </span>
         </td>
-        <td className="px-2 py-2 text-right sm:px-3">
+        <td className="px-2 py-2.5 text-right sm:px-3">
           <button
             className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
             onClick={() => onAddCategory(group.id, group.name)}
@@ -403,7 +405,7 @@ function IncomeCategoryRow({
         <td className="px-2 py-2.5 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="px-4 py-2.5">
+        <td className="pl-12 pr-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm text-primary">{cat.name}</span>
             <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
@@ -413,10 +415,10 @@ function IncomeCategoryRow({
         </td>
         <td className="hidden md:table-cell" />
         <td className="hidden lg:table-cell" />
+        <td className="hidden md:table-cell" />
         <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums">
           <span className="text-accent">{formatMoney(cat.received)}</span>
         </td>
-        <td />
         <td />
       </tr>
 
@@ -495,11 +497,11 @@ function IncomeGroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-transparent">
-        <td className="px-2 py-2 hidden md:table-cell w-8">
+      <tr ref={rowRef} style={rowStyle} className="bg-white/5">
+        <td className="px-2 py-2.5 hidden md:table-cell w-8">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-2 pr-4 py-2">
+        <td className="pl-2 pr-4 py-2.5">
           <div className="flex items-center gap-2">
             <button
               className="text-muted hover:text-primary transition-colors"
@@ -523,11 +525,11 @@ function IncomeGroupSection({
         </td>
         <td className="hidden md:table-cell" />
         <td className="hidden lg:table-cell" />
-        <td className="px-3 py-2 text-right font-mono text-xs text-accent tabular-nums">
+        <td className="hidden md:table-cell" />
+        <td className="px-3 py-2.5 text-right font-mono text-xs text-accent tabular-nums">
           {formatMoney(groupReceived)}
         </td>
-        <td />
-        <td className="px-2 py-2 text-right sm:px-3">
+        <td className="px-2 py-2.5 text-right sm:px-3">
           <button
             className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
             onClick={() => onAddCategory(group.id, group.name)}
@@ -640,18 +642,18 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   return (
     <div className="space-y-3">
       {/* Expense table */}
-      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0">
+      <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm md:table-fixed">
+          <table className="w-full text-sm table-fixed">
             <thead>
-              <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
+              <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
                 <th className="px-2 py-3 hidden md:table-cell w-8" />
                 <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
                 <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
                 <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
                 <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
                 <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                <th className="px-2 py-3 sm:px-3 sm:w-20" />
+                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20" />
               </tr>
             </thead>
             <tbody>
@@ -694,18 +696,18 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       </div>
 
       {/* Income table */}
-      <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0">
+      <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm md:table-fixed">
+          <table className="w-full text-sm table-fixed">
             <thead>
-              <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
+              <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
                 <th className="px-2 py-3 hidden md:table-cell w-8" />
                 <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Income<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
                 <th className="hidden md:table-cell" style={{ width: widths.budgeted }} />
                 <th className="hidden lg:table-cell" style={{ width: widths.weekly }} />
-                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.spent }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
-                <th style={{ width: widths.balance }} />
-                <th className="px-2 py-3 sm:px-3 sm:w-20" />
+                <th className="hidden md:table-cell" style={{ width: widths.spent }} />
+                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20" />
               </tr>
             </thead>
             <tbody>

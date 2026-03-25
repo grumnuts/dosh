@@ -35,7 +35,7 @@ import { CategoryCombobox } from '../components/ui/CategoryCombobox'
 import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
 
 const DEFAULT_COL_WIDTHS = {
-  date: 90, account: 150, payee: 180, description: 280, category: 190, amount: 110,
+  date: 68, account: 205, payee: 160, description: 240, category: 160, amount: 110,
 }
 
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
@@ -276,23 +276,29 @@ function SortableAccountRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined }
 
+  const typeLabel = account.type.charAt(0).toUpperCase() + account.type.slice(1)
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 hover:bg-surface-2/50 cursor-pointer group"
+      className="flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 hover:bg-surface-2/50 cursor-pointer group border-t border-border"
       onClick={onEdit}
     >
       <div className="hidden md:flex">
         <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />
       </div>
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-primary">{account.name}</span>
-        {account.notes && (
-          <span className="text-xs text-muted ml-2 truncate hidden sm:inline">{account.notes}</span>
-        )}
+      <div className="w-36 min-w-0 shrink-0">
+        <div className="text-sm font-medium text-primary truncate">{account.name}</div>
+        <div className="text-xs text-muted sm:hidden">{typeLabel}</div>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="hidden sm:block w-28 shrink-0">
+        <span className="text-sm text-secondary">{typeLabel}</span>
+      </div>
+      <div className="hidden sm:block flex-1 min-w-0">
+        <span className="text-sm text-muted truncate block">{account.notes ?? ''}</span>
+      </div>
+      <div className="flex items-center gap-3 shrink-0 ml-auto">
         <div className="text-right">
           <div className={`text-sm font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
             {formatMoney(account.currentBalance)}
@@ -315,13 +321,6 @@ function SortableAccountRow({
       </div>
     </div>
   )
-}
-
-const ACCOUNT_GROUP_ORDER = ['transactional', 'savings', 'debt'] as const
-const ACCOUNT_GROUP_LABELS: Record<string, string> = {
-  transactional: 'Transactional',
-  savings: 'Savings',
-  debt: 'Debt',
 }
 
 export function AccountsPage() {
@@ -356,17 +355,15 @@ export function AccountsPage() {
 
   useEffect(() => { if (accounts) setOrderedAccounts(accounts) }, [accounts])
 
-  const handleAccountDragEnd = (type: string) => (event: DragEndEvent) => {
+  const handleAccountDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
     setOrderedAccounts((all) => {
-      const typed = all.filter((a) => a.type === type)
-      const rest = all.filter((a) => a.type !== type)
-      const oldIdx = typed.findIndex((a) => a.id === active.id)
-      const newIdx = typed.findIndex((a) => a.id === over.id)
-      const reordered = arrayMove(typed, oldIdx, newIdx)
+      const oldIdx = all.findIndex((a) => a.id === active.id)
+      const newIdx = all.findIndex((a) => a.id === over.id)
+      const reordered = arrayMove(all, oldIdx, newIdx)
       accountsApi.reorder(reordered.map((a, i) => ({ id: a.id, sortOrder: i })))
-      return [...rest, ...reordered]
+      return reordered
     })
   }
 
@@ -442,7 +439,7 @@ export function AccountsPage() {
     })
   }
 
-  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:tx-col-widths')
+  const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:tx-col-widths-v2')
 
   const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
@@ -486,7 +483,7 @@ export function AccountsPage() {
           { label: 'Savings', value: savingsTotal },
           ...(hasDebt ? [{ label: 'Debt', value: debtTotal }] : []),
         ].map(({ label, value }) => (
-          <div key={label} className="border-y border-border p-4">
+          <div key={label} className="border border-border p-4 bg-white/5 rounded-xl">
             <div className="text-xs text-muted mb-1 truncate">{label}</div>
             <div className={`text-lg font-bold font-mono truncate ${value < 0 ? 'text-danger' : 'text-accent'}`}>
               {formatMoney(value)}
@@ -501,33 +498,36 @@ export function AccountsPage() {
       ) : orderedAccounts.length === 0 ? (
         <div className="border-y border-border px-5 py-12 text-center text-secondary -mx-4 md:mx-0">No accounts yet.</div>
       ) : (
-        <div className="divide-y divide-border -mx-4 md:mx-0 overflow-hidden">
-          {ACCOUNT_GROUP_ORDER.map((type) => {
-            const groupAccounts = orderedAccounts.filter((a) => a.type === type)
-            if (groupAccounts.length === 0) return null
-            const groupTotal = groupAccounts.reduce((sum, a) => sum + a.currentBalance, 0)
-            return (
-              <div key={type} className="divide-y divide-border">
-                <div className="pl-2 pr-4 py-0.5">
-                  <span className="text-xs font-medium text-muted uppercase tracking-wide">{ACCOUNT_GROUP_LABELS[type]}</span>
-                </div>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAccountDragEnd(type)}>
-                  <SortableContext items={groupAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
-                    {groupAccounts.map((account) => (
-                      <SortableAccountRow
-                        key={account.id}
-                        account={account}
-                        onEdit={() => setAccountModal({ open: true, account })}
-                        onReconcile={() => setReconcileAccount(account)}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              </div>
-            )
-          })}
+        <div className="-mx-4 md:mx-0 overflow-hidden md:rounded-t-lg">
+          {/* Header */}
+          <div className="flex items-center gap-2 pl-7 md:pl-9 pr-4 py-1.5 border-b border-border bg-white/5">
+            <div className="w-36 shrink-0">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Name</span>
+            </div>
+            <div className="hidden sm:block w-28 shrink-0">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Type</span>
+            </div>
+            <div className="hidden sm:block flex-1 min-w-0">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Notes</span>
+            </div>
+            <div className="ml-auto shrink-0 pr-9">
+              <span className="text-xs font-medium text-muted uppercase tracking-wide">Balance</span>
+            </div>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAccountDragEnd}>
+            <SortableContext items={orderedAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+              {orderedAccounts.map((account) => (
+                <SortableAccountRow
+                  key={account.id}
+                  account={account}
+                  onEdit={() => setAccountModal({ open: true, account })}
+                  onReconcile={() => setReconcileAccount(account)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
           {/* Mobile: Net Worth footer */}
-          <div className="flex items-center justify-between px-4 py-2 sm:hidden !border-t-0">
+          <div className="flex items-center justify-between px-4 py-2 sm:hidden border-t border-b border-border">
             <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
             <span className={`text-xs font-bold font-mono ${totalBalance < 0 ? 'text-danger' : 'text-accent'}`}>
               {formatMoney(totalBalance)}
@@ -551,6 +551,26 @@ export function AccountsPage() {
           Transactions
         </button>
         <div className="flex items-center gap-2">
+          {someSelected && (
+            <>
+              <span className="text-sm text-secondary shrink-0">{selectedIds.size} selected</span>
+              <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>Edit</Button>
+              <Button
+                size="sm"
+                variant="danger"
+                loading={bulkDelete.isPending}
+                onClick={() => {
+                  if (confirm(`Delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`)) {
+                    bulkDelete.mutate([...selectedIds])
+                  }
+                }}
+              >
+                Delete
+              </Button>
+              <button className="text-xs text-muted hover:text-primary shrink-0" onClick={() => setSelectedIds(new Set())}>Clear</button>
+              <div className="w-px h-4 bg-border shrink-0" />
+            </>
+          )}
           {!!uncategorisedData?.count && (
             <>
               {/* Mobile: ? icon */}
@@ -649,35 +669,9 @@ export function AccountsPage() {
         </div>
       )}
 
-      {/* Bulk action bar */}
-      {!transactionsCollapsed && someSelected && (
-        <div className="card px-4 py-2.5 flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-secondary shrink-0">{selectedIds.size} selected</span>
-          <div className="flex items-center gap-2 ml-auto">
-            <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant="danger"
-              loading={bulkDelete.isPending}
-              onClick={() => {
-                if (confirm(`Delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`)) {
-                  bulkDelete.mutate([...selectedIds])
-                }
-              }}
-            >
-              Delete
-            </Button>
-            <button className="text-xs text-muted hover:text-primary" onClick={() => setSelectedIds(new Set())}>
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Transaction list */}
-      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none border-x-0 bg-transparent md:mx-0">
+      {!transactionsCollapsed && <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         {txLoading ? (
           <div className="text-center py-12 text-secondary">Loading...</div>
         ) : transactions?.length === 0 ? (
@@ -690,9 +684,9 @@ export function AccountsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full text-sm md:table-fixed">
+          <table className="w-full text-sm table-fixed">
               <thead>
-                <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
+                <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
                   <th className="pl-3 pr-1 py-3 w-8 hidden sm:table-cell">
                     <input
                       type="checkbox"
@@ -702,11 +696,11 @@ export function AccountsPage() {
                       className="w-3.5 h-3.5 accent-accent cursor-pointer"
                     />
                   </th>
-                  <th className="pl-1 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
+                  <th className="pl-2 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
                     Date
                     <ResizeHandle onMouseDown={(e) => onResizeStart('date', e)} />
                   </th>
-                  <th className="px-3 py-3 text-left font-medium relative" style={{ width: widths.account }}>
+                  <th className="pl-5 pr-3 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.account }}>
                     Account
                     <ResizeHandle onMouseDown={(e) => onResizeStart('account', e)} />
                   </th>
@@ -744,10 +738,10 @@ export function AccountsPage() {
                         className="w-3.5 h-3.5 accent-accent cursor-pointer"
                       />
                     </td>
-                    <td className="pl-3 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap w-px sm:w-auto sm:px-4">
+                    <td className="pl-2 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
-                    <td className="px-2 py-2.5 sm:px-3 overflow-hidden">
+                    <td className="pl-5 pr-2 py-2.5 sm:px-3 overflow-hidden">
                       <div className="text-sm text-primary truncate">{tx.account_name}</div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
                         {tx.splits.length > 0

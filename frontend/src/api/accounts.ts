@@ -28,6 +28,7 @@ export const accountsApi = {
   create: (data: AccountCreateInput) => api.post<{ id: number }>('/api/accounts', data),
   update: (id: number, data: AccountInput) => api.put<{ ok: boolean }>(`/api/accounts/${id}`, data),
   delete: (id: number) => api.delete<{ ok: boolean }>(`/api/accounts/${id}`),
+  reorder: (items: { id: number; sortOrder: number }[]) => api.patch<{ ok: boolean }>('/api/accounts/reorder', items),
   reconcile: (id: number, data: { actualBalance: number; date?: string }) =>
     api.post<{ ok: boolean; adjustment: number; transactionId?: number }>(`/api/accounts/${id}/reconcile`, data),
 }
