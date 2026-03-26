@@ -6,7 +6,8 @@
     "dev": "tsx src/server.ts",
     "dev:watch": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "reset-password": "tsx src/scripts/resetPassword.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
