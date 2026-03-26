@@ -26,10 +26,7 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-bg">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">
-            <span className="text-accent">D</span>osh
-          </h1>
-          <p className="text-secondary text-sm mt-2">Household budgeting</p>
+          <img src="/DoshLogoFull.png" alt="Dosh" className="h-16 w-auto mx-auto" />
         </div>
 
         <div className="card p-6">
