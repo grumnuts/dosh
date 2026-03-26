@@ -315,7 +315,7 @@ function SortableAccountRow({
         </div>
         <button
           title="Edit account"
-          className="p-1.5 rounded text-muted hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1.5 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onEdit() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -324,7 +324,7 @@ function SortableAccountRow({
         </button>
         <button
           title="Reconcile"
-          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onReconcile() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
