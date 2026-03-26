@@ -1,10 +1,84 @@
 import { getDb } from '../db/client'
-import { getPeriodBoundaries, weeklyEquivalent, toDateString, getWeekStart } from '../utils/dates'
+import { getPeriodBoundaries, weeklyEquivalent, parseDate, toDateString, getWeekStart } from '../utils/dates'
 
 function getWeekStartsOn(): 0 | 1 {
   const db = getDb()
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('week_start_day') as { value: string } | undefined
   return row?.value === '1' ? 1 : 0
+}
+
+function getDynamicCalculations(): boolean {
+  const db = getDb()
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('dynamic_calculations') as { value: string } | undefined
+  return row?.value === 'true'
+}
+
+/**
+ * Dynamic weekly equivalent: adjusts the weekly allocation based on what's already been
+ * allocated in past weeks of the current period and how many weeks remain.
+ *
+ * Formula: (budgetedAmount - pastAllocations) / weeksRemaining
+ *
+ * Falls back to static on the first week of a period (no prior history = no adjustment needed).
+ */
+function dynamicWeeklyEquivalent(
+  categoryId: number,
+  budgetedAmount: number,
+  period: string,
+  weekStart: string,
+): number {
+  // Weekly periods have no mid-period state — dynamic and static are identical
+  if (period === 'weekly') return budgetedAmount
+
+  const db = getDb()
+  const weekStartsOn = getWeekStartsOn()
+  const { start: periodStart, end: periodEnd } = getPeriodBoundaries(weekStart, period, weekStartsOn)
+
+  // History entries for this category within the current period, before the current week
+  const historyRows = db
+    .prepare(
+      `SELECT effective_from, budgeted_amount FROM budget_history
+       WHERE category_id = ? AND effective_from >= ? AND effective_from < ?
+       ORDER BY effective_from ASC`,
+    )
+    .all(categoryId, periodStart, weekStart) as { effective_from: string; budgeted_amount: number }[]
+
+  // No prior allocations this period — period just started or category is new. Static = dynamic.
+  if (historyRows.length === 0) return weeklyEquivalent(budgetedAmount, period)
+
+  const msPerDay = 86400000
+  const msPerWeek = 7 * msPerDay
+  const pStartMs = parseDate(periodStart).getTime()
+  const pEndMs = parseDate(periodEnd).getTime()
+  const currentWeekMs = parseDate(weekStart).getTime()
+
+  // Exact (fractional) weeks in the full period
+  const totalWeeks = (pEndMs - pStartMs + msPerDay) / msPerWeek
+
+  // Sum the static allocation for each past week, starting from the first history entry
+  let pastAllocations = 0
+  let histIdx = 0
+  let d = parseDate(historyRows[0].effective_from).getTime()
+
+  while (d < currentWeekMs) {
+    // Advance to the latest history entry that applies to week d
+    while (
+      histIdx + 1 < historyRows.length &&
+      parseDate(historyRows[histIdx + 1].effective_from).getTime() <= d
+    ) {
+      histIdx++
+    }
+    pastAllocations += historyRows[histIdx].budgeted_amount / totalWeeks
+    d += msPerWeek
+  }
+
+  // Fractional weeks remaining (current week through end of period, inclusive)
+  const weeksRemaining = (pEndMs - currentWeekMs + msPerDay) / msPerWeek
+
+  if (weeksRemaining <= 0) return weeklyEquivalent(budgetedAmount, period)
+
+  const remaining = Math.max(0, budgetedAmount - pastAllocations)
+  return Math.ceil(remaining / weeksRemaining)
 }
 
 interface RawCategory {
@@ -124,6 +198,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const incomeGroupsRaw = allGroups.filter((g) => g.is_income === 1)
 
   let totalWeeklyBudget = 0
+  const dynamicMode = getDynamicCalculations()
 
   // Build regular expense groups
   const groups: BudgetGroup[] = regularGroups.map((group) => {
@@ -160,7 +235,9 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
       const covers = coversRow.total
       const balance = budgetedAmount - spent + covers
-      const weekly = weeklyEquivalent(budgetedAmount, period)
+      const weekly = dynamicMode
+        ? dynamicWeeklyEquivalent(cat.id, budgetedAmount, period, weekStart)
+        : weeklyEquivalent(budgetedAmount, period)
       totalWeeklyBudget += weekly
 
       return {

@@ -116,7 +116,7 @@ export function SettingsPage() {
       {/* General */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">General</h2>
-        <div className="card px-5 py-4">
+        <div className="card px-5 py-4 space-y-4">
           <Select
             label="First Day of Week"
             value={settings?.week_start_day ?? '0'}
@@ -125,6 +125,35 @@ export function SettingsPage() {
             <option value="0">Sunday (Default)</option>
             <option value="1">Monday</option>
           </Select>
+
+          <div className="flex items-start justify-between gap-4 pt-1 border-t border-border">
+            <div>
+              <div className="text-sm font-medium text-primary">Dynamic Calculations</div>
+              <p className="text-xs text-muted mt-1 leading-relaxed">
+                Adjusts weekly amounts mid-period based on past allocations and weeks remaining.
+                At the start of a fresh period the calculation is identical to fixed.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={settings?.dynamic_calculations === 'true'}
+              onClick={() =>
+                updateSetting.mutate({
+                  key: 'dynamic_calculations',
+                  value: settings?.dynamic_calculations === 'true' ? 'false' : 'true',
+                })
+              }
+              className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${
+                settings?.dynamic_calculations === 'true' ? 'bg-accent' : 'bg-surface-3'
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                  settings?.dynamic_calculations === 'true' ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </section>
 
