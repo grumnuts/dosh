@@ -523,7 +523,7 @@ export function AccountsPage() {
             <div className="hidden sm:block flex-1 min-w-0">
               <span className="text-xs font-medium text-muted uppercase tracking-wide">Notes</span>
             </div>
-            <div className="ml-auto shrink-0 pr-[56px]">
+            <div className="ml-auto shrink-0 pr-16">
               <span className="text-xs font-medium text-muted uppercase tracking-wide">Balance</span>
             </div>
           </div>

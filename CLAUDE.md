@@ -81,6 +81,9 @@ Before doing anything, confirm:
 
 Use exactly these three category names — omit any that have no entries: **New Features**, **Bug Fixes**, **Enhancements**.
 
+### 3. Update README
+Update README.md with any relevant information. New or changed features etc. 
+
 ### 3. Commit and push
 ```bash
 git add ReleaseNotes.md
@@ -104,6 +107,9 @@ docker buildx build \
 ```
 
 > Docker Hub username: confirm with user if not set in context
+
+### 6. Update GitHub WiKi
+Document any new or changed features, functionality, processes etc. Ensure WiKi reflects Dosh's current state.
 
 ### Versioning
 Releases follow **semantic versioning**: `vMAJOR.MINOR.PATCH`
