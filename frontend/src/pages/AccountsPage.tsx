@@ -268,10 +268,14 @@ function SortableAccountRow({
   account,
   onEdit,
   onReconcile,
+  onSelect,
+  isSelected,
 }: {
   account: Account
   onEdit: () => void
   onReconcile: () => void
+  onSelect: () => void
+  isSelected: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined }
@@ -282,14 +286,14 @@ function SortableAccountRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 hover:bg-surface-2/50 cursor-pointer group border-t border-border"
-      onClick={onEdit}
+      className={`flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 cursor-pointer group border-t border-border transition-colors ${isSelected ? 'bg-accent/10' : 'hover:bg-surface-2/50'}`}
+      onClick={onSelect}
     >
       <div className="hidden md:flex">
         <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />
       </div>
       <div className="w-36 min-w-0 shrink-0">
-        <div className="text-sm font-medium text-primary truncate">{account.name}</div>
+        <div className={`text-sm font-medium truncate ${isSelected ? 'text-accent' : 'text-primary'}`}>{account.name}</div>
         <div className="text-xs text-muted sm:hidden">{typeLabel}</div>
       </div>
       <div className="hidden sm:block w-28 shrink-0">
@@ -310,8 +314,17 @@ function SortableAccountRow({
           )}
         </div>
         <button
+          title="Edit account"
+          className="p-1.5 rounded text-muted hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        <button
           title="Reconcile"
-          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
+          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
           onClick={(e) => { e.stopPropagation(); onReconcile() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -522,6 +535,14 @@ export function AccountsPage() {
                   account={account}
                   onEdit={() => setAccountModal({ open: true, account })}
                   onReconcile={() => setReconcileAccount(account)}
+                  onSelect={() => {
+                    const id = String(account.id)
+                    const next = filters.accountId === id ? '' : id
+                    setFilter('accountId', next)
+                    setTransactionsCollapsed(false)
+                    if (next) setFiltersOpen(true)
+                  }}
+                  isSelected={filters.accountId === String(account.id)}
                 />
               ))}
             </SortableContext>
