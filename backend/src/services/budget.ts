@@ -67,8 +67,11 @@ function dynamicWeeklyEquivalent(
   }
 
   // Exact (fractional) weeks in the full period
-  const pStartMs = parseDate(periodStart).getTime()
-  const totalWeeks = (pEndMs - pStartMs + msPerDay) / msPerWeek
+  // Use the first history entry as the denominator origin, not the period start.
+  // This keeps past allocations and weeksRemaining on the same scale — both measured
+  // from when the category first appeared, not from when the period began.
+  const firstHistoryMs = parseDate(historyRows[0].effective_from).getTime()
+  const totalWeeks = (pEndMs - firstHistoryMs + msPerDay) / msPerWeek
 
   // Sum the static allocation for each past week, starting from the first history entry
   let pastAllocations = 0
