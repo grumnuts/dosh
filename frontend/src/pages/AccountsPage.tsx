@@ -302,7 +302,7 @@ function SortableAccountRow({
       <div className="hidden sm:block flex-1 min-w-0">
         <span className="text-sm text-muted truncate block">{account.notes ?? ''}</span>
       </div>
-      <div className="flex items-center gap-3 shrink-0 ml-auto">
+      <div className="flex items-center gap-2 shrink-0 ml-auto">
         <div className="text-right">
           <div className={`text-sm font-bold font-mono ${account.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
             {formatMoney(account.currentBalance)}
@@ -315,7 +315,7 @@ function SortableAccountRow({
         </div>
         <button
           title="Edit account"
-          className="p-1.5 rounded text-muted hover:text-primary transition-colors"
+          className="p-1 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onEdit() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -324,7 +324,7 @@ function SortableAccountRow({
         </button>
         <button
           title="Reconcile"
-          className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
+          className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onReconcile() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -523,7 +523,7 @@ export function AccountsPage() {
             <div className="hidden sm:block flex-1 min-w-0">
               <span className="text-xs font-medium text-muted uppercase tracking-wide">Notes</span>
             </div>
-            <div className="ml-auto shrink-0 pr-9">
+            <div className="ml-auto shrink-0 pr-[56px]">
               <span className="text-xs font-medium text-muted uppercase tracking-wide">Balance</span>
             </div>
           </div>
@@ -541,6 +541,7 @@ export function AccountsPage() {
                     setFilter('accountId', next)
                     setTransactionsCollapsed(false)
                     if (next) setFiltersOpen(true)
+                    else setFiltersOpen(false)
                   }}
                   isSelected={filters.accountId === String(account.id)}
                 />
