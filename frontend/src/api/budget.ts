@@ -53,6 +53,7 @@ export interface CategoryInput {
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   notes?: string | null
   sortOrder?: number
+  treatAsPeriodStart?: boolean
 }
 
 export interface GroupInput {

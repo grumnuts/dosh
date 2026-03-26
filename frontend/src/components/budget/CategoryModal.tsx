@@ -1,12 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
 import { budgetApi, CategoryInput } from '../../api/budget'
+import { settingsApi } from '../../api/settings'
 
 const schema = z.object({
   name: z.string().min(1, 'Required'),
@@ -30,15 +31,35 @@ interface Props {
   onClose: () => void
   groupId: number
   groupName: string
+  weekStart?: string
   isIncomeGroup?: boolean
   category?: CategoryProp | null
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup, category }: Props) {
+function getPeriodStart(weekStart: string, period: string): string {
+  const d = new Date(weekStart + 'T00:00:00Z')
+  switch (period) {
+    case 'monthly':
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`
+    case 'quarterly': {
+      const qMonth = Math.floor(d.getUTCMonth() / 3) * 3
+      return `${d.getUTCFullYear()}-${String(qMonth + 1).padStart(2, '0')}-01`
+    }
+    case 'annually':
+      return `${d.getUTCFullYear()}-01-01`
+    default:
+      return weekStart
+  }
+}
+
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, category }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const dynamicMode = settings?.dynamic_calculations === 'true'
+
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -48,8 +69,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
     },
   })
 
+  const selectedPeriod = watch('period')
+  const isMidPeriod = !isEdit && getPeriodStart(weekStart, selectedPeriod) < weekStart
+  const showCatchupToggle = dynamicMode && isMidPeriod && !isIncomeGroup
+
+  const [catchUp, setCatchUp] = useState(true)
+
   useEffect(() => {
     if (open) {
+      setCatchUp(true)
       if (category) {
         reset({
           name: category.name,
@@ -92,6 +120,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
       budgetedAmount: Math.round(parseFloat(data.budgetedAmount) * 100),
       period: data.period,
       notes: data.notes || null,
+      treatAsPeriodStart: showCatchupToggle ? !catchUp : undefined,
     })
   }
 
@@ -121,6 +150,27 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
             <option value="annually">Annually</option>
           </Select>
         </div>
+
+        {showCatchupToggle && (
+          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
+            <div>
+              <div className="text-sm font-medium text-primary">Catch up this period</div>
+              <p className="text-xs text-muted mt-0.5 leading-relaxed">
+                Calculate weekly amount from today to cover the full budget by period end.
+                Turn off if this is an existing expense that's been running since the period started.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={catchUp}
+              onClick={() => setCatchUp((v) => !v)}
+              className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${catchUp ? 'bg-accent' : 'bg-surface-3'}`}
+            >
+              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${catchUp ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        )}
 
         <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
 

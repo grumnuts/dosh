@@ -7,7 +7,7 @@ function getWeekStartsOn(): 0 | 1 {
   return row?.value === '1' ? 1 : 0
 }
 
-function getDynamicCalculations(): boolean {
+export function getDynamicCalculations(): boolean {
   const db = getDb()
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('dynamic_calculations') as { value: string } | undefined
   return row?.value === 'true'
@@ -54,10 +54,16 @@ function dynamicWeeklyEquivalent(
   if (weeksRemaining <= 0) return weeklyEquivalent(budgetedAmount, period)
 
   if (historyRows.length === 0) {
-    // No in-period changes yet — could be period just started, or a category entered into
-    // Dosh mid-year (existing expense with no prior history). Both cases use static so
-    // that setting up Dosh mid-year doesn't produce inflated weekly amounts.
-    return weeklyEquivalent(budgetedAmount, period)
+    // No in-period changes yet. Two cases:
+    //   1. Category has pre-period history → period just started, no changes yet → static
+    //   2. No pre-period history → new category (created mid-period) → budget / weeksRemaining
+    //      The frontend `treatAsPeriodStart` flag can override this by backdating the
+    //      history entry to periodStart, which will put it in historyRows instead.
+    const existedBeforePeriod = db
+      .prepare(`SELECT 1 FROM budget_history WHERE category_id = ? AND effective_from < ? LIMIT 1`)
+      .get(categoryId, periodStart)
+    if (existedBeforePeriod) return weeklyEquivalent(budgetedAmount, period)
+    return Math.ceil(budgetedAmount / weeksRemaining)
   }
 
   // Exact (fractional) weeks in the full period
@@ -370,9 +376,10 @@ export function recordBudgetChange(
   newAmount: number,
   newPeriod: string,
   userId: number,
+  effectiveFrom?: string,
 ): void {
   const db = getDb()
-  const weekStart = toDateString(getWeekStart(new Date(), getWeekStartsOn()))
+  const weekStart = effectiveFrom ?? toDateString(getWeekStart(new Date(), getWeekStartsOn()))
   const now = new Date().toISOString()
 
   db.prepare(

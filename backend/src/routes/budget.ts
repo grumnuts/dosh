@@ -3,12 +3,13 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
+import { getPeriodBoundaries, toDateString, getWeekStart } from '../utils/dates'
 import {
   getBudgetWeek,
   getCategoryOverspendAmount,
+  getDynamicCalculations,
   recordBudgetChange,
 } from '../services/budget'
-import { toDateString } from '../utils/dates'
 
 export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/budget/week/:weekStart — full budget for a Sunday
@@ -158,6 +159,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     period: z.enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'annually']),
     notes: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
+    treatAsPeriodStart: z.boolean().optional(),
   })
 
   app.post('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
@@ -195,8 +197,19 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const id = result.lastInsertRowid as number
 
-    // Seed the initial budget history record so historical lookups always find a value
-    recordBudgetChange(id, body.data.budgetedAmount, body.data.period, request.user!.id)
+    // Seed the initial budget history record so historical lookups always find a value.
+    // If treatAsPeriodStart is set and dynamic mode is on, backdate the entry to the period
+    // start so the dynamic calculation treats this category as having existed from period start.
+    let effectiveFrom: string | undefined
+    if (body.data.treatAsPeriodStart && getDynamicCalculations()) {
+      const db2 = getDb()
+      const wRow = db2.prepare('SELECT value FROM settings WHERE key = ?').get('week_start_day') as { value: string } | undefined
+      const weekStartsOn: 0 | 1 = wRow?.value === '1' ? 1 : 0
+      const currentWeekStart = toDateString(getWeekStart(new Date(), weekStartsOn))
+      const { start: periodStart } = getPeriodBoundaries(currentWeekStart, body.data.period, weekStartsOn)
+      effectiveFrom = periodStart
+    }
+    recordBudgetChange(id, body.data.budgetedAmount, body.data.period, request.user!.id, effectiveFrom)
 
     logAudit({
       userId: request.user!.id,

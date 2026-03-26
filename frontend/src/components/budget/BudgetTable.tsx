@@ -185,6 +185,7 @@ function CategoryRow({
         onClose={() => setEditOpen(false)}
         groupId={groupId}
         groupName={groupName}
+        weekStart={weekStart}
         category={cat}
       />
     </>
@@ -769,6 +770,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
           onClose={() => setAddCatState(null)}
           groupId={addCatState.groupId}
           groupName={addCatState.groupName}
+          weekStart={data.weekStart}
           isIncomeGroup={addCatState.isIncome}
         />
       )}
