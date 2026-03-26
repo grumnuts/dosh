@@ -45,7 +45,6 @@ function dynamicWeeklyEquivalent(
 
   const msPerDay = 86400000
   const msPerWeek = 7 * msPerDay
-  const pStartMs = parseDate(periodStart).getTime()
   const pEndMs = parseDate(periodEnd).getTime()
   const currentWeekMs = parseDate(weekStart).getTime()
 
@@ -55,18 +54,14 @@ function dynamicWeeklyEquivalent(
   if (weeksRemaining <= 0) return weeklyEquivalent(budgetedAmount, period)
 
   if (historyRows.length === 0) {
-    // No changes recorded in this period yet. Two sub-cases:
-    //   1. Existing category — period just started, no changes yet → static is correct
-    //   2. New category added mid-period — no history exists at all before this period
-    //      → spread the full budget over the remaining weeks of this period
-    const existedBeforePeriod = db
-      .prepare(`SELECT 1 FROM budget_history WHERE category_id = ? AND effective_from < ? LIMIT 1`)
-      .get(categoryId, periodStart)
-    if (existedBeforePeriod) return weeklyEquivalent(budgetedAmount, period)
-    return Math.ceil(budgetedAmount / weeksRemaining)
+    // No in-period changes yet — could be period just started, or a category entered into
+    // Dosh mid-year (existing expense with no prior history). Both cases use static so
+    // that setting up Dosh mid-year doesn't produce inflated weekly amounts.
+    return weeklyEquivalent(budgetedAmount, period)
   }
 
   // Exact (fractional) weeks in the full period
+  const pStartMs = parseDate(periodStart).getTime()
   const totalWeeks = (pEndMs - pStartMs + msPerDay) / msPerWeek
 
   // Sum the static allocation for each past week, starting from the first history entry
