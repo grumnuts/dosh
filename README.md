@@ -52,6 +52,22 @@ Only `SECRET_KEY` is required in `docker-compose.yml`. Everything else has a sen
 | `DB_PATH` | `/data/dosh.db` | Path to the SQLite database file inside the container. |
 | `LOG_LEVEL` | `info` | Log verbosity: `trace`, `debug`, `info`, `warn`, `error`. |
 
+## Password Reset
+
+If you're locked out, reset a password directly from the server without needing to log in.
+
+**Docker:**
+```bash
+docker exec -it dosh node /app/backend/dist/scripts/resetPassword.js <username> <newpassword>
+```
+
+**Development:**
+```bash
+cd backend && npm run reset-password -- <username> <newpassword>
+```
+
+This updates the password and invalidates all existing sessions for that user.
+
 ## Data Persistence
 
 All data is stored in a single SQLite database file. The Docker Compose setup mounts a named volume at `/data` inside the container. To back up your data:

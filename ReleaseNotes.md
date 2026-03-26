@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### New Features
+- CLI password reset script — run `npm run reset-password -- <username> <password>` (dev) or via `docker exec` (production) to reset a password without logging in
+
+### Enhancements
+- Login page now shows the full Dosh logo instead of text branding
+
 ---
 
 ## v1.5.0 — 2026-03-25
