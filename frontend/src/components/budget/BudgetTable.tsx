@@ -40,11 +40,11 @@ const PERIOD_LABELS: Record<string, string> = {
 }
 
 const PERIOD_COLOURS: Record<string, string> = {
-  weekly:      'bg-blue-500/15 text-blue-400',
-  fortnightly: 'bg-violet-500/15 text-violet-400',
-  monthly:     'bg-amber-500/15 text-amber-400',
-  quarterly:   'bg-rose-500/15 text-rose-400',
-  annually:    'bg-teal-500/15 text-teal-400',
+  weekly:      'bg-blue-500/15 text-blue-100',
+  fortnightly: 'bg-violet-500/15 text-violet-100',
+  monthly:     'bg-amber-500/15 text-amber-100',
+  quarterly:   'bg-rose-500/15 text-rose-100',
+  annually:    'bg-teal-500/15 text-teal-100',
 }
 
 // ─── Grip handle ─────────────────────────────────────────────────────────────

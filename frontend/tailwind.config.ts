@@ -15,7 +15,7 @@ export default {
         // Text
         primary: '#e8e8e8',
         secondary: '#888888',
-        muted: '#555555',
+        muted: '#a0a0a0',
         // Accent green
         accent: '#4ade80',
         'accent-dim': '#22c55e',
