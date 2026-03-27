@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
 import { budgetApi, CategoryInput } from '../../api/budget'
-import { settingsApi } from '../../api/settings'
 
 const schema = z.object({
   name: z.string().min(1, 'Required'),
@@ -24,6 +23,7 @@ interface CategoryProp {
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   budgetedAmount: number
   notes: string | null
+  catchUp: boolean
 }
 
 interface Props {
@@ -56,9 +56,6 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const qc = useQueryClient()
   const isEdit = !!category
 
-  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
-  const dynamicMode = settings?.dynamic_calculations === 'true'
-
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -70,15 +67,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   })
 
   const selectedPeriod = watch('period')
-  const isMidPeriod = !isEdit && getPeriodStart(weekStart, selectedPeriod) < weekStart
-  const showCatchupToggle = dynamicMode && isMidPeriod && !isIncomeGroup
+  const isMidPeriod = getPeriodStart(weekStart, selectedPeriod) < weekStart
+  const showCatchupToggle = isMidPeriod && !isIncomeGroup
 
-  const [catchUp, setCatchUp] = useState(true)
+  const [catchUp, setCatchUp] = useState(false)
 
   useEffect(() => {
     if (open) {
-      setCatchUp(true)
       if (category) {
+        setCatchUp(category.catchUp)
         reset({
           name: category.name,
           budgetedAmount: (category.budgetedAmount / 100).toFixed(2),
@@ -86,6 +83,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           notes: category.notes ?? '',
         })
       } else {
+        setCatchUp(false)
         reset({ name: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
       }
     }
@@ -120,7 +118,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       budgetedAmount: Math.round(parseFloat(data.budgetedAmount) * 100),
       period: data.period,
       notes: data.notes || null,
-      treatAsPeriodStart: showCatchupToggle ? !catchUp : undefined,
+      catchUp,
     })
   }
 
@@ -154,10 +152,9 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
         {showCatchupToggle && (
           <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
             <div>
-              <div className="text-sm font-medium text-primary">Catch up this period</div>
+              <div className="text-sm font-medium text-primary">Catch Up</div>
               <p className="text-xs text-muted mt-0.5 leading-relaxed">
-                Calculate weekly amount from today to cover the full budget by period end.
-                Turn off if this is an existing expense that's been running since the period started.
+                Sets a higher weekly amount to cover the full budgeted amount by the end of the {selectedPeriod === 'monthly' ? 'month' : selectedPeriod === 'quarterly' ? 'quarter' : 'year'}.
               </p>
             </div>
             <button

@@ -12,6 +12,7 @@ export interface BudgetCategory {
   isOverspent: boolean
   notes: string | null
   sortOrder: number
+  catchUp: boolean
 }
 
 export interface BudgetGroup {
@@ -53,7 +54,7 @@ export interface CategoryInput {
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   notes?: string | null
   sortOrder?: number
-  treatAsPeriodStart?: boolean
+  catchUp?: boolean
 }
 
 export interface GroupInput {

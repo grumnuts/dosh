@@ -429,7 +429,7 @@ function IncomeCategoryRow({
         groupId={groupId}
         groupName={groupName}
         isIncomeGroup
-        category={{ id: cat.id, name: cat.name, period: cat.period, budgetedAmount: 0, notes: cat.notes }}
+        category={{ id: cat.id, name: cat.name, period: cat.period, budgetedAmount: 0, notes: cat.notes, catchUp: false }}
       />
     </>
   )

@@ -3,11 +3,10 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
-import { getPeriodBoundaries, toDateString, getWeekStart } from '../utils/dates'
+import { toDateString } from '../utils/dates'
 import {
   getBudgetWeek,
   getCategoryOverspendAmount,
-  getDynamicCalculations,
   recordBudgetChange,
 } from '../services/budget'
 
@@ -159,7 +158,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     period: z.enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'annually']),
     notes: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
-    treatAsPeriodStart: z.boolean().optional(),
+    catchUp: z.boolean().optional(),
   })
 
   app.post('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
@@ -181,8 +180,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const result = db
       .prepare(
-        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.groupId,
@@ -191,6 +190,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         body.data.period,
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
+        body.data.catchUp ? 1 : 0,
         now,
         now,
       )
@@ -198,18 +198,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const id = result.lastInsertRowid as number
 
     // Seed the initial budget history record so historical lookups always find a value.
-    // If treatAsPeriodStart is set and dynamic mode is on, backdate the entry to the period
-    // start so the dynamic calculation treats this category as having existed from period start.
-    let effectiveFrom: string | undefined
-    if (body.data.treatAsPeriodStart && getDynamicCalculations()) {
-      const db2 = getDb()
-      const wRow = db2.prepare('SELECT value FROM settings WHERE key = ?').get('week_start_day') as { value: string } | undefined
-      const weekStartsOn: 0 | 1 = wRow?.value === '1' ? 1 : 0
-      const currentWeekStart = toDateString(getWeekStart(new Date(), weekStartsOn))
-      const { start: periodStart } = getPeriodBoundaries(currentWeekStart, body.data.period, weekStartsOn)
-      effectiveFrom = periodStart
-    }
-    recordBudgetChange(id, body.data.budgetedAmount, body.data.period, request.user!.id, effectiveFrom)
+    recordBudgetChange(id, body.data.budgetedAmount, body.data.period, request.user!.id)
 
     logAudit({
       userId: request.user!.id,
@@ -250,7 +239,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
-       notes = ?, sort_order = COALESCE(?, sort_order), updated_at = ?
+       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.groupId,
@@ -259,6 +248,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       body.data.period,
       body.data.notes ?? null,
       body.data.sortOrder ?? null,
+      body.data.catchUp ? 1 : 0,
       new Date().toISOString(),
       id,
     )

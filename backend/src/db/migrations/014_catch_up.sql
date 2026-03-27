@@ -1,0 +1,1 @@
+ALTER TABLE budget_categories ADD COLUMN catch_up INTEGER NOT NULL DEFAULT 0;
