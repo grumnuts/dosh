@@ -102,7 +102,7 @@ export function getPeriodBoundaries(
  * Fractional cents are always rounded up (ceiling) so the weekly figure
  * never underestimates what needs to be covered.
  * weekly:      as-is
- * fortnightly: × 2
+ * fortnightly: ⌈÷ 2⌉
  * monthly:     ⌈× 12 ÷ 52⌉
  * quarterly:   ⌈× 4 ÷ 52⌉
  * annually:    ⌈÷ 52⌉
@@ -112,7 +112,7 @@ export function weeklyEquivalent(amountCents: number, period: string): number {
     case 'weekly':
       return amountCents
     case 'fortnightly':
-      return amountCents * 2
+      return Math.ceil(amountCents / 2)
     case 'monthly':
       return Math.ceil((amountCents * 12) / 52)
     case 'quarterly':
