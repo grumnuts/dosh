@@ -116,7 +116,7 @@ export function SettingsPage() {
       {/* General */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">General</h2>
-        <div className="card px-5 py-4">
+        <div className="card px-5 py-4 space-y-4">
           <Select
             label="First Day of Week"
             value={settings?.week_start_day ?? '0'}

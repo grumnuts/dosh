@@ -3,12 +3,12 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
+import { toDateString } from '../utils/dates'
 import {
   getBudgetWeek,
   getCategoryOverspendAmount,
   recordBudgetChange,
 } from '../services/budget'
-import { toDateString } from '../utils/dates'
 
 export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/budget/week/:weekStart — full budget for a Sunday
@@ -158,6 +158,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     period: z.enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'annually']),
     notes: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
+    catchUp: z.boolean().optional(),
   })
 
   app.post('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
@@ -179,8 +180,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const result = db
       .prepare(
-        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.groupId,
@@ -189,13 +190,14 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         body.data.period,
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
+        body.data.catchUp ? 1 : 0,
         now,
         now,
       )
 
     const id = result.lastInsertRowid as number
 
-    // Seed the initial budget history record so historical lookups always find a value
+    // Seed the initial budget history record so historical lookups always find a value.
     recordBudgetChange(id, body.data.budgetedAmount, body.data.period, request.user!.id)
 
     logAudit({
@@ -237,7 +239,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
-       notes = ?, sort_order = COALESCE(?, sort_order), updated_at = ?
+       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.groupId,
@@ -246,6 +248,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       body.data.period,
       body.data.notes ?? null,
       body.data.sortOrder ?? null,
+      body.data.catchUp ? 1 : 0,
       new Date().toISOString(),
       id,
     )

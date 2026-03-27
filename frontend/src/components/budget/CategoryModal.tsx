@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,6 +23,7 @@ interface CategoryProp {
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   budgetedAmount: number
   notes: string | null
+  catchUp: boolean
 }
 
 interface Props {
@@ -30,15 +31,32 @@ interface Props {
   onClose: () => void
   groupId: number
   groupName: string
+  weekStart?: string
   isIncomeGroup?: boolean
   category?: CategoryProp | null
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup, category }: Props) {
+function getPeriodStart(weekStart: string, period: string): string {
+  const d = new Date(weekStart + 'T00:00:00Z')
+  switch (period) {
+    case 'monthly':
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`
+    case 'quarterly': {
+      const qMonth = Math.floor(d.getUTCMonth() / 3) * 3
+      return `${d.getUTCFullYear()}-${String(qMonth + 1).padStart(2, '0')}-01`
+    }
+    case 'annually':
+      return `${d.getUTCFullYear()}-01-01`
+    default:
+      return weekStart
+  }
+}
+
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, category }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -48,9 +66,16 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
     },
   })
 
+  const selectedPeriod = watch('period')
+  const isMidPeriod = getPeriodStart(weekStart, selectedPeriod) < weekStart
+  const showCatchupToggle = isMidPeriod && !isIncomeGroup
+
+  const [catchUp, setCatchUp] = useState(false)
+
   useEffect(() => {
     if (open) {
       if (category) {
+        setCatchUp(category.catchUp)
         reset({
           name: category.name,
           budgetedAmount: (category.budgetedAmount / 100).toFixed(2),
@@ -58,6 +83,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
           notes: category.notes ?? '',
         })
       } else {
+        setCatchUp(false)
         reset({ name: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
       }
     }
@@ -92,6 +118,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
       budgetedAmount: Math.round(parseFloat(data.budgetedAmount) * 100),
       period: data.period,
       notes: data.notes || null,
+      catchUp,
     })
   }
 
@@ -121,6 +148,26 @@ export function CategoryModal({ open, onClose, groupId, groupName, isIncomeGroup
             <option value="annually">Annually</option>
           </Select>
         </div>
+
+        {showCatchupToggle && (
+          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
+            <div>
+              <div className="text-sm font-medium text-primary">Catch Up</div>
+              <p className="text-xs text-muted mt-0.5 leading-relaxed">
+                Sets a higher weekly amount to cover the full budgeted amount by the end of the {selectedPeriod === 'monthly' ? 'month' : selectedPeriod === 'quarterly' ? 'quarter' : 'year'}.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={catchUp}
+              onClick={() => setCatchUp((v) => !v)}
+              className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${catchUp ? 'bg-accent' : 'bg-surface-3'}`}
+            >
+              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${catchUp ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        )}
 
         <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
 
