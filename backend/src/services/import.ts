@@ -119,20 +119,37 @@ export function checkDuplicates(
 
   const existing = db
     .prepare(
-      `SELECT id, date, amount FROM transactions
+      `SELECT id, date, amount, payee FROM transactions
        WHERE account_id = ? AND date >= ? AND date <= ?`,
     )
-    .all(accountId, minDate, maxDate) as { id: number; date: string; amount: number }[]
+    .all(accountId, minDate, maxDate) as { id: number; date: string; amount: number; payee: string | null }[]
 
-  // "date:amount" -> first matching id
-  const lookup = new Map<string, number>()
+  // Build two lookup maps:
+  // 1. "date:amount:payee" -> first matching id (precise match when payee is available)
+  // 2. "date:amount" -> first matching id (fallback when payee is absent on either side)
+  const preciseKey = (date: string, amount: number, payee: string) => `${date}:${amount}:${payee.trim().toLowerCase()}`
+  const looseKey = (date: string, amount: number) => `${date}:${amount}`
+
+  const preciseLookup = new Map<string, number>()
+  const looseLookup = new Map<string, number>()
   for (const tx of existing) {
-    const key = `${tx.date}:${tx.amount}`
-    if (!lookup.has(key)) lookup.set(key, tx.id)
+    if (tx.payee) {
+      const pk = preciseKey(tx.date, tx.amount, tx.payee)
+      if (!preciseLookup.has(pk)) preciseLookup.set(pk, tx.id)
+    }
+    const lk = looseKey(tx.date, tx.amount)
+    if (!looseLookup.has(lk)) looseLookup.set(lk, tx.id)
   }
 
   return rows.map((row) => {
-    const existingId = lookup.get(`${row.date}:${row.amount}`)
+    let existingId: number | undefined
+    if (row.payee) {
+      // When the import row has a payee, prefer an exact date+amount+payee match
+      existingId = preciseLookup.get(preciseKey(row.date, row.amount, row.payee))
+        ?? looseLookup.get(looseKey(row.date, row.amount))
+    } else {
+      existingId = looseLookup.get(looseKey(row.date, row.amount))
+    }
     return {
       ...row,
       isDuplicate: existingId !== undefined,
