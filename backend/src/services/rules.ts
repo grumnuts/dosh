@@ -340,18 +340,39 @@ export function checkConflict(
     .prepare(`SELECT r.id, r.name, r.condition_logic FROM rules r ${whereClause} ORDER BY r.id`)
     .all(...params) as Array<{ id: number; name: string; condition_logic: string }>
 
+  if (otherRules.length === 0) return null
+
+  const otherIds = otherRules.map((r) => r.id)
+  const otherPlaceholders = otherIds.map(() => '?').join(',')
+
+  const allOtherConds = db
+    .prepare(`SELECT rule_id, field, operator, value FROM rule_conditions WHERE rule_id IN (${otherPlaceholders}) ORDER BY id`)
+    .all(...otherIds) as Array<{ rule_id: number; field: string; operator: string; value: string }>
+
+  const allOtherActions = db
+    .prepare(`SELECT rule_id, field FROM rule_actions WHERE rule_id IN (${otherPlaceholders})`)
+    .all(...otherIds) as Array<{ rule_id: number; field: string }>
+
+  const condsByOtherRule = new Map<number, RuleCondition[]>()
+  for (const c of allOtherConds) {
+    const arr = condsByOtherRule.get(c.rule_id) ?? []
+    arr.push({ field: c.field as ConditionField, operator: c.operator as Operator, value: c.value })
+    condsByOtherRule.set(c.rule_id, arr)
+  }
+
+  const actionFieldsByRule = new Map<number, Set<string>>()
+  for (const a of allOtherActions) {
+    const set = actionFieldsByRule.get(a.rule_id) ?? new Set()
+    set.add(a.field)
+    actionFieldsByRule.set(a.rule_id, set)
+  }
+
   for (const other of otherRules) {
-    const otherConds = db
-      .prepare(`SELECT field, operator, value FROM rule_conditions WHERE rule_id = ?`)
-      .all(other.id) as unknown as RuleCondition[]
-
-    const otherActionFields = db
-      .prepare(`SELECT field FROM rule_actions WHERE rule_id = ?`)
-      .all(other.id) as Array<{ field: string }>
-
-    const actionOverlap = otherActionFields.some((a) => actionFieldSet.has(a.field))
+    const otherActionFields = actionFieldsByRule.get(other.id) ?? new Set()
+    const actionOverlap = [...otherActionFields].some((f) => actionFieldSet.has(f))
     if (!actionOverlap) continue
 
+    const otherConds = condsByOtherRule.get(other.id) ?? []
     if (conditionsCouldOverlap(conditions, logic, otherConds, other.condition_logic as ConditionLogic)) {
       return { id: other.id, name: other.name }
     }

@@ -75,10 +75,11 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
 
     // Normalize period strings to canonical forms
-    function normalizePeriod(p: string): 'weekly' | 'monthly' | 'quarterly' | 'annual' {
+    function normalizePeriod(p: string): 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annual' {
       if (p === 'annually' || p === 'annual') return 'annual'
       if (p === 'quarterly') return 'quarterly'
       if (p === 'monthly') return 'monthly'
+      if (p === 'fortnightly') return 'fortnightly'
       return 'weekly'
     }
 
@@ -137,7 +138,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       )
       .all(year) as Array<{ category_id: number; budgeted_amount: number; period: string }>
 
-    const budgetMap = new Map<number, { amount: number; period: 'weekly' | 'monthly' | 'quarterly' | 'annual' }>()
+    const budgetMap = new Map<number, { amount: number; period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annual' }>()
     for (const cb of currentBudgets) {
       budgetMap.set(cb.category_id, { amount: cb.budgeted_amount, period: normalizePeriod(cb.period) })
     }
@@ -190,10 +191,12 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
           }
         }
       } else {
-        // weekly/monthly: compare per month
+        // weekly/fortnightly/monthly: compare per month
         const monthlyBudget = budget.period === 'monthly'
           ? budget.amount
-          : Math.round((budget.amount * 52) / 12)
+          : budget.period === 'fortnightly'
+            ? Math.round((budget.amount * 26) / 12)
+            : Math.round((budget.amount * 52) / 12)
         for (let m = 1; m <= 12; m++) {
           const monthStr = String(m).padStart(2, '0')
           const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
@@ -376,7 +379,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         history.push({ month: row.month, balance: running })
       }
 
-      return { id: account.id, name: account.name, type: account.type, history }
+      return { id: account.id, name: account.name, type: account.type, startingBalance: account.starting_balance, history }
     })
 
     // Collect all distinct months across all accounts
@@ -389,7 +392,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       const total = accountHistories.reduce((sum, account) => {
         // Use the most recent balance at or before this month
         const point = [...account.history].reverse().find((h) => h.month <= month)
-        return sum + (point ? point.balance : account.history.length === 0 ? 0 : 0)
+        // If no history exists before this month, the account balance equals its starting balance
+        return sum + (point ? point.balance : account.history.length === 0 ? 0 : account.startingBalance)
       }, 0)
       return { month, balance: total }
     })

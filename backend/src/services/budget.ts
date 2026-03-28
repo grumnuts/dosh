@@ -209,6 +209,7 @@ export function getEffectiveBudget(
  */
 export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const db = getDb()
+  const weekStartsOn = getWeekStartsOn()
 
   const allGroups = db
     .prepare(
@@ -226,6 +227,127 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const regularGroups = allGroups.filter((g) => g.is_income === 0)
   const incomeGroupsRaw = allGroups.filter((g) => g.is_income === 1)
 
+  // --- Batch: resolve effective budgets and period boundaries for all categories ---
+
+  // Fetch all history records at once: latest per category at or before this week
+  const allCategoryIds = categories.map((c) => c.id)
+  const catPlaceholders = allCategoryIds.length > 0 ? allCategoryIds.map(() => '?').join(',') : 'NULL'
+
+  const historyRows = allCategoryIds.length > 0
+    ? (db
+        .prepare(
+          `SELECT bh.category_id, bh.budgeted_amount, bh.period
+           FROM budget_history bh
+           INNER JOIN (
+             SELECT category_id, MAX(effective_from) AS max_ef
+             FROM budget_history
+             WHERE category_id IN (${catPlaceholders}) AND effective_from <= ?
+             GROUP BY category_id
+           ) latest ON bh.category_id = latest.category_id AND bh.effective_from = latest.max_ef`,
+        )
+        .all(...allCategoryIds, weekStart) as Array<{ category_id: number; budgeted_amount: number; period: string }>)
+    : []
+
+  const effectiveBudgetMap = new Map<number, { budgetedAmount: number; period: string }>()
+  for (const h of historyRows) {
+    effectiveBudgetMap.set(h.category_id, { budgetedAmount: h.budgeted_amount, period: h.period })
+  }
+  // For categories with no history, fall back to current values
+  for (const cat of categories) {
+    if (!effectiveBudgetMap.has(cat.id)) {
+      effectiveBudgetMap.set(cat.id, { budgetedAmount: cat.budgeted_amount, period: cat.period })
+    }
+  }
+
+  // Compute period boundaries once per category
+  const boundsMap = new Map<number, { start: string; end: string }>()
+  for (const cat of categories) {
+    const { period } = effectiveBudgetMap.get(cat.id)!
+    boundsMap.set(cat.id, getPeriodBoundaries(weekStart, period, weekStartsOn))
+  }
+
+  // --- Batch: fetch covers for the current week for all categories at once ---
+  const coversMap = new Map<number, number>()
+  if (allCategoryIds.length > 0) {
+    const coversRows = db
+      .prepare(
+        `SELECT category_id, COALESCE(SUM(amount), 0) AS total
+         FROM transactions
+         WHERE category_id IN (${catPlaceholders}) AND cover_week_start = ? AND type = 'cover' AND amount > 0
+         GROUP BY category_id`,
+      )
+      .all(...allCategoryIds, weekStart) as Array<{ category_id: number; total: number }>
+    for (const r of coversRows) coversMap.set(r.category_id, r.total)
+  }
+
+  // --- Batch: fetch spent amounts grouped by category across all distinct period ranges ---
+  // Categories may share the same period boundary, so group them to avoid duplicate queries.
+  // Key: "start|end" -> category IDs that share this range
+  const spentByPeriodKey = new Map<string, { start: string; end: string; ids: number[] }>()
+  for (const cat of categories) {
+    const bounds = boundsMap.get(cat.id)!
+    const key = `${bounds.start}|${bounds.end}`
+    const existing = spentByPeriodKey.get(key)
+    if (existing) {
+      existing.ids.push(cat.id)
+    } else {
+      spentByPeriodKey.set(key, { start: bounds.start, end: bounds.end, ids: [cat.id] })
+    }
+  }
+
+  const spentMap = new Map<number, number>()
+  for (const { start, end, ids } of spentByPeriodKey.values()) {
+    const ph = ids.map(() => '?').join(',')
+    const rows = db
+      .prepare(
+        `SELECT category_id, ABS(COALESCE(SUM(total), 0)) AS spent FROM (
+           SELECT t.category_id, t.amount AS total FROM transactions t
+           WHERE t.category_id IN (${ph}) AND t.date >= ? AND t.date <= ?
+             AND t.type = 'transaction' AND t.amount < 0
+           UNION ALL
+           SELECT ts.category_id, ts.amount AS total FROM transaction_splits ts
+           JOIN transactions t ON t.id = ts.transaction_id
+           WHERE ts.category_id IN (${ph}) AND t.date >= ? AND t.date <= ?
+             AND t.type = 'transaction' AND ts.amount < 0
+         )
+         GROUP BY category_id`,
+      )
+      .all(...ids, start, end, ...ids, start, end) as Array<{ category_id: number; spent: number }>
+    for (const r of rows) spentMap.set(r.category_id, r.spent)
+  }
+
+  // --- Batch: fetch received amounts for income categories ---
+  const incomeCatIds = categories.filter((c) => incomeGroupsRaw.some((g) => g.id === c.group_id)).map((c) => c.id)
+  const receivedMap = new Map<number, number>()
+  if (incomeCatIds.length > 0) {
+    const incomeBoundsGroups = new Map<string, { start: string; end: string; ids: number[] }>()
+    for (const id of incomeCatIds) {
+      const bounds = boundsMap.get(id)!
+      const key = `${bounds.start}|${bounds.end}`
+      const existing = incomeBoundsGroups.get(key)
+      if (existing) { existing.ids.push(id) } else { incomeBoundsGroups.set(key, { start: bounds.start, end: bounds.end, ids: [id] }) }
+    }
+    for (const { start, end, ids } of incomeBoundsGroups.values()) {
+      const ph = ids.map(() => '?').join(',')
+      const rows = db
+        .prepare(
+          `SELECT category_id, COALESCE(SUM(total), 0) AS received FROM (
+             SELECT t.category_id, t.amount AS total FROM transactions t
+             WHERE t.category_id IN (${ph}) AND t.date >= ? AND t.date <= ?
+               AND t.type = 'transaction' AND t.amount > 0
+             UNION ALL
+             SELECT ts.category_id, ts.amount AS total FROM transaction_splits ts
+             JOIN transactions t ON t.id = ts.transaction_id
+             WHERE ts.category_id IN (${ph}) AND t.date >= ? AND t.date <= ?
+               AND t.type = 'transaction' AND ts.amount > 0
+           )
+           GROUP BY category_id`,
+        )
+        .all(...ids, start, end, ...ids, start, end) as Array<{ category_id: number; received: number }>
+      for (const r of rows) receivedMap.set(r.category_id, r.received)
+    }
+  }
+
   let totalWeeklyBudget = 0
 
   // Build regular expense groups
@@ -233,35 +355,9 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     const groupCats = categories.filter((c) => c.group_id === group.id)
 
     const builtCats: BudgetCategory[] = groupCats.map((cat) => {
-      const { budgetedAmount, period } = getEffectiveBudget(cat.id, weekStart)
-      const bounds = getPeriodBoundaries(weekStart, period, getWeekStartsOn())
-
-      const spentRow = db
-        .prepare(
-          `SELECT COALESCE(SUM(total), 0) as total FROM (
-             SELECT t.amount as total FROM transactions t
-             WHERE t.category_id = ? AND t.date >= ? AND t.date <= ?
-               AND t.type = 'transaction' AND t.amount < 0
-             UNION ALL
-             SELECT ts.amount as total FROM transaction_splits ts
-             JOIN transactions t ON t.id = ts.transaction_id
-             WHERE ts.category_id = ? AND t.date >= ? AND t.date <= ?
-               AND t.type = 'transaction' AND ts.amount < 0
-           )`,
-        )
-        .get(cat.id, bounds.start, bounds.end, cat.id, bounds.start, bounds.end) as { total: number }
-
-      const spent = Math.abs(spentRow.total)
-
-      const coversRow = db
-        .prepare(
-          `SELECT COALESCE(SUM(amount), 0) as total
-           FROM transactions
-           WHERE category_id = ? AND cover_week_start = ? AND type = 'cover' AND amount > 0`,
-        )
-        .get(cat.id, weekStart) as { total: number }
-
-      const covers = coversRow.total
+      const { budgetedAmount, period } = effectiveBudgetMap.get(cat.id)!
+      const spent = spentMap.get(cat.id) ?? 0
+      const covers = coversMap.get(cat.id) ?? 0
       const balance = budgetedAmount - spent + covers
       const weekly = cat.catch_up
         ? catchUpWeeklyEquivalent(cat.id, budgetedAmount, period, weekStart)
@@ -296,33 +392,14 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const incomeGroups: IncomeGroup[] = incomeGroupsRaw.map((group) => {
     const groupCats = categories.filter((c) => c.group_id === group.id)
 
-    const builtCats: IncomeCategory[] = groupCats.map((cat) => {
-      const bounds = getPeriodBoundaries(weekStart, cat.period)
-
-      const receivedRow = db
-        .prepare(
-          `SELECT COALESCE(SUM(total), 0) as total FROM (
-             SELECT t.amount as total FROM transactions t
-             WHERE t.category_id = ? AND t.date >= ? AND t.date <= ?
-               AND t.type = 'transaction' AND t.amount > 0
-             UNION ALL
-             SELECT ts.amount as total FROM transaction_splits ts
-             JOIN transactions t ON t.id = ts.transaction_id
-             WHERE ts.category_id = ? AND t.date >= ? AND t.date <= ?
-               AND t.type = 'transaction' AND ts.amount > 0
-           )`,
-        )
-        .get(cat.id, bounds.start, bounds.end, cat.id, bounds.start, bounds.end) as { total: number }
-
-      return {
-        id: cat.id,
-        name: cat.name,
-        period: cat.period,
-        received: receivedRow.total,
-        notes: cat.notes,
-        sortOrder: cat.sort_order,
-      }
-    })
+    const builtCats: IncomeCategory[] = groupCats.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      period: cat.period,
+      received: receivedMap.get(cat.id) ?? 0,
+      notes: cat.notes,
+      sortOrder: cat.sort_order,
+    }))
 
     return {
       id: group.id,
