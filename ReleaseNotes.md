@@ -2,11 +2,25 @@
 
 ## Unreleased
 
+---
+
+## v1.6.0 — 2026-03-28
+
 ### New Features
+- Per-category catch-up toggle — when enabled on a category, the weekly equivalent is recalculated from the most recent budget change to the end of the period, so mid-period adjustments spread correctly across remaining weeks rather than inflating totals
 - CLI password reset script — run `npm run reset-password -- <username> <password>` (dev) or via `docker exec` (production) to reset a password without logging in
+
+### Bug Fixes
+- Fortnightly categories used the wrong monthly equivalent in the Overspend report (×52 instead of ×26), causing the threshold to be doubled and overspend to never appear
+- Net Worth report showed $0 for accounts in months before their first transaction instead of the account's starting balance
+- Income categories ignored the configured week-start day when calculating period boundaries, defaulting to Sunday regardless of settings
+- Starting balance transactions on debt accounts now preserve the correct sign instead of always being forced positive
+- Bulk deleting cover transactions is now blocked with a clear error — covers must be removed individually to keep budget state consistent
 
 ### Enhancements
 - Login page now shows the full Dosh logo instead of text branding
+- CSV import duplicate detection now matches on date + amount + payee when a payee is present, reducing false positives when two legitimate same-day same-amount transactions exist
+- Budget week calculations batch all history, spent, covers, and received queries instead of issuing multiple queries per category
 
 ---
 

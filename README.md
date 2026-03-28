@@ -92,7 +92,7 @@ The **Weekly** column in the budget view shows a fixed weekly estimate derived f
 | Period | Weekly equivalent |
 |---|---|
 | Weekly | Budgeted amount |
-| Fortnightly | Budgeted amount × 2 |
+| Fortnightly | ⌈Budgeted amount ÷ 2⌉ |
 | Monthly | ⌈(Budgeted amount × 12) ÷ 52⌉ |
 | Quarterly | ⌈(Budgeted amount × 4) ÷ 52⌉ |
 | Annually | ⌈Budgeted amount ÷ 52⌉ |
@@ -100,6 +100,16 @@ The **Weekly** column in the budget view shows a fixed weekly estimate derived f
 Fractional cents are always rounded up so the weekly figure never underestimates.
 
 This column is for planning purposes only — it has no effect on balance or overspend calculations, which always use the full budgeted amount over the category's own period.
+
+#### Catch-up
+
+Each category has an optional **Catch up** toggle. When enabled, the weekly equivalent is recalculated from the most recent budget change to the end of the current period:
+
+```
+Weekly equivalent = ⌈Budgeted amount ÷ weeks remaining from last change⌉
+```
+
+This is useful when you adjust a budget mid-period — catch-up spreads the full amount across only the remaining weeks rather than the entire period. Catch-up has no effect on balance or overspend calculations.
 
 ### Budget History
 
