@@ -19,8 +19,10 @@
 
 ### Enhancements
 - Login page now shows the full Dosh logo instead of text branding
+- Clicking an account row now filters the transaction list to that account; clicking again clears the filter. An edit icon button replaces the previous row-click-to-edit behaviour
 - CSV import duplicate detection now matches on date + amount + payee when a payee is present, reducing false positives when two legitimate same-day same-amount transactions exist
 - Budget week calculations batch all history, spent, covers, and received queries instead of issuing multiple queries per category
+- Muted text color lightened for better readability on dark backgrounds
 
 ---
 
