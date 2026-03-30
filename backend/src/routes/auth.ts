@@ -84,11 +84,27 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       | undefined
 
     if (!user) {
+      logAudit({
+        userId: null,
+        username: body.data.username,
+        eventType: 'user.login_failed',
+        details: { reason: 'unknown_user' },
+        ipAddress: request.ip,
+      })
       return reply.code(401).send({ error: 'Invalid credentials' })
     }
 
     const valid = await argon2.verify(user.password_hash, body.data.password)
     if (!valid) {
+      logAudit({
+        userId: user.id,
+        username: user.username,
+        eventType: 'user.login_failed',
+        entityType: 'user',
+        entityId: user.id,
+        details: { reason: 'wrong_password' },
+        ipAddress: request.ip,
+      })
       return reply.code(401).send({ error: 'Invalid credentials' })
     }
 

@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge'
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   'user.login': 'Login',
+  'user.login_failed': 'Login Failed',
   'user.logout': 'Logout',
   'user.created': 'User Created',
   'user.deleted': 'User Deleted',
@@ -31,6 +32,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 
 const EVENT_BADGES: Record<string, 'default' | 'danger' | 'warn' | 'success' | 'muted'> = {
   'user.login': 'success',
+  'user.login_failed': 'danger',
   'user.logout': 'muted',
   'user.created': 'success',
   'user.deleted': 'danger',

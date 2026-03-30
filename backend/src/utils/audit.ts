@@ -2,6 +2,7 @@ import { getDb } from '../db/client'
 
 export type AuditEventType =
   | 'user.login'
+  | 'user.login_failed'
   | 'user.logout'
   | 'user.created'
   | 'user.deleted'
