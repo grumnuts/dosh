@@ -72,7 +72,7 @@ export function CategoryCombobox({
       setDropdownStyle(style)
     }
     setSearch('')
-    requestAnimationFrame(() => searchRef.current?.focus())
+    requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }))
   }, [open])
 
   useEffect(() => {

@@ -49,7 +49,7 @@ export function SearchableSelect({ items, value, onChange, label, allLabel = 'Al
       setDropdownStyle(style)
     }
     setSearch('')
-    requestAnimationFrame(() => searchRef.current?.focus())
+    requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }))
   }, [open])
 
   useEffect(() => {
