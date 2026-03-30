@@ -144,15 +144,6 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* Audit Log */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Audit Log</h2>
-        <div className="card px-5 py-4 flex items-center justify-between">
-          <p className="text-sm text-secondary">View a full history of all changes made in Dosh.</p>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/audit')}>View Log</Button>
-        </div>
-      </section>
-
       {/* Users */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -199,6 +190,15 @@ export function SettingsPage() {
               </div>
             ))
           )}
+        </div>
+      </section>
+
+      {/* Audit Log */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Audit Log</h2>
+        <div className="card px-5 py-4 flex items-center justify-between">
+          <p className="text-sm text-secondary">View a full history of all changes made in Dosh.</p>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/audit')}>View Log</Button>
         </div>
       </section>
 
