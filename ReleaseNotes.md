@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### New Features
+- Debt accounts now have auto-created budget categories for tracking and planning repayments — payments categorised to a debt category automatically reduce the account balance, and a dedicated Debt Payments section appears in the budget alongside Income
+
 ---
 
 ## v1.7.0 — 2026-03-30
