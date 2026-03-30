@@ -8,6 +8,7 @@ export interface Account {
   notes: string | null
   sortOrder: number
   goalAmount: number | null
+  goalTargetDate: string | null
 }
 
 export interface AccountInput {
@@ -16,6 +17,7 @@ export interface AccountInput {
   notes?: string | null
   sortOrder?: number
   goalAmount?: number | null
+  goalTargetDate?: string | null
 }
 
 export interface AccountCreateInput extends AccountInput {

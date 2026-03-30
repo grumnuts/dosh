@@ -33,6 +33,7 @@ export interface TransactionFilters {
   endDate?: string
   accountId?: number
   categoryId?: number
+  payee?: string
   uncategorised?: boolean
   search?: string
   limit?: number
@@ -58,12 +59,15 @@ export interface TransactionInput {
 }
 
 export const transactionsApi = {
+  payees: () => api.get<string[]>('/api/transactions/payees'),
+
   list: (filters: TransactionFilters = {}) => {
     const params = new URLSearchParams()
     if (filters.startDate) params.set('startDate', filters.startDate)
     if (filters.endDate) params.set('endDate', filters.endDate)
     if (filters.accountId) params.set('accountId', String(filters.accountId))
     if (filters.categoryId) params.set('categoryId', String(filters.categoryId))
+    if (filters.payee) params.set('payee', filters.payee)
     if (filters.uncategorised) params.set('uncategorised', 'true')
     if (filters.search) params.set('search', filters.search)
     if (filters.limit) params.set('limit', String(filters.limit))
