@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
+import { recordBudgetChange } from '../services/budget'
 
 const createAccountSchema = z.object({
   name: z.string().min(1).max(128),
@@ -28,7 +29,24 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     const accounts = db
       .prepare(
         `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order, a.goal_amount, a.goal_target_date,
-                COALESCE(SUM(t.amount), 0) as transaction_total
+                COALESCE(SUM(t.amount), 0) as transaction_total,
+                CASE WHEN a.type = 'debt' THEN
+                  COALESCE((
+                    SELECT -SUM(pt.amount)
+                    FROM transactions pt
+                    JOIN budget_categories bc ON pt.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND pt.amount < 0
+                  ), 0) +
+                  COALESCE((
+                    SELECT -SUM(ts.amount)
+                    FROM transaction_splits ts
+                    JOIN transactions pt ON ts.transaction_id = pt.id
+                    JOIN budget_categories bc ON ts.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND ts.amount < 0
+                  ), 0)
+                ELSE 0 END as categorized_payment_total
          FROM accounts a
          LEFT JOIN transactions t ON t.account_id = a.id
          WHERE a.is_active = 1
@@ -45,6 +63,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       goal_amount: number | null
       goal_target_date: string | null
       transaction_total: number
+      categorized_payment_total: number
     }>
 
     return reply.send(
@@ -52,7 +71,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
         id: a.id,
         name: a.name,
         type: a.type,
-        currentBalance: a.starting_balance + a.transaction_total,
+        currentBalance: a.starting_balance + a.transaction_total + a.categorized_payment_total,
         notes: a.notes,
         sortOrder: a.sort_order,
         goalAmount: a.goal_amount,
@@ -104,6 +123,30 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
+    // Auto-create a linked budget category for debt accounts
+    if (body.data.type === 'debt') {
+      const debtGroup = db
+        .prepare('SELECT id FROM budget_groups WHERE is_debt = 1 LIMIT 1')
+        .get() as { id: number } | undefined
+
+      if (debtGroup) {
+        const maxCatOrder = (
+          db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM budget_categories WHERE group_id = ?')
+            .get(debtGroup.id) as { m: number }
+        ).m
+
+        const catResult = db
+          .prepare(
+            `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, linked_account_id, is_system, sort_order, created_at, updated_at)
+             VALUES (?, ?, 0, 'monthly', ?, 1, ?, ?, ?)`,
+          )
+          .run(debtGroup.id, body.data.name, id, maxCatOrder + 1, now, now)
+
+        const catId = catResult.lastInsertRowid as number
+        recordBudgetChange(catId, 0, 'monthly', request.user!.id)
+      }
+    }
+
     logAudit({
       userId: request.user!.id,
       username: request.user!.username,
@@ -140,6 +183,8 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
     if (!existing) return reply.code(404).send({ error: 'Account not found' })
 
+    const updatedAt = new Date().toISOString()
+
     db.prepare(
       `UPDATE accounts SET name = ?, type = ?, notes = ?, sort_order = COALESCE(?, sort_order), goal_amount = ?, goal_target_date = ?, updated_at = ?
        WHERE id = ?`,
@@ -150,9 +195,16 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       body.data.sortOrder ?? null,
       body.data.goalAmount ?? null,
       body.data.goalTargetDate ?? null,
-      new Date().toISOString(),
+      updatedAt,
       id,
     )
+
+    // Keep the linked debt category name in sync with the account name
+    if (body.data.type === 'debt' && body.data.name !== existing.name) {
+      db.prepare(
+        'UPDATE budget_categories SET name = ?, updated_at = ? WHERE linked_account_id = ?',
+      ).run(body.data.name, updatedAt, id)
+    }
 
     logAudit({
       userId: request.user!.id,
@@ -241,11 +293,15 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
     if (!account) return reply.code(404).send({ error: 'Account not found' })
 
+    const now = new Date().toISOString()
+
     // Soft delete to preserve transaction history
-    db.prepare('UPDATE accounts SET is_active = 0, updated_at = ? WHERE id = ?').run(
-      new Date().toISOString(),
-      id,
-    )
+    db.prepare('UPDATE accounts SET is_active = 0, updated_at = ? WHERE id = ?').run(now, id)
+
+    // Deactivate the linked debt category if one exists
+    db.prepare(
+      'UPDATE budget_categories SET is_active = 0, updated_at = ? WHERE linked_account_id = ?',
+    ).run(now, account.id)
 
     logAudit({
       userId: request.user!.id,

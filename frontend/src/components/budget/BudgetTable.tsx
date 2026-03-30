@@ -18,7 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
-import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, budgetApi } from '../../api/budget'
+import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
@@ -448,6 +448,105 @@ function SortableIncomeCategoryRow(props: Omit<IncomeCategoryRowProps, 'rowRef' 
   )
 }
 
+// ─── Debt group section ──────────────────────────────────────────────────────
+
+type DebtGroupSectionProps = {
+  group: DebtGroup
+}
+
+function DebtGroupSection({ group }: DebtGroupSectionProps) {
+  const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:debt-group:${group.id}`, false)
+  const [editCat, setEditCat] = useState<DebtCategory | null>(null)
+
+  const groupPaid = group.categories.reduce((s, c) => s + c.spent, 0)
+  const groupBalance = group.categories.reduce((s, c) => s + c.balance, 0)
+  const groupOutstanding = group.categories.reduce((s, c) => s + c.linkedAccountBalance, 0)
+  const groupWeekly = group.categories.reduce((s, c) => s + c.weeklyEquivalent, 0)
+  const showCategories = !collapsed
+
+  return (
+    <>
+      <tr className="bg-white/5">
+        <td className="px-2 py-2.5 hidden md:table-cell w-8" />
+        <td className="pl-2 pr-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              className="text-muted hover:text-primary transition-colors"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? 'Expand group' : 'Collapse group'}
+            >
+              <svg
+                className={`w-3.5 h-3.5 transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <span className="text-sm font-semibold text-primary">{group.name}</span>
+          </div>
+        </td>
+        <td className="hidden md:table-cell" />
+        <td className="px-3 py-2.5 text-right font-mono text-xs text-secondary tabular-nums hidden lg:table-cell">
+          {formatMoney(groupWeekly)}
+        </td>
+        <td className="px-3 py-2.5 text-right font-mono text-xs text-secondary tabular-nums hidden sm:table-cell">
+          {formatMoney(groupPaid)}
+        </td>
+        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">
+          <span className={groupBalance < 0 ? 'text-accent' : 'text-secondary'}>{formatMoney(groupBalance)}</span>
+        </td>
+        <td className="px-2 py-2.5 text-right font-mono text-xs tabular-nums sm:px-3">
+          <span className={groupOutstanding >= 0 ? 'text-accent' : 'text-danger'}>{formatMoney(groupOutstanding)}</span>
+        </td>
+      </tr>
+
+      {showCategories && group.categories.map((cat) => (
+        <tr
+          key={cat.id}
+          className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
+          onClick={() => setEditCat(cat)}
+        >
+          <td className="px-2 py-2.5 hidden md:table-cell w-8" />
+          <td className="pl-12 pr-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-primary">{cat.name}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+                {PERIOD_LABELS[cat.period]}
+              </span>
+            </div>
+          </td>
+          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden md:table-cell">
+            <span className="text-secondary">{formatMoney(cat.budgetedAmount)}</span>
+          </td>
+          <td className="px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden lg:table-cell">
+            {formatMoney(cat.weeklyEquivalent)}
+          </td>
+          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden sm:table-cell">
+            <span className="text-secondary">{formatMoney(cat.spent)}</span>
+          </td>
+          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums">
+            <span className={cat.balance < 0 ? 'text-accent' : 'text-primary'}>{formatMoney(cat.balance)}</span>
+          </td>
+          <td className="px-2 py-2.5 text-right font-mono text-sm tabular-nums sm:px-3">
+            <span className={cat.linkedAccountBalance >= 0 ? 'text-accent' : 'text-danger'}>{formatMoney(cat.linkedAccountBalance)}</span>
+          </td>
+        </tr>
+      ))}
+
+      {editCat && (
+        <CategoryModal
+          open={true}
+          onClose={() => setEditCat(null)}
+          groupId={group.id}
+          groupName={group.name}
+          isDebtGroup
+          category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp }}
+        />
+      )}
+    </>
+  )
+}
+
 // ─── Income group section ────────────────────────────────────────────────────
 
 type IncomeGroupSectionProps = {
@@ -607,6 +706,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   const [addIncomeGroupOpen, setAddIncomeGroupOpen] = useState(false)
   const [orderedGroups, setOrderedGroups] = useState<BudgetGroup[]>(data.groups)
   const [orderedIncomeGroups, setOrderedIncomeGroups] = useState<IncomeGroup[]>(data.incomeGroups ?? [])
+  const debtGroups = data.debtGroups ?? []
   const queryClient = useQueryClient()
 
   useEffect(() => { setOrderedGroups(data.groups) }, [data.groups])
@@ -654,7 +754,17 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                 <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
                 <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
                 <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20" />
+                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20">
+                  <button
+                    className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
+                    onClick={() => setAddGroupOpen(true)}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="hidden sm:inline">Add Group</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -683,18 +793,33 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-border">
-          <button
-            className="text-sm text-muted hover:text-accent flex items-center gap-2 transition-colors"
-            onClick={() => setAddGroupOpen(true)}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Group
-          </button>
-        </div>
       </div>
+
+      {/* Debt table */}
+      {debtGroups.length > 0 && (
+        <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm table-fixed">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
+                  <th className="px-2 py-3 hidden md:table-cell w-8" />
+                  <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Debt Payments<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                  <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+                  <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
+                  <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Paid<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                  <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+                  <th className="px-2 py-3 text-right font-medium w-28 sm:px-3">Outstanding</th>
+                </tr>
+              </thead>
+              <tbody>
+                {debtGroups.map((group) => (
+                  <DebtGroupSection key={group.id} group={group} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Income table */}
       <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
@@ -708,7 +833,17 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                 <th className="hidden lg:table-cell" style={{ width: widths.weekly }} />
                 <th className="hidden md:table-cell" style={{ width: widths.spent }} />
                 <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20" />
+                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20">
+                  <button
+                    className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
+                    onClick={() => setAddIncomeGroupOpen(true)}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="hidden sm:inline">Add Group</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -727,17 +862,6 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
               </DndContext>
             </tbody>
           </table>
-        </div>
-        <div className="px-4 py-3 border-t border-border">
-          <button
-            className="text-sm text-muted hover:text-accent flex items-center gap-2 transition-colors"
-            onClick={() => setAddIncomeGroupOpen(true)}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Income Group
-          </button>
         </div>
       </div>
 

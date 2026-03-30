@@ -109,10 +109,12 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string }
     const db = getDb()
 
-    const group = db.prepare('SELECT id, name FROM budget_groups WHERE id = ? AND is_active = 1').get(id) as
-      | { id: number; name: string }
+    const group = db.prepare('SELECT id, name, is_income, is_debt FROM budget_groups WHERE id = ? AND is_active = 1').get(id) as
+      | { id: number; name: string; is_income: number; is_debt: number }
       | undefined
     if (!group) return reply.code(404).send({ error: 'Group not found' })
+    if (group.is_debt) return reply.code(400).send({ error: 'The Debt group cannot be deleted' })
+    if (group.is_income) return reply.code(400).send({ error: 'Income groups cannot be deleted' })
 
     const catCount = (
       db
@@ -232,14 +234,24 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, name, budgeted_amount, period, is_unlisted FROM budget_categories WHERE id = ? AND is_active = 1')
-      .get(id) as { id: number; name: string; budgeted_amount: number; period: string; is_unlisted: number } | undefined
+      .prepare('SELECT id, name, group_id, budgeted_amount, period, is_unlisted, linked_account_id FROM budget_categories WHERE id = ? AND is_active = 1')
+      .get(id) as { id: number; name: string; group_id: number; budgeted_amount: number; period: string; is_unlisted: number; linked_account_id: number | null } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Category not found' })
     if (existing.is_unlisted) return reply.code(400).send({ error: 'System categories cannot be edited' })
 
+    // Debt categories: prevent moving to another group or renaming (name is controlled by account)
+    if (existing.linked_account_id !== null) {
+      if (body.data.groupId !== existing.group_id) {
+        return reply.code(400).send({ error: 'Debt payment categories cannot be moved to another group' })
+      }
+    }
+
     const amountChanged =
       existing.budgeted_amount !== body.data.budgetedAmount || existing.period !== body.data.period
+
+    // For debt categories, ignore any name change from the client — name is controlled by the account
+    const nameToSave = existing.linked_account_id !== null ? existing.name : body.data.name
 
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
@@ -247,7 +259,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
        WHERE id = ?`,
     ).run(
       body.data.groupId,
-      body.data.name,
+      nameToSave,
       body.data.budgetedAmount,
       body.data.period,
       body.data.notes ?? null,
@@ -267,7 +279,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         entityType: 'budget_category',
         entityId: parseInt(id, 10),
         details: {
-          name: body.data.name,
+          name: nameToSave,
           oldAmount: existing.budgeted_amount,
           newAmount: body.data.budgetedAmount,
           oldPeriod: existing.period,
@@ -282,7 +294,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         eventType: 'budget_category.updated',
         entityType: 'budget_category',
         entityId: parseInt(id, 10),
-        details: { name: body.data.name },
+        details: { name: nameToSave },
         ipAddress: request.ip,
       })
     }

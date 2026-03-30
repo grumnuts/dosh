@@ -38,12 +38,36 @@ export interface IncomeGroup {
   categories: IncomeCategory[]
 }
 
+export interface DebtCategory {
+  id: number
+  name: string
+  period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
+  budgetedAmount: number
+  weeklyEquivalent: number
+  spent: number
+  balance: number
+  linkedAccountId: number
+  linkedAccountBalance: number
+  notes: string | null
+  sortOrder: number
+  catchUp: boolean
+}
+
+export interface DebtGroup {
+  id: number
+  name: string
+  sortOrder: number
+  categories: DebtCategory[]
+}
+
 export interface BudgetWeek {
   weekStart: string
   groups: BudgetGroup[]
   incomeGroups: IncomeGroup[]
+  debtGroups: DebtGroup[]
   totalWeeklyBudget: number
   totalIncome: number
+  totalDebt: number
   unallocated: number
 }
 

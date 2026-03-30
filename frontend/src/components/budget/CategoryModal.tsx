@@ -33,6 +33,7 @@ interface Props {
   groupName: string
   weekStart?: string
   isIncomeGroup?: boolean
+  isDebtGroup?: boolean
   category?: CategoryProp | null
 }
 
@@ -52,7 +53,7 @@ function getPeriodStart(weekStart: string, period: string): string {
   }
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, category }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, category }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
@@ -127,7 +128,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <p className="text-xs text-muted">Group: {groupName}</p>
 
-        <Input label="Name" {...register('name')} error={errors.name?.message} />
+        {isDebtGroup ? (
+          <div>
+            <p className="text-xs text-muted mb-1">Name</p>
+            <p className="text-sm text-primary">{category?.name}</p>
+            <p className="text-xs text-muted mt-1">Name is controlled by the linked debt account.</p>
+          </div>
+        ) : (
+          <Input label="Name" {...register('name')} error={errors.name?.message} />
+        )}
 
         <div className={`grid gap-3 ${isIncomeGroup ? '' : 'grid-cols-2'}`}>
           {!isIncomeGroup && (
@@ -176,7 +185,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
         )}
 
         <div className="flex items-center gap-3 pt-2">
-          {isEdit && (
+          {isEdit && !isDebtGroup && (
             <Button
               type="button"
               variant="danger"
