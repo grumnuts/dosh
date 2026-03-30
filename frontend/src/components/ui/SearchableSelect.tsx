@@ -118,9 +118,18 @@ export function SearchableSelect({ items, value, onChange, label, allLabel = 'Al
     <div ref={containerRef} className={`flex flex-col gap-1 ${className}`}>
       {label && <span className="text-xs text-muted uppercase tracking-wide">{label}</span>}
       <div className="relative">
-        <button ref={triggerRef} type="button" className={triggerClass} onClick={() => setOpen((o) => !o)}>
+        <button ref={triggerRef} type="button" className={`${triggerClass} ${value ? 'pr-7' : ''}`} onClick={() => setOpen((o) => !o)}>
           {selected?.label ?? allLabel}
         </button>
+        {value && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary leading-none"
+            onClick={(e) => { e.stopPropagation(); onChange('') }}
+          >
+            ×
+          </button>
+        )}
         {open && createPortal(dropdown, document.body)}
       </div>
     </div>

@@ -25,6 +25,7 @@ interface Props {
   disabled?: boolean
   showSplit?: boolean
   onSplitClick?: () => void
+  showClear?: boolean
 }
 
 export function CategoryCombobox({
@@ -38,6 +39,7 @@ export function CategoryCombobox({
   disabled,
   showSplit,
   onSplitClick,
+  showClear,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -176,9 +178,18 @@ export function CategoryCombobox({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      <button ref={triggerRef} type="button" className={triggerClass} onClick={() => setOpen((o) => !o)}>
+      <button ref={triggerRef} type="button" className={`${triggerClass} ${showClear && value ? 'pr-7' : ''}`} onClick={() => setOpen((o) => !o)}>
         {selectedCategory?.name ?? placeholder}
       </button>
+      {showClear && value && (
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-primary leading-none"
+          onClick={(e) => { e.stopPropagation(); onChange('') }}
+        >
+          ×
+        </button>
+      )}
       {open && createPortal(dropdown, document.body)}
     </div>
   )

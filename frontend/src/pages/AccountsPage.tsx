@@ -120,6 +120,7 @@ const baseAccountSchema = z.object({
   type: z.enum(['transactional', 'savings', 'debt']),
   notes: z.string().optional(),
   goalAmount: z.string().optional(),
+  goalTargetDate: z.string().optional(),
 })
 
 const createAccountSchema = baseAccountSchema.extend({
@@ -141,6 +142,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       type: account?.type ?? 'transactional',
       notes: account?.notes ?? '',
       goalAmount: account?.goalAmount ? (account.goalAmount / 100).toFixed(2) : '',
+      goalTargetDate: account?.goalTargetDate ?? '',
       startingBalance: '0.00',
       startingBalanceDate: today,
     },
@@ -175,8 +177,9 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     const goalCents = data.type === 'savings' && data.goalAmount
       ? Math.round(parseFloat(data.goalAmount) * 100) || null
       : null
+    const goalTargetDate = data.type === 'savings' && data.goalTargetDate ? data.goalTargetDate : null
     if (isEdit) {
-      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents })
+      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents, goalTargetDate })
     } else {
       const balanceCents = Math.round(parseFloat(data.startingBalance || '0') * 100)
       mutation.mutate({
@@ -184,6 +187,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
         type: data.type,
         notes: data.notes || null,
         goalAmount: goalCents,
+        goalTargetDate,
         startingBalance: balanceCents || undefined,
         startingBalanceDate: balanceCents ? data.startingBalanceDate : undefined,
       })
@@ -701,6 +705,7 @@ export function AccountsPage() {
                 categories={(categories as Array<{ id: number; group_id: number; name: string }> | undefined) ?? []}
                 groups={groups ?? []}
                 placeholder="All categories"
+                showClear
               />
             </div>
           </div>
