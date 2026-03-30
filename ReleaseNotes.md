@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### New Features
+- Searchable category, account, and payee filters on the transactions list — static selects replaced with comboboxes; account and payee filters added end-to-end (backend + frontend)
+- Goal target date on savings accounts — set a target month/year; the Goals report shows "On track" or "Off track" based on the projected balance trend
+- Debt payoff projections in the Goals report — active debt accounts now appear alongside savings goals with balance history and a projected paid-off date
+
+### Bug Fixes
+- Payee filter options sourced from the transactions table instead of the payees table — CSV-imported payees that bypassed the payees upsert now appear correctly in the dropdown
+- Opening searchable filter dropdowns no longer causes a scroll jump
+
+### Enhancements
+- Number input spinners hidden globally for cleaner numeric fields
+- Per-field clear button on searchable filter dropdowns (category, account, payee)
+
 ---
 
 ## v1.6.0 — 2026-03-28
