@@ -42,8 +42,7 @@ A self-hosted, zero-based envelope budgeting app. Set a budget per category with
 - **Cover overspend** — transfer from a savings account to cover an overspent category, tagged back to the budget
 - **Reports** — cashflow, overspend, payee breakdown, savings goals, and debt payoff projections
 - **Accounts** — track checking, savings, and debt accounts; starting balances and net worth calculated automatically
-- **Drag-to-reorder** — reorder budget groups, categories, and accounts on desktop
-- **Resizable columns** — drag any column header to resize; widths persist across sessions
+- **Catch Up** — Weekly amounts are increased to cover the full budgeted amount be the end of the period, useful when adding new categories mid-period or a bill increases
 
 ---
 
