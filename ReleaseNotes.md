@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+---
+
+## v1.7.0 — 2026-03-30
+
 ### New Features
 - Searchable category, account, and payee filters on the transactions list — static selects replaced with comboboxes; account and payee filters added end-to-end (backend + frontend)
 - Goal target date on savings accounts — set a target month/year; the Goals report shows "On track" or "Off track" based on the projected balance trend
