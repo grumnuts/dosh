@@ -129,6 +129,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule_group',
       entityId: result.lastInsertRowid as number,
       details: { name: body.data.name },
+      ipAddress: request.ip,
     })
     return reply.code(201).send({ id: result.lastInsertRowid })
   })
@@ -152,6 +153,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule_group',
       entityId: parseInt(id, 10),
       details: { name: body.data.name },
+      ipAddress: request.ip,
     })
     return reply.send({ ok: true })
   })
@@ -172,6 +174,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule_group',
       entityId: parseInt(id, 10),
       details: {},
+      ipAddress: request.ip,
     })
     return reply.send({ ok: true })
   })
@@ -188,6 +191,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'transaction',
       entityId: 0,
       details: { updatedCount },
+      ipAddress: request.ip,
     })
 
     return reply.send({ updatedCount })
@@ -206,6 +210,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule',
       entityId: parseInt(id, 10),
       details: { updatedCount },
+      ipAddress: request.ip,
     })
 
     return reply.send({ updatedCount })
@@ -257,6 +262,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule',
       entityId: ruleId,
       details: { name },
+      ipAddress: request.ip,
     })
     return reply.code(201).send({ id: ruleId })
   })
@@ -307,6 +313,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule',
       entityId: parseInt(id, 10),
       details: { name },
+      ipAddress: request.ip,
     })
     return reply.send({ ok: true })
   })
@@ -327,6 +334,7 @@ export async function ruleRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'rule',
       entityId: parseInt(id, 10),
       details: {},
+      ipAddress: request.ip,
     })
     return reply.send({ ok: true })
   })

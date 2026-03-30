@@ -24,6 +24,7 @@ export interface Transaction {
   type: 'transaction' | 'transfer' | 'cover'
   transfer_pair_id: number | null
   cover_week_start: string | null
+  ignore_rules: number
   created_at: string
   splits: TransactionSplit[]
 }
@@ -56,6 +57,7 @@ export interface TransactionInput {
   type?: 'transaction' | 'transfer' | 'starting_balance'
   transferToAccountId?: number | null
   splits?: TransactionSplitInput[]
+  ignoreRules?: boolean
 }
 
 export const transactionsApi = {

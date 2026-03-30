@@ -2,6 +2,7 @@ import { getDb } from '../db/client'
 
 export type AuditEventType =
   | 'user.login'
+  | 'user.login_failed'
   | 'user.logout'
   | 'user.created'
   | 'user.deleted'
@@ -42,11 +43,12 @@ export function logAudit(params: {
   entityType?: string
   entityId?: number
   details?: AuditDetails
+  ipAddress?: string
 }): void {
   const db = getDb()
   db.prepare(
-    `INSERT INTO audit_log (occurred_at, user_id, username, event_type, entity_type, entity_id, details)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO audit_log (occurred_at, user_id, username, event_type, entity_type, entity_id, details, ip_address)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     new Date().toISOString(),
     params.userId ?? null,
@@ -55,5 +57,6 @@ export function logAudit(params: {
     params.entityType ?? null,
     params.entityId ?? null,
     params.details ? JSON.stringify(params.details) : null,
+    params.ipAddress ?? null,
   )
 }

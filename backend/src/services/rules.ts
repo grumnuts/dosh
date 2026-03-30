@@ -213,7 +213,7 @@ export function runRulesOnAllTransactions(db: DatabaseSync, rules?: LoadedRule[]
   const txRows = db
     .prepare(
       `SELECT id, date, account_id, payee, description, amount, category_id
-       FROM transactions WHERE type = 'transaction'`,
+       FROM transactions WHERE type = 'transaction' AND ignore_rules = 0`,
     )
     .all() as Array<{
     id: number

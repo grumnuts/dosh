@@ -19,6 +19,15 @@
     min-height: 100dvh;
   }
 
+  /* Fix iOS date input — prevents the native widget from overriding the h-9 height */
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
   /* Hide number input spinners */
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {

@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge'
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   'user.login': 'Login',
+  'user.login_failed': 'Login Failed',
   'user.logout': 'Logout',
   'user.created': 'User Created',
   'user.deleted': 'User Deleted',
@@ -31,6 +32,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 
 const EVENT_BADGES: Record<string, 'default' | 'danger' | 'warn' | 'success' | 'muted'> = {
   'user.login': 'success',
+  'user.login_failed': 'danger',
   'user.logout': 'muted',
   'user.created': 'success',
   'user.deleted': 'danger',
@@ -171,6 +173,7 @@ export function AuditPage() {
                   <th className="px-3 py-3 text-left font-medium hidden sm:table-cell">User</th>
                   <th className="px-3 py-3 text-left font-medium">Event</th>
                   <th className="px-3 py-3 text-left font-medium hidden md:table-cell">Details</th>
+                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell">IP</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,6 +192,9 @@ export function AuditPage() {
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted max-w-xs truncate hidden md:table-cell">
                       {formatDetails(entry.event_type, entry.details)}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-xs text-muted hidden lg:table-cell">
+                      {entry.ip_address ?? '—'}
                     </td>
                   </tr>
                 ))}

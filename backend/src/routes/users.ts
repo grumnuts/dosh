@@ -51,6 +51,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'user',
       entityId: newId,
       details: { username: body.data.username },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ id: newId, username: body.data.username })
@@ -84,6 +85,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'user',
       entityId: user.id,
       details: { targetUsername: user.username },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })
@@ -114,6 +116,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'user',
       entityId: userId,
       details: { username: user.username },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })

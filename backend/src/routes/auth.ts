@@ -64,6 +64,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'user',
       entityId: userId,
       details: { username: body.data.username, isFirstUser: true },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ ok: true })
@@ -83,11 +84,27 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       | undefined
 
     if (!user) {
+      logAudit({
+        userId: null,
+        username: body.data.username,
+        eventType: 'user.login_failed',
+        details: { reason: 'unknown_user' },
+        ipAddress: request.ip,
+      })
       return reply.code(401).send({ error: 'Invalid credentials' })
     }
 
     const valid = await argon2.verify(user.password_hash, body.data.password)
     if (!valid) {
+      logAudit({
+        userId: user.id,
+        username: user.username,
+        eventType: 'user.login_failed',
+        entityType: 'user',
+        entityId: user.id,
+        details: { reason: 'wrong_password' },
+        ipAddress: request.ip,
+      })
       return reply.code(401).send({ error: 'Invalid credentials' })
     }
 
@@ -108,6 +125,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'user.login',
       entityType: 'user',
       entityId: user.id,
+      ipAddress: request.ip,
     })
 
     reply
@@ -134,6 +152,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'user.logout',
       entityType: 'user',
       entityId: request.user!.id,
+      ipAddress: request.ip,
     })
 
     reply.clearCookie('session', { path: '/' }).send({ ok: true })

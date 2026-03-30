@@ -9,6 +9,21 @@ import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
 import { Input, Select } from '../components/ui/Input'
 
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400)
+  const h = Math.floor((seconds % 86400) / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (d > 0) return `${d}d ${h}h ${m}m`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function AddUserModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [username, setUsername] = useState('')
@@ -92,6 +107,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const { data: sysInfo } = useQuery({ queryKey: ['system-info'], queryFn: settingsApi.systemInfo })
   const updateSetting = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string }) => settingsApi.update(key, value),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
@@ -125,15 +141,6 @@ export function SettingsPage() {
             <option value="0">Sunday (Default)</option>
             <option value="1">Monday</option>
           </Select>
-        </div>
-      </section>
-
-      {/* Audit Log */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Audit Log</h2>
-        <div className="card px-5 py-4 flex items-center justify-between">
-          <p className="text-sm text-secondary">View a full history of all changes made in Dosh.</p>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/audit')}>View Log</Button>
         </div>
       </section>
 
@@ -183,6 +190,36 @@ export function SettingsPage() {
               </div>
             ))
           )}
+        </div>
+      </section>
+
+      {/* Audit Log */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Audit Log</h2>
+        <div className="card px-5 py-4 flex items-center justify-between">
+          <p className="text-sm text-secondary">View a full history of all changes made in Dosh.</p>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/audit')}>View Log</Button>
+        </div>
+      </section>
+
+      {/* System */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">System</h2>
+        <div className="card divide-y divide-border">
+          <div className="flex items-center justify-between px-5 py-3">
+            <span className="text-sm text-secondary">Version</span>
+            <span className="text-sm font-mono text-primary">{sysInfo ? `v${sysInfo.version}` : '—'}</span>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3">
+            <span className="text-sm text-secondary">Uptime</span>
+            <span className="text-sm font-mono text-primary">{sysInfo ? formatUptime(sysInfo.uptimeSeconds) : '—'}</span>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3">
+            <span className="text-sm text-secondary">Database size</span>
+            <span className="text-sm font-mono text-primary">
+              {sysInfo?.dbSizeBytes != null ? formatBytes(sysInfo.dbSizeBytes) : '—'}
+            </span>
+          </div>
         </div>
       </section>
 

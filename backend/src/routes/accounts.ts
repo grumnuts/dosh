@@ -111,6 +111,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'account',
       entityId: id,
       details: { name: body.data.name, type: body.data.type },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ id })
@@ -160,6 +161,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'account',
       entityId: parseInt(id, 10),
       details: { name: body.data.name },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })
@@ -223,6 +225,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'account',
       entityId: account.id,
       details: { name: account.name, adjustment, actualBalance: body.data.actualBalance },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true, adjustment, transactionId })
@@ -251,6 +254,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'account',
       entityId: account.id,
       details: { name: account.name },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })

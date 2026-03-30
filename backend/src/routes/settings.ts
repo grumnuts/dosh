@@ -1,7 +1,9 @@
 import { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import fs from 'fs'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
+import { version } from '../../package.json'
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/settings', { preHandler: authenticate }, async (_req, reply) => {
@@ -10,6 +12,17 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     const settings: Record<string, string> = {}
     for (const row of rows) settings[row.key] = row.value
     return reply.send(settings)
+  })
+
+  app.get('/api/system/info', { preHandler: authenticate }, async (_req, reply) => {
+    const dbPath = process.env.DB_PATH ?? './data/dosh.db'
+    let dbSizeBytes: number | null = null
+    try {
+      dbSizeBytes = fs.statSync(dbPath).size
+    } catch {
+      // DB path not accessible
+    }
+    return reply.send({ version, uptimeSeconds: Math.floor(process.uptime()), dbSizeBytes })
   })
 
   app.put('/api/settings/:key', { preHandler: authenticate }, async (request, reply) => {

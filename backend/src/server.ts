@@ -34,6 +34,7 @@ async function start(): Promise<void> {
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
     },
+    trustProxy: true,
   })
 
   await app.register(cookie, {
