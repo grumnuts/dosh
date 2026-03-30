@@ -52,6 +52,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         accountId: z.string().optional(),
         categoryId: z.string().optional(),
+        payee: z.string().optional(),
         uncategorised: z.string().optional(),
         search: z.string().optional(),
         limit: z.string().optional(),
@@ -80,6 +81,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     if (query.categoryId) {
       where += ' AND t.category_id = ?'
       whereParams.push(parseInt(query.categoryId, 10))
+    }
+    if (query.payee) {
+      where += ' AND t.payee = ?'
+      whereParams.push(query.payee)
     }
     if (query.uncategorised === 'true') {
       where += ` AND t.category_id IS NULL AND t.type = 'transaction'`
@@ -386,7 +391,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         body.data.amount,
         categoryIsUnlisted
           ? existing.category_id
-          : newSplits
+          : (newSplits && newSplits.length > 0)
             ? null
             : (body.data.categoryId ?? null),
         now,

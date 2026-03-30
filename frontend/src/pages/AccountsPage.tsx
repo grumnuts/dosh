@@ -24,6 +24,7 @@ import { format, parseISO } from 'date-fns'
 import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
+import { payeesApi } from '../api/payees'
 import { formatMoney, Amount } from '../components/ui/AmountDisplay'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
@@ -32,6 +33,7 @@ import { TransactionForm } from '../components/transactions/TransactionForm'
 import { ImportWizard } from '../components/transactions/ImportWizard'
 import { BulkEditModal } from '../components/transactions/BulkEditModal'
 import { CategoryCombobox } from '../components/ui/CategoryCombobox'
+import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
 
 const DEFAULT_COL_WIDTHS = {
@@ -351,7 +353,7 @@ export function AccountsPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   // Transaction state
-  const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
+  const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [uncategorisedOnly, setUncategorisedOnly] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
@@ -382,6 +384,7 @@ export function AccountsPage() {
 
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
+  const { data: payees } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list })
   const { data: txData, isLoading: txLoading } = useQuery({
     queryKey: ['transactions', filters, uncategorisedOnly, page],
     queryFn: () =>
@@ -390,6 +393,7 @@ export function AccountsPage() {
         endDate: filters.endDate || undefined,
         accountId: filters.accountId ? parseInt(filters.accountId, 10) : undefined,
         categoryId: filters.categoryId ? parseInt(filters.categoryId, 10) : undefined,
+        payee: filters.payee || undefined,
         uncategorised: uncategorisedOnly || undefined,
         search: filters.search || undefined,
         limit: PAGE_SIZE,
@@ -456,7 +460,7 @@ export function AccountsPage() {
 
   const setFilter = (key: string, value: string) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(0) }
   const clearFilters = () => {
-    setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', search: '' })
+    setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
     setUncategorisedOnly(false)
     setPage(0)
   }
@@ -667,7 +671,7 @@ export function AccountsPage() {
 
       {!transactionsCollapsed && filtersOpen && (
         <div className="card p-4 space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-muted uppercase tracking-wide">From</label>
               <input type="date" value={filters.startDate} onChange={(e) => setFilter('startDate', e.target.value)} className="input-base text-sm" />
@@ -676,14 +680,30 @@ export function AccountsPage() {
               <label className="text-xs text-muted uppercase tracking-wide">To</label>
               <input type="date" value={filters.endDate} onChange={(e) => setFilter('endDate', e.target.value)} className="input-base text-sm" />
             </div>
-            <Select label="Account" value={filters.accountId} onChange={(e) => setFilter('accountId', e.target.value)}>
-              <option value="">All accounts</option>
-              {accounts?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </Select>
-            <Select label="Category" value={filters.categoryId} onChange={(e) => setFilter('categoryId', e.target.value)}>
-              <option value="">All categories</option>
-              {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
+            <SearchableSelect
+              label="Account"
+              value={filters.accountId}
+              onChange={(v) => setFilter('accountId', v)}
+              items={(accounts ?? []).map((a) => ({ id: String(a.id), label: a.name }))}
+              allLabel="All accounts"
+            />
+            <SearchableSelect
+              label="Payee"
+              value={filters.payee}
+              onChange={(v) => setFilter('payee', v)}
+              items={(payees ?? []).map((p) => ({ id: p.name, label: p.name }))}
+              allLabel="All payees"
+            />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted uppercase tracking-wide">Category</label>
+              <CategoryCombobox
+                value={filters.categoryId}
+                onChange={(v) => setFilter('categoryId', v)}
+                categories={(categories as Array<{ id: number; group_id: number; name: string }> | undefined) ?? []}
+                groups={groups ?? []}
+                placeholder="All categories"
+              />
+            </div>
           </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">Clear filters</button>
