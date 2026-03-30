@@ -1,155 +1,50 @@
 # Dosh
 
-A self-hosted, zero-based envelope budgeting app. Set a budget per category with weekly, fortnightly, monthly, quarterly, or annual periods. Tracks spending against each category's own period, supports CSV imports from your bank, and lets you cover overspend from savings.
+A self-hosted, zero-based envelope budgeting app. Set a budget per category with weekly, fortnightly, monthly, quarterly, or annual periods — Dosh tracks your spending against each category and keeps everything in one place.
 
-## Quick Start
+## Installation
 
-### Docker Compose (recommended)
+**Prerequisites:** Docker
 
-1. Edit `docker-compose.yml` and set `SECRET_KEY` to a long random string:
+1. Create a `docker-compose.yml`:
+   ```yaml
+   services:
+     dosh:
+       image: grumnuts/dosh:latest
+       ports:
+         - "3000:3000"
+       volumes:
+         - dosh_data:/data
+       environment:
+         SECRET_KEY: your-secret-key-here
+         TZ: Australia/Sydney
+
+   volumes:
+     dosh_data:
+   ```
+
+2. Generate a secret key and paste it in:
    ```bash
    openssl rand -base64 48
    ```
 
-2. Start the app:
+3. Start the app:
    ```bash
    docker compose up -d
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) and create your first user account.
+4. Open [http://localhost:3000](http://localhost:3000) and create your first user.
 
-### Development
+## Features
 
-**Prerequisites:** Node.js 20+
+- **Envelope budgeting** — assign a budget to each category with its own period (weekly through annually); spending tracks against that period
+- **Transaction management** — manually add transactions or import bank CSVs with duplicate detection and column mapping
+- **Cover overspend** — transfer from a savings account to cover an overspent category, tagged back to the budget
+- **Reports** — cashflow, overspend, payee breakdown, savings goals, and debt payoff projections
+- **Accounts** — track checking, savings, and debt accounts; starting balances and net worth calculated automatically
+- **Drag-to-reorder** — reorder budget groups, categories, and accounts on desktop
+- **Resizable columns** — drag any column header to resize; widths persist across sessions
 
-**Backend:**
-```bash
-cd backend
-npm install
-npm run dev
-```
+---
 
-**Frontend** (in a second terminal):
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend dev server proxies `/api` requests to the backend at `localhost:3000`.
-Open [http://localhost:5173](http://localhost:5173).
-
-## Environment Variables
-
-Only `SECRET_KEY` is required in `docker-compose.yml`. Everything else has a sensible default and only needs to be set if you want to override it.
-
-| Variable | Default | Description |
-|---|---|---|
-| `SECRET_KEY` | — | **Required.** Secret for signing session cookies. Generate with `openssl rand -base64 48`. |
-| `TZ` | `UTC` | **Recommended.** Container timezone. Set to your local timezone (e.g. `Australia/Sydney`) so week boundaries and transaction dates are calculated correctly. |
-| `PORT` | `3000` | Port the server listens on. Also update the `ports` mapping in `docker-compose.yml` if changed. |
-| `HOST` | `0.0.0.0` | Interface to bind to. |
-| `DB_PATH` | `/data/dosh.db` | Path to the SQLite database file inside the container. |
-| `LOG_LEVEL` | `info` | Log verbosity: `trace`, `debug`, `info`, `warn`, `error`. |
-
-## Password Reset
-
-If you're locked out, reset a password directly from the server without needing to log in.
-
-**Docker:**
-```bash
-docker exec -it dosh node /app/backend/dist/scripts/resetPassword.js <username> <newpassword>
-```
-
-**Development:**
-```bash
-cd backend && npm run reset-password -- <username> <newpassword>
-```
-
-This updates the password and invalidates all existing sessions for that user.
-
-## Data Persistence
-
-All data is stored in a single SQLite database file. The Docker Compose setup mounts a named volume at `/data` inside the container. To back up your data:
-
-```bash
-docker cp dosh:/data/dosh.db ./dosh-backup.db
-```
-
-## How It Works
-
-### Budget Periods
-
-- The overall budget cycle is **weekly** (Sunday–Saturday)
-- Each category has its own period: weekly, fortnightly, monthly, quarterly, or annually
-- "Spent" for a category is calculated over that category's own period
-- At the end of each period, spent resets and the full budgeted amount is available again
-
-### Weekly Equivalent
-
-The **Weekly** column in the budget view shows a fixed weekly estimate derived from each category's budgeted amount and period:
-
-| Period | Weekly equivalent |
-|---|---|
-| Weekly | Budgeted amount |
-| Fortnightly | ⌈Budgeted amount ÷ 2⌉ |
-| Monthly | ⌈(Budgeted amount × 12) ÷ 52⌉ |
-| Quarterly | ⌈(Budgeted amount × 4) ÷ 52⌉ |
-| Annually | ⌈Budgeted amount ÷ 52⌉ |
-
-Fractional cents are always rounded up so the weekly figure never underestimates.
-
-This column is for planning purposes only — it has no effect on balance or overspend calculations, which always use the full budgeted amount over the category's own period.
-
-#### Catch-up
-
-Each category has an optional **Catch up** toggle. When enabled, the weekly equivalent is recalculated from the most recent budget change to the end of the current period:
-
-```
-Weekly equivalent = ⌈Budgeted amount ÷ weeks remaining from last change⌉
-```
-
-This is useful when you adjust a budget mid-period — catch-up spreads the full amount across only the remaining weeks rather than the entire period. Catch-up has no effect on balance or overspend calculations.
-
-### Budget History
-
-Changing a budget amount only affects the current and future weeks. Historical weeks display the amount that was configured at the time, so past records are preserved accurately.
-
-### CSV Import
-
-Dosh supports importing bank statements in CSV format. The import wizard lets you:
-1. Upload a CSV file
-2. Specify whether it has a header row and the date format
-3. Map columns to fields (date, payee, description, amount — or separate debit/credit columns)
-4. Preview with duplicate detection (matches on date + amount)
-5. Confirm import
-
-After importing, assign categories to transactions from the Accounts page.
-
-### Reports
-
-The **Reports** section provides financial insights across four tabs:
-
-- **Cashflow** — spending by category (stacked bar chart + table), income vs expenses by month, net worth trend, and current account balances
-- **Overspend** — categories and months where spending exceeded the budgeted amount, with budgeted vs spent comparison
-- **Payees** — income and expense totals per payee per month, with a searchable payee list and per-payee bar chart
-- **Goals** — savings account balance history with a projected line to the goal amount based on recent monthly trends
-
-A year selector filters the Cashflow, Overspend, and Payee reports. The Goals tab always shows current data.
-
-### Drag-to-Reorder
-
-On desktop, budget groups, categories, and accounts can all be reordered by dragging the grip handle on the left of each row. Order is persisted across sessions. Accounts can be dragged freely — there is no fixed grouping by type.
-
-### Resizable Table Columns
-
-On desktop, any column in any table can be resized by dragging the right edge of its column header. Widths are saved per table in the browser and restored on next visit.
-
-### Covering Overspend
-
-When a category is overspent:
-1. Click "Cover" on the overspent category in the budget view
-2. Select which savings account to transfer from
-3. A transfer transaction is created (debit from savings, credit to spending), tagged to the overspent category
-4. Ensure you also transfer the exact amount in your bank account
-4. When you import next week's bank CSV, duplicate detection will match the corresponding real bank transfer so you can skip it
+For full documentation, visit the [Dosh Wiki](https://github.com/grumnuts/dosh/wiki).
