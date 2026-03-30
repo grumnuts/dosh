@@ -392,9 +392,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     } else {
       const newSplits = body.data.splits
 
-      // Apply rules when no category is explicitly set (same auto-categorisation as on create)
+      // Apply rules — rules always win, same as on create
       let resolvedCategoryId: number | null = body.data.categoryId ?? null
-      if (!categoryIsUnlisted && !(newSplits && newSplits.length > 0) && resolvedCategoryId === null) {
+      if (!categoryIsUnlisted && !(newSplits && newSplits.length > 0)) {
         resolvedCategoryId = applyRules(
           {
             date: body.data.date,
@@ -402,7 +402,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
             payee: body.data.payee ?? null,
             description: body.data.description ?? null,
             amount: body.data.amount,
-            categoryId: null,
+            categoryId: body.data.categoryId ?? null,
           },
           db,
         ).categoryId ?? null
