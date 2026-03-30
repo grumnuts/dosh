@@ -22,6 +22,7 @@ const schema = z.object({
   description: z.string().optional(),
   amount: z.string().refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Enter a positive amount'),
   categoryId: z.string().optional(),
+  ignoreRules: z.boolean().optional().default(false),
 })
 
 type FormData = z.infer<typeof schema>
@@ -167,6 +168,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           description: transaction.description ?? '',
           amount: (Math.abs(transaction.amount) / 100).toFixed(2),
           categoryId: transaction.category_id ? String(transaction.category_id) : '',
+          ignoreRules: transaction.ignore_rules === 1,
         })
         if (transaction.splits.length > 0) {
           setIsSplit(true)
@@ -189,6 +191,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           description: '',
           amount: '',
           categoryId: '',
+          ignoreRules: false,
         })
         setIsSplit(false)
         setSplits(blankSplits())
@@ -232,6 +235,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             amount: transaction!.type === 'transfer' ? transaction!.amount : amount,
             categoryId: null,
             splits: splitsPayload,
+            ignoreRules: data.ignoreRules,
           })
           return { id: transaction!.id }
         }
@@ -242,6 +246,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           description: data.description || null,
           amount,
           splits: splitsPayload,
+          ignoreRules: data.ignoreRules,
         })
       }
 
@@ -255,6 +260,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           amount: isTransfer ? transaction!.amount : amount,
           categoryId: isTransfer ? null : (data.categoryId ? parseInt(data.categoryId, 10) : null),
           splits: [],
+          ignoreRules: data.ignoreRules,
         })
         return { id: transaction!.id }
       }
@@ -281,6 +287,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         transferToAccountId: data.transferToAccountId
           ? parseInt(data.transferToAccountId, 10)
           : null,
+        ignoreRules: data.ignoreRules,
       })
     },
     onSuccess: () => {
@@ -467,6 +474,11 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             </div>
           </div>
         )}
+
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" {...register('ignoreRules')} className="w-4 h-4 accent-accent" />
+          <span className="text-sm text-secondary">Ignore rules</span>
+        </label>
 
         {mutation.isError && (
           <p className="text-sm text-danger">{(mutation.error as Error).message}</p>

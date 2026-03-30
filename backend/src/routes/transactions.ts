@@ -21,6 +21,7 @@ const transactionSchema = z.object({
   type: z.enum(['transaction', 'transfer', 'starting_balance']).optional().default('transaction'),
   transferToAccountId: z.number().int().optional().nullable(),
   splits: z.array(splitSchema).min(2).optional(),
+  ignoreRules: z.boolean().optional().default(false),
 })
 
 function upsertPayee(payeeName: string | null | undefined): void {
@@ -129,7 +130,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              bc.name as category_name, bg.name as group_name,
              bc.is_unlisted as category_is_unlisted,
              t.type, t.transfer_pair_id, t.cover_week_start,
-             t.created_at
+             t.ignore_rules, t.created_at
       FROM transactions t
       JOIN accounts a ON a.id = t.account_id
       LEFT JOIN budget_categories bc ON bc.id = t.category_id
@@ -188,8 +189,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       // Create both legs of a transfer
       const debitResult = db
         .prepare(
-          `INSERT INTO transactions (date, account_id, payee, description, amount, type, created_at, updated_at, created_by)
-           VALUES (?, ?, ?, ?, ?, 'transfer', ?, ?, ?)`,
+          `INSERT INTO transactions (date, account_id, payee, description, amount, type, ignore_rules, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, 'transfer', ?, ?, ?, ?)`,
         )
         .run(
           body.data.date,
@@ -197,6 +198,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           body.data.payee ?? null,
           body.data.description ?? null,
           -Math.abs(body.data.amount),
+          body.data.ignoreRules ? 1 : 0,
           now,
           now,
           request.user!.id,
@@ -206,8 +208,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
       const creditResult = db
         .prepare(
-          `INSERT INTO transactions (date, account_id, payee, description, amount, type, transfer_pair_id, created_at, updated_at, created_by)
-           VALUES (?, ?, ?, ?, ?, 'transfer', ?, ?, ?, ?)`,
+          `INSERT INTO transactions (date, account_id, payee, description, amount, type, transfer_pair_id, ignore_rules, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, 'transfer', ?, ?, ?, ?, ?)`,
         )
         .run(
           body.data.date,
@@ -216,6 +218,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           body.data.description ?? null,
           Math.abs(body.data.amount),
           debitId,
+          body.data.ignoreRules ? 1 : 0,
           now,
           now,
           request.user!.id,
@@ -249,8 +252,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
       const result = db
         .prepare(
-          `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, created_at, updated_at, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?)`,
+          `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, ignore_rules, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, ?)`,
         )
         .run(
           body.data.date,
@@ -259,6 +262,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           body.data.description ?? null,
           body.data.amount,
           startingBalanceCat.id,
+          body.data.ignoreRules ? 1 : 0,
           now,
           now,
           request.user!.id,
@@ -280,9 +284,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(201).send({ id })
     }
 
-    // Regular or split transaction — apply rules before inserting
+    // Regular or split transaction — apply rules before inserting (unless ignore_rules is set)
     const splits = body.data.splits
-    const ruled = splits
+    const ruled = splits || body.data.ignoreRules
       ? body.data
       : applyRules(
           {
@@ -298,8 +302,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     const result = db
       .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?)`,
+        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, ignore_rules, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, ?)`,
       )
       .run(
         ruled.date,
@@ -308,6 +312,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         ruled.description ?? null,
         ruled.amount,
         splits ? null : (ruled.categoryId ?? null),
+        body.data.ignoreRules ? 1 : 0,
         now,
         now,
         request.user!.id,
@@ -352,6 +357,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         categoryId: z.number().int().optional().nullable(),
         accountId: z.number().int(),
         splits: z.array(splitSchema).optional(),
+        ignoreRules: z.boolean().optional(),
       })
       .safeParse(request.body)
 
@@ -361,8 +367,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, type, transfer_pair_id, category_id FROM transactions WHERE id = ?')
-      .get(id) as { id: number; type: string; transfer_pair_id: number | null; category_id: number | null } | undefined
+      .prepare('SELECT id, type, transfer_pair_id, category_id, ignore_rules FROM transactions WHERE id = ?')
+      .get(id) as { id: number; type: string; transfer_pair_id: number | null; category_id: number | null; ignore_rules: number } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Transaction not found' })
     if (existing.type === 'cover') {
@@ -392,9 +398,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     } else {
       const newSplits = body.data.splits
 
-      // Apply rules — rules always win, same as on create
+      // Apply rules — rules always win, same as on create (unless ignore_rules is set)
+      const ignoreRules = body.data.ignoreRules ?? (existing.ignore_rules === 1)
       let resolvedCategoryId: number | null = body.data.categoryId ?? null
-      if (!categoryIsUnlisted && !(newSplits && newSplits.length > 0)) {
+      if (!categoryIsUnlisted && !(newSplits && newSplits.length > 0) && !ignoreRules) {
         resolvedCategoryId = applyRules(
           {
             date: body.data.date,
@@ -410,7 +417,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-         category_id = ?, updated_at = ? WHERE id = ?`,
+         category_id = ?, ignore_rules = ?, updated_at = ? WHERE id = ?`,
       ).run(
         body.data.date,
         body.data.accountId,
@@ -422,6 +429,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           : (newSplits && newSplits.length > 0)
             ? null
             : resolvedCategoryId,
+        ignoreRules ? 1 : 0,
         now,
         id,
       )

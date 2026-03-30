@@ -30,6 +30,7 @@ export function BulkEditModal({ open, onClose, selectedIds, transactions, accoun
   const [description, setDescription] = useState<FieldState<string>>({ enabled: false, value: '' })
   const [amount, setAmount] = useState<FieldState<string>>({ enabled: false, value: '' })
   const [categoryId, setCategoryId] = useState<FieldState<string>>({ enabled: false, value: '' })
+  const [ignoreRules, setIgnoreRules] = useState<FieldState<string>>({ enabled: false, value: '0' })
 
   const selectedTxs = transactions.filter((t) => selectedIds.has(t.id) && t.type === 'transaction')
   const count = selectedTxs.length
@@ -51,6 +52,7 @@ export function BulkEditModal({ open, onClose, selectedIds, transactions, accoun
             categoryId: categoryId.enabled
               ? (categoryId.value === 'none' ? null : categoryId.value ? parseInt(categoryId.value, 10) : tx.category_id)
               : tx.category_id,
+            ignoreRules: ignoreRules.enabled ? ignoreRules.value === '1' : tx.ignore_rules === 1,
           }),
         ),
       )
@@ -69,10 +71,11 @@ export function BulkEditModal({ open, onClose, selectedIds, transactions, accoun
     setDescription({ enabled: false, value: '' })
     setAmount({ enabled: false, value: '' })
     setCategoryId({ enabled: false, value: '' })
+    setIgnoreRules({ enabled: false, value: '0' })
     onClose()
   }
 
-  const anyEnabled = date.enabled || accountId.enabled || payee.enabled || description.enabled || amount.enabled || categoryId.enabled
+  const anyEnabled = date.enabled || accountId.enabled || payee.enabled || description.enabled || amount.enabled || categoryId.enabled || ignoreRules.enabled
 
   return (
     <Modal open={open} onClose={handleClose} title={`Edit ${count} transaction${count !== 1 ? 's' : ''}`}>
@@ -176,6 +179,21 @@ export function BulkEditModal({ open, onClose, selectedIds, transactions, accoun
                   </optgroup>
                 )
               })}
+            </Select>
+          </div>
+        </div>
+        {/* Ignore rules */}
+        <div className="flex items-center gap-3">
+          <input type="checkbox" checked={ignoreRules.enabled} onChange={(e) => setIgnoreRules((s) => ({ ...s, enabled: e.target.checked }))} className="w-4 h-4 accent-accent shrink-0" />
+          <div className="flex-1">
+            <Select
+              label="Ignore Rules"
+              value={ignoreRules.value}
+              onChange={(e) => setIgnoreRules({ enabled: true, value: e.target.value })}
+              disabled={!ignoreRules.enabled}
+            >
+              <option value="0">Off — rules apply</option>
+              <option value="1">On — skip rules</option>
             </Select>
           </div>
         </div>

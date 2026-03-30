@@ -1,0 +1,1 @@
+ALTER TABLE transactions ADD COLUMN ignore_rules INTEGER NOT NULL DEFAULT 0;
