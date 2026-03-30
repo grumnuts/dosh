@@ -2,8 +2,22 @@
 
 ## Unreleased
 
+---
+
+## v1.8.0 — 2026-03-31
+
 ### New Features
-- Debt accounts now have auto-created budget categories for tracking and planning repayments — payments categorised to a debt category automatically reduce the account balance, and a dedicated Debt Payments section appears in the budget alongside Income
+- Debt accounts now have auto-created budget categories — payments categorised to a debt category reduce the account balance, with a dedicated Debt Payments section in the budget alongside Income
+- Client IP address recorded in the audit log for all user actions
+- Failed login attempts logged in the audit trail
+- Ignore Rules toggle on the transaction form and bulk edit — skip automatic rule application per transaction
+
+### Bug Fixes
+- Transaction rules now always override existing field values, including an already-set category
+- Rules now applied when saving a transaction with no category set
+
+### Enhancements
+- System section added to Settings for week start day and dynamic calculations configuration
 
 ---
 

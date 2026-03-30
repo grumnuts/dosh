@@ -40,9 +40,11 @@ A self-hosted, zero-based envelope budgeting app. Set a budget per category with
 - **Envelope budgeting** — assign a budget to each category with its own period (weekly through annually); spending tracks against that period
 - **Transaction management** — manually add transactions or import bank CSVs with duplicate detection and column mapping
 - **Cover overspend** — transfer from a savings account to cover an overspent category, tagged back to the budget
+- **Debt tracking** — debt accounts auto-create a budget category; payments reduce the outstanding balance and appear in a dedicated Debt Payments section
 - **Reports** — cashflow, overspend, payee breakdown, savings goals, and debt payoff projections
 - **Accounts** — track checking, savings, and debt accounts; starting balances and net worth calculated automatically
-- **Catch Up** — Weekly amounts are increased to cover the full budgeted amount be the end of the period, useful when adding new categories mid-period or a bill increases
+- **Catch Up** — weekly amounts are increased to cover the full budgeted amount by the end of the period, useful when adding new categories mid-period or when a bill increases
+- **Audit log** — all user actions recorded with timestamps and client IP address; failed login attempts logged
 
 ---
 
