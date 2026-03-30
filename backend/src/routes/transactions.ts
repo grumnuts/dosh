@@ -391,6 +391,23 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       }
     } else {
       const newSplits = body.data.splits
+
+      // Apply rules when no category is explicitly set (same auto-categorisation as on create)
+      let resolvedCategoryId: number | null = body.data.categoryId ?? null
+      if (!categoryIsUnlisted && !(newSplits && newSplits.length > 0) && resolvedCategoryId === null) {
+        resolvedCategoryId = applyRules(
+          {
+            date: body.data.date,
+            accountId: body.data.accountId,
+            payee: body.data.payee ?? null,
+            description: body.data.description ?? null,
+            amount: body.data.amount,
+            categoryId: null,
+          },
+          db,
+        ).categoryId ?? null
+      }
+
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
          category_id = ?, updated_at = ? WHERE id = ?`,
@@ -404,7 +421,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           ? existing.category_id
           : (newSplits && newSplits.length > 0)
             ? null
-            : (body.data.categoryId ?? null),
+            : resolvedCategoryId,
         now,
         id,
       )
