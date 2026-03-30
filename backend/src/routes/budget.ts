@@ -59,6 +59,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'budget_group',
       entityId: id,
       details: { name: body.data.name },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ id })
@@ -98,6 +99,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'budget_group',
       entityId: parseInt(id, 10),
       details: { name: body.data.name },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })
@@ -133,6 +135,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'budget_group',
       entityId: group.id,
       details: { name: group.name },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })
@@ -207,6 +210,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'budget_category',
       entityId: id,
       details: { name: body.data.name, period: body.data.period, amount: body.data.budgetedAmount },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ id })
@@ -269,6 +273,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
           oldPeriod: existing.period,
           newPeriod: body.data.period,
         },
+        ipAddress: request.ip,
       })
     } else {
       logAudit({
@@ -278,6 +283,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         entityType: 'budget_category',
         entityId: parseInt(id, 10),
         details: { name: body.data.name },
+        ipAddress: request.ip,
       })
     }
 
@@ -306,6 +312,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'budget_category',
       entityId: cat.id,
       details: { name: cat.name },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })
@@ -395,6 +402,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         sourceAccount: sourceAccount.name,
         destinationAccount: destAccount.name,
       },
+      ipAddress: request.ip,
     })
 
     return reply.send({

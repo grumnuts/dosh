@@ -171,6 +171,7 @@ export function AuditPage() {
                   <th className="px-3 py-3 text-left font-medium hidden sm:table-cell">User</th>
                   <th className="px-3 py-3 text-left font-medium">Event</th>
                   <th className="px-3 py-3 text-left font-medium hidden md:table-cell">Details</th>
+                  <th className="px-3 py-3 text-left font-medium hidden lg:table-cell">IP</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,6 +190,9 @@ export function AuditPage() {
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted max-w-xs truncate hidden md:table-cell">
                       {formatDetails(entry.event_type, entry.details)}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-xs text-muted hidden lg:table-cell">
+                      {entry.ip_address ?? '—'}
                     </td>
                   </tr>
                 ))}

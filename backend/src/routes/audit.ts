@@ -20,7 +20,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
 
     let sql = `
-      SELECT id, occurred_at, user_id, username, event_type, entity_type, entity_id, details
+      SELECT id, occurred_at, user_id, username, event_type, entity_type, entity_id, details, ip_address
       FROM audit_log WHERE 1=1
     `
     const params: (string | number)[] = []
@@ -64,6 +64,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       entity_type: string | null
       entity_id: number | null
       details: string | null
+      ip_address: string | null
     }>
 
     const parsed = rows.map((r) => ({

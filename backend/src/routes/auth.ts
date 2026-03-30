@@ -64,6 +64,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'user',
       entityId: userId,
       details: { username: body.data.username, isFirstUser: true },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ ok: true })
@@ -108,6 +109,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'user.login',
       entityType: 'user',
       entityId: user.id,
+      ipAddress: request.ip,
     })
 
     reply
@@ -134,6 +136,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'user.logout',
       entityType: 'user',
       entityId: request.user!.id,
+      ipAddress: request.ip,
     })
 
     reply.clearCookie('session', { path: '/' }).send({ ok: true })

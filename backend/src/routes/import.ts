@@ -123,6 +123,7 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
         skipped: body.data.rows.length - toImport.length,
         accountName: account.name,
       },
+      ipAddress: request.ip,
     })
 
     return reply.send({ imported: toImport.length })

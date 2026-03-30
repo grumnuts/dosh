@@ -231,6 +231,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         entityType: 'transaction',
         entityId: debitId,
         details: { type: 'transfer', amount: Math.abs(body.data.amount), date: body.data.date },
+        ipAddress: request.ip,
       })
 
       return reply.code(201).send({ id: debitId, pairedId: creditId })
@@ -273,6 +274,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         entityType: 'transaction',
         entityId: id,
         details: { amount: Math.abs(body.data.amount), date: body.data.date, accountId: body.data.accountId, type: 'starting_balance' },
+        ipAddress: request.ip,
       })
 
       return reply.code(201).send({ id })
@@ -332,6 +334,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'transaction',
       entityId: id,
       details: { amount: body.data.amount, date: body.data.date, accountId: body.data.accountId, split: !!splits },
+      ipAddress: request.ip,
     })
 
     return reply.code(201).send({ id })
@@ -430,6 +433,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'transaction',
       entityId: parseInt(id, 10),
       details: { type: existing.type, date: body.data.date },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })
@@ -475,6 +479,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'transaction',
       entityId: 0,
       details: { count: allIdsList.length, ids: allIdsList },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true, deleted: allIdsList.length })
@@ -507,6 +512,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       entityType: 'transaction',
       entityId: parseInt(id, 10),
       details: { amount: tx.amount, date: tx.date, type: tx.type },
+      ipAddress: request.ip,
     })
 
     return reply.send({ ok: true })

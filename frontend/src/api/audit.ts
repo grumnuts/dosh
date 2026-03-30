@@ -9,6 +9,7 @@ export interface AuditEntry {
   entity_type: string | null
   entity_id: number | null
   details: Record<string, unknown> | null
+  ip_address: string | null
 }
 
 export interface AuditFilters {
