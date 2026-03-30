@@ -33,6 +33,14 @@ function upsertPayee(payeeName: string | null | undefined): void {
 }
 
 export async function transactionRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/transactions/payees', { preHandler: authenticate }, async (_request, reply) => {
+    const db = getDb()
+    const rows = db
+      .prepare(`SELECT DISTINCT payee FROM transactions WHERE payee IS NOT NULL AND payee != '' ORDER BY payee`)
+      .all() as { payee: string }[]
+    return reply.send(rows.map((r) => r.payee))
+  })
+
   app.get('/api/transactions/uncategorised-count', { preHandler: authenticate }, async (_request, reply) => {
     const db = getDb()
     const row = db

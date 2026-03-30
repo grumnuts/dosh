@@ -24,7 +24,6 @@ import { format, parseISO } from 'date-fns'
 import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
-import { payeesApi } from '../api/payees'
 import { formatMoney, Amount } from '../components/ui/AmountDisplay'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
@@ -384,7 +383,7 @@ export function AccountsPage() {
 
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
-  const { data: payees } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list })
+  const { data: payees } = useQuery({ queryKey: ['transactions', 'payees'], queryFn: transactionsApi.payees })
   const { data: txData, isLoading: txLoading } = useQuery({
     queryKey: ['transactions', filters, uncategorisedOnly, page],
     queryFn: () =>
@@ -691,7 +690,7 @@ export function AccountsPage() {
               label="Payee"
               value={filters.payee}
               onChange={(v) => setFilter('payee', v)}
-              items={(payees ?? []).map((p) => ({ id: p.name, label: p.name }))}
+              items={(payees ?? []).map((p) => ({ id: p, label: p }))}
               allLabel="All payees"
             />
             <div className="flex flex-col gap-1">

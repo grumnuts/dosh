@@ -59,6 +59,8 @@ export interface TransactionInput {
 }
 
 export const transactionsApi = {
+  payees: () => api.get<string[]>('/api/transactions/payees'),
+
   list: (filters: TransactionFilters = {}) => {
     const params = new URLSearchParams()
     if (filters.startDate) params.set('startDate', filters.startDate)
