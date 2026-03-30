@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import {
   DndContext,
   closestCenter,
@@ -130,12 +130,58 @@ const createAccountSchema = baseAccountSchema.extend({
 
 type CreateAccountFormData = z.infer<typeof createAccountSchema>
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function MonthYearPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 31 }, (_, i) => currentYear + i)
+
+  const [year, month] = value ? value.split('-') : ['', '']
+  const [localMonth, setLocalMonth] = useState(month ? String(parseInt(month, 10)) : '')
+  const [localYear, setLocalYear] = useState(year || '')
+
+  const handleMonth = (m: string) => {
+    setLocalMonth(m)
+    if (m && localYear) onChange(`${localYear}-${m.padStart(2, '0')}`)
+    else if (!m) onChange('')
+  }
+
+  const handleYear = (y: string) => {
+    setLocalYear(y)
+    if (y && localMonth) onChange(`${y}-${localMonth.padStart(2, '0')}`)
+    else if (!y) onChange('')
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-secondary uppercase tracking-wide">Target Date</span>
+      <div className="grid grid-cols-2 gap-2">
+        <select className="input-base" value={localMonth} onChange={(e) => handleMonth(e.target.value)}>
+          <option value="">Month</option>
+          {MONTHS.map((name, i) => (
+            <option key={i} value={String(i + 1)}>{name}</option>
+          ))}
+        </select>
+        <select className="input-base" value={localYear} onChange={(e) => handleYear(e.target.value)}>
+          <option value="">Year</option>
+          {years.map((y) => (
+            <option key={y} value={String(y)}>{y}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
+}
+
 function AccountForm({ account, onClose }: { account?: Account | null; onClose: () => void }) {
   const qc = useQueryClient()
   const isEdit = !!account
   const today = new Date().toISOString().slice(0, 10)
 
-  const { register, watch, handleSubmit, formState: { errors } } = useForm<CreateAccountFormData>({
+  const { register, watch, handleSubmit, control, formState: { errors } } = useForm<CreateAccountFormData>({
     resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),
     defaultValues: {
       name: account?.name ?? '',
@@ -203,15 +249,23 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
         <option value="debt">Debt</option>
       </Select>
       {watchedType === 'savings' && (
-        <Input
-          label="Goal Amount ($)"
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder="0.00"
-          {...register('goalAmount')}
-          hint="Target balance for this savings account"
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Goal ($)"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0.00"
+            {...register('goalAmount')}
+          />
+          <Controller
+            name="goalTargetDate"
+            control={control}
+            render={({ field }) => (
+              <MonthYearPicker value={field.value ?? ''} onChange={field.onChange} />
+            )}
+          />
+        </div>
       )}
       {!isEdit && (
         <div className="grid grid-cols-2 gap-3">

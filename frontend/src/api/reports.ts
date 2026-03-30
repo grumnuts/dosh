@@ -34,9 +34,12 @@ export interface GoalPoint {
 }
 
 export interface GoalSeries {
+  type: 'savings' | 'debt'
   accountId: number
   name: string
   goalAmount: number
+  goalTargetDate: string | null
+  startingBalance: number
   currentBalance: number
   history: GoalPoint[]
   projection: GoalPoint[]

@@ -247,21 +247,11 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(rows)
   })
 
-  // GET /api/reports/goals — savings balance history + projection
+  // GET /api/reports/goals — savings balance history + projection, plus debt payoff projections
   app.get('/api/reports/goals', { preHandler: authenticate }, async (_req, reply) => {
     const db = getDb()
 
-    const accounts = db
-      .prepare(
-        `SELECT id, name, goal_amount,
-                starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
-         FROM accounts a
-         WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1`,
-      )
-      .all() as Array<{ id: number; name: string; goal_amount: number; current_balance: number }>
-
-    const result = accounts.map((account) => {
-      // Monthly net changes
+    const buildSeries = (accountId: number, startingBal: number, goalBalance: number) => {
       const monthlyChanges = db
         .prepare(
           `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
@@ -270,22 +260,15 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            GROUP BY month
            ORDER BY month`,
         )
-        .all(account.id) as Array<{ month: string; net_change: number }>
+        .all(accountId) as Array<{ month: string; net_change: number }>
 
-      // Build running balance history from starting_balance=0 (we add transactions)
-      // starting_balance is already factored into current_balance but we need history
-      const startingBalance = db
-        .prepare('SELECT starting_balance FROM accounts WHERE id = ?')
-        .get(account.id) as { starting_balance: number }
-
-      let running = startingBalance.starting_balance
+      let running = startingBal
       const history: Array<{ month: string; balance: number }> = []
       for (const row of monthlyChanges) {
         running += row.net_change
         history.push({ month: row.month, balance: running })
       }
 
-      // Project using average monthly delta over last 3 months
       const last3 = history.slice(-3)
       let avgDelta = 0
       if (last3.length >= 2) {
@@ -298,32 +281,72 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       const projection: Array<{ month: string; balance: number }> = []
       if (avgDelta > 0) {
         const lastHistory = history.length > 0 ? history[history.length - 1] : null
-        const startBalance = lastHistory ? lastHistory.balance : account.current_balance
         let lastMonth = lastHistory ? lastHistory.month : new Date().toISOString().slice(0, 7)
-        let projBalance = startBalance
+        let projBalance = lastHistory ? lastHistory.balance : startingBal
 
-        for (let i = 0; i < 36; i++) {
+        for (let i = 0; i < 240; i++) {
           const [yr, mo] = lastMonth.split('-').map(Number)
           const nextMo = mo === 12 ? 1 : mo + 1
           const nextYr = mo === 12 ? yr + 1 : yr
           lastMonth = `${nextYr}-${String(nextMo).padStart(2, '0')}`
           projBalance = Math.round(projBalance + avgDelta)
           projection.push({ month: lastMonth, balance: projBalance })
-          if (projBalance >= account.goal_amount) break
+          if (projBalance >= goalBalance) break
         }
       }
 
+      return { history, projection }
+    }
+
+    const savingsAccounts = db
+      .prepare(
+        `SELECT id, name, goal_amount, goal_target_date, starting_balance,
+                starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
+         FROM accounts a
+         WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1`,
+      )
+      .all() as Array<{ id: number; name: string; goal_amount: number; goal_target_date: string | null; starting_balance: number; current_balance: number }>
+
+    const debtAccounts = db
+      .prepare(
+        `SELECT id, name, starting_balance,
+                starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
+         FROM accounts a
+         WHERE type = 'debt' AND is_active = 1`,
+      )
+      .all() as Array<{ id: number; name: string; starting_balance: number; current_balance: number }>
+
+    const savings = savingsAccounts.map((account) => {
+      const { history, projection } = buildSeries(account.id, account.starting_balance, account.goal_amount)
       return {
+        type: 'savings' as const,
         accountId: account.id,
         name: account.name,
         goalAmount: account.goal_amount,
+        goalTargetDate: account.goal_target_date,
+        startingBalance: account.starting_balance,
         currentBalance: account.current_balance,
         history,
         projection,
       }
     })
 
-    return reply.send(result)
+    const debts = debtAccounts.map((account) => {
+      const { history, projection } = buildSeries(account.id, account.starting_balance, 0)
+      return {
+        type: 'debt' as const,
+        accountId: account.id,
+        name: account.name,
+        goalAmount: 0,
+        goalTargetDate: null,
+        startingBalance: account.starting_balance,
+        currentBalance: account.current_balance,
+        history,
+        projection,
+      }
+    })
+
+    return reply.send([...savings, ...debts])
   })
 
   // GET /api/reports/invsout?year=YYYY — total income vs expenses by month
