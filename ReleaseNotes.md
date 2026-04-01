@@ -4,6 +4,13 @@
 
 ---
 
+## v1.8.2 — 2026-04-01
+
+### Bug Fixes
+- Debt Payments table no longer shows the Balance column header on mobile — only Outstanding is shown, matching the data rows
+
+---
+
 ## v1.8.1 — 2026-04-01
 
 ### Bug Fixes
