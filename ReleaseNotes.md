@@ -4,6 +4,13 @@
 
 ---
 
+## v1.8.1 — 2026-04-01
+
+### Bug Fixes
+- Debt category rows on mobile no longer show the balance column — only outstanding is shown, preventing horizontal scroll
+
+---
+
 ## v1.8.0 — 2026-03-31
 
 ### New Features
