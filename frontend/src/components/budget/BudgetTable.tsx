@@ -492,7 +492,7 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
         <td className="px-3 py-2.5 text-right font-mono text-xs text-secondary tabular-nums hidden sm:table-cell">
           {formatMoney(groupPaid)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">
+        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums hidden sm:table-cell">
           <span className={groupBalance < 0 ? 'text-accent' : 'text-secondary'}>{formatMoney(groupBalance)}</span>
         </td>
         <td className="px-2 py-2.5 text-right font-mono text-xs tabular-nums sm:px-3">
@@ -524,7 +524,7 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
           <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden sm:table-cell">
             <span className="text-secondary">{formatMoney(cat.spent)}</span>
           </td>
-          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums">
+          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden sm:table-cell">
             <span className={cat.balance < 0 ? 'text-accent' : 'text-primary'}>{formatMoney(cat.balance)}</span>
           </td>
           <td className="px-2 py-2.5 text-right font-mono text-sm tabular-nums sm:px-3">
