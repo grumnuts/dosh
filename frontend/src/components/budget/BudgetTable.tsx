@@ -807,8 +807,8 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                   <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
                   <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
                   <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Paid<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
-                  <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                  <th className="px-2 py-3 text-right font-medium w-28 sm:px-3">Outstanding</th>
+                  <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+                  <th className="px-2 py-3 text-right font-medium sm:px-3">Outstanding</th>
                 </tr>
               </thead>
               <tbody>
