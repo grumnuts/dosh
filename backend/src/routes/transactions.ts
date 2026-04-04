@@ -439,18 +439,38 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         id,
       )
     } else if (existing.type !== 'transfer' && requestedType === 'transfer') {
-      // Converting regular → transfer: retype this transaction only, no automatic paired leg.
-      // The user is responsible for updating the other leg manually.
+      // Converting regular → transfer: create the paired leg and link both transactions
+      const absAmount = Math.abs(body.data.amount)
+      const destAccountId = body.data.transferToAccountId
+      if (!destAccountId) {
+        return reply.code(400).send({ error: 'transferToAccountId is required when converting to a transfer' })
+      }
+      const creditResult = db.prepare(
+        `INSERT INTO transactions (date, account_id, payee, description, amount, type, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, 'transfer', ?, ?, ?)`,
+      ).run(
+        body.data.date,
+        destAccountId,
+        body.data.payee ?? null,
+        body.data.description ?? null,
+        absAmount,
+        now,
+        now,
+        (request as { user?: { id: number } }).user!.id,
+      )
+      const creditId = creditResult.lastInsertRowid as number
       db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(id)
+      db.prepare(`UPDATE transactions SET transfer_pair_id = ? WHERE id = ?`).run(creditId, id)
+      db.prepare(`UPDATE transactions SET transfer_pair_id = ? WHERE id = ?`).run(id, creditId)
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-         category_id = NULL, type = 'transfer', transfer_pair_id = NULL, ignore_rules = 0, updated_at = ? WHERE id = ?`,
+         category_id = NULL, type = 'transfer', ignore_rules = 0, updated_at = ? WHERE id = ?`,
       ).run(
         body.data.date,
         body.data.accountId,
         body.data.payee ?? null,
         body.data.description ?? null,
-        body.data.amount,
+        -absAmount,
         now,
         id,
       )
