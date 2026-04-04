@@ -4,6 +4,13 @@
 
 ---
 
+## v1.9.1 — 2026-04-04
+
+### Bug Fixes
+- Category filter now includes split transactions where at least one split matches the selected category
+
+---
+
 ## v1.9.0 — 2026-04-04
 
 ### New Features
