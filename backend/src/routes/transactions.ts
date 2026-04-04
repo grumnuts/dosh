@@ -382,8 +382,27 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       .get(id) as { id: number; type: string; transfer_pair_id: number | null; account_id: number; amount: number; category_id: number | null; ignore_rules: number } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Transaction not found' })
+
+    const now = new Date().toISOString()
+
     if (existing.type === 'cover') {
-      return reply.code(400).send({ error: 'Cover transactions cannot be edited' })
+      // Cover transactions only allow editing date (both legs) and account (this leg only)
+      db.prepare(`UPDATE transactions SET date = ?, account_id = ?, updated_at = ? WHERE id = ?`)
+        .run(body.data.date, body.data.accountId, now, id)
+      if (existing.transfer_pair_id) {
+        db.prepare(`UPDATE transactions SET date = ?, updated_at = ? WHERE id = ?`)
+          .run(body.data.date, now, existing.transfer_pair_id)
+      }
+      logAudit({
+        userId: request.user!.id,
+        username: request.user!.username,
+        eventType: 'transaction.updated',
+        entityType: 'transaction',
+        entityId: parseInt(id, 10),
+        details: { type: 'cover', date: body.data.date, accountId: body.data.accountId },
+        ipAddress: request.ip,
+      })
+      return reply.send({ id: parseInt(id, 10) })
     }
 
     // Check if this transaction's category is unlisted (system-managed) — if so, preserve it
@@ -395,7 +414,6 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           .get(existing.category_id) as { id: number } | undefined
       )
 
-    const now = new Date().toISOString()
     const requestedType = body.data.type ?? (existing.type === 'transfer' ? 'transfer' : 'transaction')
 
     if (existing.type === 'transfer' && requestedType === 'transfer') {
