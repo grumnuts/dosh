@@ -293,20 +293,6 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     boundsMap.set(cat.id, getPeriodBoundaries(weekStart, period, weekStartsOn))
   }
 
-  // --- Batch: fetch covers for the current week for all categories at once ---
-  const coversMap = new Map<number, number>()
-  if (allCategoryIds.length > 0) {
-    const coversRows = db
-      .prepare(
-        `SELECT category_id, COALESCE(SUM(amount), 0) AS total
-         FROM transactions
-         WHERE category_id IN (${catPlaceholders}) AND cover_week_start = ? AND type = 'cover' AND amount > 0
-         GROUP BY category_id`,
-      )
-      .all(...allCategoryIds, weekStart) as Array<{ category_id: number; total: number }>
-    for (const r of coversRows) coversMap.set(r.category_id, r.total)
-  }
-
   // --- Batch: fetch spent amounts grouped by category across all distinct period ranges ---
   // Categories may share the same period boundary, so group them to avoid duplicate queries.
   // Key: "start|end" -> category IDs that share this range
@@ -320,6 +306,22 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     } else {
       spentByPeriodKey.set(key, { start: bounds.start, end: bounds.end, ids: [cat.id] })
     }
+  }
+
+  // --- Batch: fetch covers grouped by period (covers persist for the full category period, not just the week they were created) ---
+  const coversMap = new Map<number, number>()
+  for (const { start, end, ids } of spentByPeriodKey.values()) {
+    const ph = ids.map(() => '?').join(',')
+    const rows = db
+      .prepare(
+        `SELECT category_id, COALESCE(SUM(amount), 0) AS total
+         FROM transactions
+         WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+           AND type = 'cover' AND amount > 0
+         GROUP BY category_id`,
+      )
+      .all(...ids, start, end) as Array<{ category_id: number; total: number }>
+    for (const r of rows) coversMap.set(r.category_id, r.total)
   }
 
   const spentMap = new Map<number, number>()
@@ -560,9 +562,10 @@ export function getCategoryOverspendAmount(categoryId: number, weekStart: string
     .prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM transactions
-       WHERE category_id = ? AND cover_week_start = ? AND type = 'cover' AND amount > 0`,
+       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+         AND type = 'cover' AND amount > 0`,
     )
-    .get(categoryId, weekStart) as { total: number }
+    .get(categoryId, bounds.start, bounds.end) as { total: number }
 
   const covers = coversRow.total
   const balance = budgetedAmount - spent + covers
