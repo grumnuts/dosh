@@ -23,8 +23,10 @@ export interface Transaction {
   category_is_unlisted: number | null
   type: 'transaction' | 'transfer' | 'cover'
   transfer_pair_id: number | null
+  transfer_pair_account_id: number | null
   cover_week_start: string | null
   ignore_rules: number
+  running_balance: number
   created_at: string
   splits: TransactionSplit[]
 }
@@ -84,7 +86,7 @@ export const transactionsApi = {
   create: (data: TransactionInput) =>
     api.post<{ id: number; pairedId?: number }>('/api/transactions', data),
 
-  update: (id: number, data: Omit<TransactionInput, 'type' | 'transferToAccountId'>) =>
+  update: (id: number, data: Omit<TransactionInput, 'transferToAccountId'> & { transferToAccountId?: number | null }) =>
     api.put<{ ok: boolean }>(`/api/transactions/${id}`, data),
 
   delete: (id: number) => api.delete<{ ok: boolean }>(`/api/transactions/${id}`),

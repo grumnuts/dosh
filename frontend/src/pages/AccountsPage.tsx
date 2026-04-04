@@ -401,6 +401,7 @@ export function AccountsPage() {
   // Collapse state
   const [accountsCollapsed, setAccountsCollapsed] = useLocalStorageBool('dosh:collapsed:accounts', false)
   const [transactionsCollapsed, setTransactionsCollapsed] = useLocalStorageBool('dosh:collapsed:transactions', false)
+  const [showRunningBalance, setShowRunningBalance] = useLocalStorageBool('dosh:show-running-balance', false)
 
   // Account state
   const [accountModal, setAccountModal] = useState<{ open: boolean; account?: Account | null }>({ open: false })
@@ -525,6 +526,7 @@ export function AccountsPage() {
 
   const totalBalance = accounts?.reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const transactionalTotal = accounts?.filter((a) => a.type === 'transactional').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
+
   const savingsTotal = accounts?.filter((a) => a.type === 'savings').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const debtTotal = accounts?.filter((a) => a.type === 'debt').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
@@ -654,6 +656,19 @@ export function AccountsPage() {
               <div className="w-px h-4 bg-border shrink-0" />
             </>
           )}
+          {/* Desktop only: running balance toggle */}
+          <label className="hidden sm:flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+            <span className="text-xs text-muted">Balance</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showRunningBalance}
+              onClick={() => setShowRunningBalance((v) => !v)}
+              className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none ${showRunningBalance ? 'bg-accent' : 'bg-surface-3'}`}
+            >
+              <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${showRunningBalance ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+            </button>
+          </label>
           {!!uncategorisedData?.count && (
             <>
               {/* Mobile: ? icon */}
@@ -817,6 +832,9 @@ export function AccountsPage() {
                     <ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} />
                   </th>
                   <th className="pl-2 pr-3 py-3 text-right font-medium min-w-[100px]" style={{ width: widths.amount }}>Amount</th>
+                  {showRunningBalance && (
+                    <th className="hidden sm:table-cell pl-2 pr-3 py-3 text-right font-medium w-28">Balance</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -888,6 +906,13 @@ export function AccountsPage() {
                     <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap sm:w-auto sm:px-3">
                       <Amount cents={tx.amount} type={tx.type} />
                     </td>
+                    {showRunningBalance && (
+                      <td className="hidden sm:table-cell pl-2 pr-3 py-2.5 text-right whitespace-nowrap">
+                        <span className={`text-sm font-mono ${tx.running_balance < 0 ? 'text-danger' : 'text-accent'}`}>
+                          {formatMoney(tx.running_balance)}
+                        </span>
+                      </td>
+                    )}
                   </tr>
                   {tx.splits.map((split, i) => (
                     <tr
@@ -918,6 +943,7 @@ export function AccountsPage() {
                           {formatMoney(Math.abs(split.amount))}
                         </span>
                       </td>
+                      {showRunningBalance && <td className="hidden sm:table-cell" />}
                     </tr>
                   ))}
                   </>

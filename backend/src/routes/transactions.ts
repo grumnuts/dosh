@@ -129,12 +129,20 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              t.payee, t.description, t.amount, t.category_id,
              bc.name as category_name, bg.name as group_name,
              bc.is_unlisted as category_is_unlisted,
-             t.type, t.transfer_pair_id, t.cover_week_start,
-             t.ignore_rules, t.created_at
+             t.type, t.transfer_pair_id, pair_acct.id as transfer_pair_account_id,
+             t.cover_week_start, t.ignore_rules, t.created_at,
+             a.starting_balance + (
+               SELECT COALESCE(SUM(t2.amount), 0)
+               FROM transactions t2
+               WHERE t2.account_id = t.account_id
+                 AND (t2.date < t.date OR (t2.date = t.date AND t2.id <= t.id))
+             ) as running_balance
       FROM transactions t
       JOIN accounts a ON a.id = t.account_id
       LEFT JOIN budget_categories bc ON bc.id = t.category_id
       LEFT JOIN budget_groups bg ON bg.id = bc.group_id
+      LEFT JOIN transactions pair_tx ON pair_tx.id = t.transfer_pair_id
+      LEFT JOIN accounts pair_acct ON pair_acct.id = pair_tx.account_id
       ${where} ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?
     `
 
@@ -356,6 +364,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         amount: z.number().int(),
         categoryId: z.number().int().optional().nullable(),
         accountId: z.number().int(),
+        type: z.enum(['transaction', 'transfer']).optional(),
+        transferToAccountId: z.number().int().optional().nullable(),
         splits: z.array(splitSchema).optional(),
         ignoreRules: z.boolean().optional(),
       })
@@ -367,8 +377,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, type, transfer_pair_id, category_id, ignore_rules FROM transactions WHERE id = ?')
-      .get(id) as { id: number; type: string; transfer_pair_id: number | null; category_id: number | null; ignore_rules: number } | undefined
+      .prepare('SELECT id, type, transfer_pair_id, account_id, amount, category_id, ignore_rules FROM transactions WHERE id = ?')
+      .get(id) as { id: number; type: string; transfer_pair_id: number | null; account_id: number; amount: number; category_id: number | null; ignore_rules: number } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Transaction not found' })
     if (existing.type === 'cover') {
@@ -385,17 +395,69 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       )
 
     const now = new Date().toISOString()
+    const requestedType = body.data.type ?? (existing.type === 'transfer' ? 'transfer' : 'transaction')
 
-    if (existing.type === 'transfer') {
-      // Update date, payee, description on both legs — amounts and accounts stay fixed
-      const updateTransfer = db.prepare(
-        `UPDATE transactions SET date = ?, payee = ?, description = ?, updated_at = ? WHERE id = ?`,
-      )
-      updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, now, id)
+    if (existing.type === 'transfer' && requestedType === 'transfer') {
+      // Staying as a transfer — update date, payee, description, and amount on both legs.
+      // Preserve each leg's sign based on the existing amount (this leg could be debit or credit).
+      const absAmount = Math.abs(body.data.amount)
+      const thisLegAmount = existing.amount <= 0 ? -absAmount : absAmount
+      const pairLegAmount = existing.amount <= 0 ? absAmount : -absAmount
+      db.prepare(
+        `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, updated_at = ? WHERE id = ?`,
+      ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, thisLegAmount, now, id)
       if (existing.transfer_pair_id) {
-        updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, now, existing.transfer_pair_id)
+        const destAccountId = body.data.transferToAccountId ?? null
+        if (destAccountId !== null) {
+          db.prepare(
+            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, account_id = ?, updated_at = ? WHERE id = ?`,
+          ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, pairLegAmount, destAccountId, now, existing.transfer_pair_id)
+        } else {
+          db.prepare(
+            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, updated_at = ? WHERE id = ?`,
+          ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, pairLegAmount, now, existing.transfer_pair_id)
+        }
       }
+    } else if (existing.type === 'transfer' && requestedType === 'transaction') {
+      // Converting transfer → regular transaction: delete the paired leg
+      if (existing.transfer_pair_id) {
+        db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(existing.transfer_pair_id)
+        db.prepare('DELETE FROM transactions WHERE id = ?').run(existing.transfer_pair_id)
+      }
+      db.prepare(
+        `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
+         category_id = ?, type = 'transaction', transfer_pair_id = NULL, ignore_rules = ?, updated_at = ? WHERE id = ?`,
+      ).run(
+        body.data.date,
+        body.data.accountId,
+        body.data.payee ?? null,
+        body.data.description ?? null,
+        body.data.amount,
+        body.data.categoryId ?? null,
+        body.data.ignoreRules ? 1 : 0,
+        now,
+        id,
+      )
+    } else if (existing.type !== 'transfer' && requestedType === 'transfer') {
+      // Converting regular → transfer: retype this transaction only, no automatic paired leg.
+      // Preserve the original sign (debit stays negative, credit stays positive) regardless of
+      // what the frontend sends — the frontend always sends a positive value for transfer type.
+      const signedAmount = existing.amount <= 0 ? -Math.abs(body.data.amount) : Math.abs(body.data.amount)
+      db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(id)
+      db.prepare(
+        `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
+         category_id = NULL, type = 'transfer', transfer_pair_id = NULL, ignore_rules = 0, updated_at = ? WHERE id = ?`,
+      ).run(
+        body.data.date,
+        body.data.accountId,
+        body.data.payee ?? null,
+        body.data.description ?? null,
+        signedAmount,
+        now,
+        id,
+      )
     } else {
+      // Regular transaction staying regular
       const newSplits = body.data.splits
 
       // Apply rules — rules always win, same as on create (unless ignore_rules is set)
