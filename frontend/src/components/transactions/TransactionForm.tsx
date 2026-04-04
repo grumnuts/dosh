@@ -119,7 +119,7 @@ const blankSplits = (): SplitRow[] => [
 export function TransactionForm({ open, onClose, transaction }: Props) {
   const qc = useQueryClient()
   const isEdit = !!transaction
-  const isReadOnly = isEdit && transaction?.type === 'cover'
+  const isCover = isEdit && transaction?.type === 'cover'
 
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const { data: payees } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list })
@@ -330,15 +330,15 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
     />
   )
 
-  const modalTitle = isReadOnly ? 'Cover Transfer' : isEdit ? 'Edit Transaction' : 'Add Transaction'
+  const modalTitle = isCover ? 'Cover Transfer' : isEdit ? 'Edit Transaction' : 'Add Transaction'
 
   return (
     <Modal open={open} onClose={onClose} title={modalTitle}>
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Date" type="date" {...register('date')} error={errors.date?.message} disabled={isReadOnly} />
+          <Input label="Date" type="date" {...register('date')} error={errors.date?.message} />
 
-          <Select label="Type" {...register('type')} disabled={isReadOnly}>
+          <Select label="Type" {...register('type')} disabled={isCover}>
             <option value="debit">Debit</option>
             <option value="credit">Credit</option>
             <option value="transfer">Transfer</option>
@@ -346,7 +346,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           </Select>
         </div>
 
-        <Select label="Account" {...register('accountId')} error={errors.accountId?.message} disabled={isReadOnly}>
+        <Select label="Account" {...register('accountId')} error={errors.accountId?.message}>
           <option value="">Select account...</option>
           {accounts?.map((a) => (
             <option key={a.id} value={a.id}>
@@ -356,7 +356,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         </Select>
 
         {txType === 'transfer' && (!isEdit || transaction?.type === 'transfer') && (
-          <Select label="Transfer To" {...register('transferToAccountId')} disabled={isReadOnly}>
+          <Select label="Transfer To" {...register('transferToAccountId')} disabled={isCover}>
             <option value="">Select account...</option>
             {accounts?.map((a) => (
               <option key={a.id} value={a.id}>
@@ -370,14 +370,14 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           value={watch('payee') ?? ''}
           onChange={(v) => setValue('payee', v)}
           payees={payees ?? []}
-          disabled={isReadOnly}
+          disabled={isCover}
         />
 
         <Input
           label="Description"
           placeholder="Optional details"
           {...register('description')}
-          disabled={isReadOnly}
+          disabled={isCover}
         />
 
         <Input
@@ -388,11 +388,11 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           placeholder="0.00"
           {...register('amount')}
           error={errors.amount?.message}
-          disabled={isReadOnly}
+          disabled={isCover}
         />
 
         {/* Category / Split section */}
-        {!isReadOnly && canSplit && !(isEdit && !!transaction?.category_is_unlisted) && (
+        {!isCover && canSplit && !(isEdit && !!transaction?.category_is_unlisted) && (
           isSplit ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -479,7 +479,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         )}
 
         {/* Read-only unlisted category */}
-        {!isReadOnly && txType !== 'transfer' && txType !== 'starting_balance' && isEdit && !!transaction?.category_is_unlisted && (
+        {!isCover && txType !== 'transfer' && txType !== 'starting_balance' && isEdit && !!transaction?.category_is_unlisted && (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
             <div className="input-base text-sm text-muted cursor-not-allowed">
@@ -488,7 +488,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           </div>
         )}
 
-        {!isReadOnly && (
+        {!isCover && (
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input type="checkbox" {...register('ignoreRules')} className="w-4 h-4 accent-accent" />
             <span className="text-sm text-secondary">Ignore rules</span>
@@ -514,11 +514,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
           </Button>
-          {!isReadOnly && (
-            <Button type="submit" loading={mutation.isPending}>
-              {isEdit ? 'Save' : 'Add'}
-            </Button>
-          )}
+          <Button type="submit" loading={mutation.isPending}>
+            {isEdit ? 'Save' : 'Add'}
+          </Button>
         </div>
       </form>
     </Modal>
