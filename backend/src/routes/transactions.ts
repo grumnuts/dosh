@@ -398,21 +398,24 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     const requestedType = body.data.type ?? (existing.type === 'transfer' ? 'transfer' : 'transaction')
 
     if (existing.type === 'transfer' && requestedType === 'transfer') {
-      // Staying as a transfer — allow updating date, payee, description, amount, and destination account
+      // Staying as a transfer — update date, payee, description, and amount on both legs.
+      // Preserve each leg's sign based on the existing amount (this leg could be debit or credit).
       const absAmount = Math.abs(body.data.amount)
-      const updateTransfer = db.prepare(
+      const thisLegAmount = existing.amount <= 0 ? -absAmount : absAmount
+      const pairLegAmount = existing.amount <= 0 ? absAmount : -absAmount
+      db.prepare(
         `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, updated_at = ? WHERE id = ?`,
-      )
-      // This leg is always the debit (negative) leg
-      updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, -absAmount, now, id)
+      ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, thisLegAmount, now, id)
       if (existing.transfer_pair_id) {
         const destAccountId = body.data.transferToAccountId ?? null
         if (destAccountId !== null) {
           db.prepare(
             `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, account_id = ?, updated_at = ? WHERE id = ?`,
-          ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, absAmount, destAccountId, now, existing.transfer_pair_id)
+          ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, pairLegAmount, destAccountId, now, existing.transfer_pair_id)
         } else {
-          updateTransfer.run(body.data.date, body.data.payee ?? null, body.data.description ?? null, absAmount, now, existing.transfer_pair_id)
+          db.prepare(
+            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, updated_at = ? WHERE id = ?`,
+          ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, pairLegAmount, now, existing.transfer_pair_id)
         }
       }
     } else if (existing.type === 'transfer' && requestedType === 'transaction') {
@@ -436,39 +439,18 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         id,
       )
     } else if (existing.type !== 'transfer' && requestedType === 'transfer') {
-      // Converting regular → transfer: create the credit leg
-      const absAmount = Math.abs(body.data.amount)
-      const destAccountId = body.data.transferToAccountId
-      if (!destAccountId) {
-        return reply.code(400).send({ error: 'transferToAccountId is required when converting to a transfer' })
-      }
-      const creditResult = db.prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, type, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, 'transfer', ?, ?, ?)`,
-      ).run(
-        body.data.date,
-        destAccountId,
-        body.data.payee ?? null,
-        body.data.description ?? null,
-        absAmount,
-        now,
-        now,
-        (request as { user?: { id: number } }).user!.id,
-      )
-      const creditId = creditResult.lastInsertRowid as number
-      // Link both legs
-      db.prepare(`UPDATE transactions SET transfer_pair_id = ? WHERE id = ?`).run(creditId, id)
-      db.prepare(`UPDATE transactions SET transfer_pair_id = ? WHERE id = ?`).run(id, creditId)
-      // Update this (debit) leg
+      // Converting regular → transfer: retype this transaction only, no automatic paired leg.
+      // The user is responsible for updating the other leg manually.
+      db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(id)
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-         category_id = NULL, type = 'transfer', ignore_rules = 0, updated_at = ? WHERE id = ?`,
+         category_id = NULL, type = 'transfer', transfer_pair_id = NULL, ignore_rules = 0, updated_at = ? WHERE id = ?`,
       ).run(
         body.data.date,
         body.data.accountId,
         body.data.payee ?? null,
         body.data.description ?? null,
-        -absAmount,
+        body.data.amount,
         now,
         id,
       )

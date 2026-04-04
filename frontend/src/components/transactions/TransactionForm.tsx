@@ -262,7 +262,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           amount: data.type === 'transfer' ? Math.abs(amount) : amount,
           categoryId: data.type === 'transfer' ? null : (data.categoryId ? parseInt(data.categoryId, 10) : null),
           type: data.type === 'transfer' ? 'transfer' : 'transaction',
-          transferToAccountId: data.type === 'transfer' && data.transferToAccountId
+          transferToAccountId: data.type === 'transfer' && transaction?.type === 'transfer' && data.transferToAccountId
             ? parseInt(data.transferToAccountId, 10)
             : null,
           splits: [],
@@ -348,9 +348,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           ))}
         </Select>
 
-        {txType === 'transfer' && (
-          <Select label="Transfer To" {...register('transferToAccountId')}>
-            <option value="">Select destination...</option>
+        {txType === 'transfer' && (!isEdit || transaction?.type === 'transfer') && (
+          <Select label="Transfer to/From" {...register('transferToAccountId')}>
+            <option value="">Select account...</option>
             {accounts?.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
