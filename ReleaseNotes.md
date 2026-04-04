@@ -4,6 +4,14 @@
 
 ---
 
+## v1.9.2 — 2026-04-05
+
+### Bug Fixes
+- Cover transactions can now be deleted — click the row to confirm deletion, or select via checkbox for bulk delete
+- Dates now use server/browser local time instead of UTC, fixing incorrect "today" in non-UTC timezones (e.g. dates showing as yesterday before 10am in UTC+10)
+
+---
+
 ## v1.9.1 — 2026-04-04
 
 ### Bug Fixes
