@@ -440,7 +440,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       )
     } else if (existing.type !== 'transfer' && requestedType === 'transfer') {
       // Converting regular → transfer: retype this transaction only, no automatic paired leg.
-      // The user is responsible for updating the other leg manually.
+      // Preserve the original sign (debit stays negative, credit stays positive) regardless of
+      // what the frontend sends — the frontend always sends a positive value for transfer type.
+      const signedAmount = existing.amount <= 0 ? -Math.abs(body.data.amount) : Math.abs(body.data.amount)
       db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(id)
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
@@ -450,7 +452,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         body.data.accountId,
         body.data.payee ?? null,
         body.data.description ?? null,
-        body.data.amount,
+        signedAmount,
         now,
         id,
       )
