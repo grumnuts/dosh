@@ -88,8 +88,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       whereParams.push(parseInt(query.accountId, 10))
     }
     if (query.categoryId) {
-      where += ' AND t.category_id = ?'
-      whereParams.push(parseInt(query.categoryId, 10))
+      where += ' AND (t.category_id = ? OR EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id AND ts.category_id = ?))'
+      const catId = parseInt(query.categoryId, 10)
+      whereParams.push(catId, catId)
     }
     if (query.payee) {
       where += ' AND t.payee = ?'
