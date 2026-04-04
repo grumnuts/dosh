@@ -658,7 +658,7 @@ export function AccountsPage() {
           )}
           {/* Desktop only: running balance toggle */}
           <label className="hidden sm:flex items-center gap-1.5 cursor-pointer select-none shrink-0">
-            <span className="text-xs text-muted">Balance</span>
+            <span className="text-xs text-muted">Show running balance</span>
             <button
               type="button"
               role="switch"
