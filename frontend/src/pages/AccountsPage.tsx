@@ -493,6 +493,15 @@ export function AccountsPage() {
     },
   })
 
+  const deleteSingle = useMutation({
+    mutationFn: (id: number) => transactionsApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
+    },
+  })
+
   const selectableIds = transactions?.map((t) => t.id) ?? []
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id))
   const someSelected = selectedIds.size > 0
@@ -845,7 +854,13 @@ export function AccountsPage() {
                     className={`border-b ${tx.splits.length > 0 ? 'border-border/20' : 'border-border/50'} hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
                     onClick={() => {
                       if (someSelected) { toggleOne(tx.id); return }
-                      if (tx.type !== 'cover') setEditTx(tx)
+                      if (tx.type === 'cover') {
+                        if (confirm('Delete this cover transfer? Both legs will be removed.')) {
+                          deleteSingle.mutate(tx.id)
+                        }
+                        return
+                      }
+                      setEditTx(tx)
                     }}
                   >
                     <td className="pl-3 pr-1 py-2.5 w-px hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
