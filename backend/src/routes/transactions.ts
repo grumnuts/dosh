@@ -130,7 +130,13 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              bc.name as category_name, bg.name as group_name,
              bc.is_unlisted as category_is_unlisted,
              t.type, t.transfer_pair_id, pair_acct.id as transfer_pair_account_id,
-             t.cover_week_start, t.ignore_rules, t.created_at
+             t.cover_week_start, t.ignore_rules, t.created_at,
+             a.starting_balance + (
+               SELECT COALESCE(SUM(t2.amount), 0)
+               FROM transactions t2
+               WHERE t2.account_id = t.account_id
+                 AND (t2.date < t.date OR (t2.date = t.date AND t2.id <= t.id))
+             ) as running_balance
       FROM transactions t
       JOIN accounts a ON a.id = t.account_id
       LEFT JOIN budget_categories bc ON bc.id = t.category_id

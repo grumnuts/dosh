@@ -527,11 +527,6 @@ export function AccountsPage() {
   const totalBalance = accounts?.reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const transactionalTotal = accounts?.filter((a) => a.type === 'transactional').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
 
-  const selectedAccount = filters.accountId ? accounts?.find((a) => String(a.id) === filters.accountId) : undefined
-  const runningBalanceStart = selectedAccount ? selectedAccount.currentBalance : totalBalance
-  const runningBalances = (transactions ?? []).map((_, i) =>
-    runningBalanceStart - (transactions ?? []).slice(0, i).reduce((sum, t) => sum + t.amount, 0)
-  )
   const savingsTotal = accounts?.filter((a) => a.type === 'savings').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const debtTotal = accounts?.filter((a) => a.type === 'debt').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
   const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
@@ -843,7 +838,7 @@ export function AccountsPage() {
                 </tr>
               </thead>
               <tbody>
-                {transactions?.map((tx, txIndex) => (
+                {transactions?.map((tx) => (
                   <>
                   <tr
                     key={tx.id}
@@ -913,8 +908,8 @@ export function AccountsPage() {
                     </td>
                     {showRunningBalance && (
                       <td className="hidden sm:table-cell pl-2 pr-3 py-2.5 text-right whitespace-nowrap">
-                        <span className={`text-sm font-mono ${runningBalances[txIndex] < 0 ? 'text-danger' : 'text-accent'}`}>
-                          {formatMoney(runningBalances[txIndex])}
+                        <span className={`text-sm font-mono ${tx.running_balance < 0 ? 'text-danger' : 'text-accent'}`}>
+                          {formatMoney(tx.running_balance)}
                         </span>
                       </td>
                     )}
