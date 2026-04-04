@@ -42,7 +42,7 @@ const DEFAULT_COL_WIDTHS = {
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const qc = useQueryClient()
   const [actualBalance, setActualBalance] = useState('')
-  const today = new Date().toISOString().slice(0, 10)
+  const today = format(new Date(), 'yyyy-MM-dd')
   const [date, setDate] = useState(today)
 
   const actualBalanceCents = actualBalance !== '' ? Math.round(parseFloat(actualBalance) * 100) : null
@@ -179,7 +179,7 @@ function MonthYearPicker({ value, onChange }: { value: string; onChange: (v: str
 function AccountForm({ account, onClose }: { account?: Account | null; onClose: () => void }) {
   const qc = useQueryClient()
   const isEdit = !!account
-  const today = new Date().toISOString().slice(0, 10)
+  const today = format(new Date(), 'yyyy-MM-dd')
 
   const { register, watch, handleSubmit, control, formState: { errors } } = useForm<CreateAccountFormData>({
     resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),

@@ -4,9 +4,15 @@
  * Week boundaries depend on the weekStartsOn setting (0 = Sunday, 1 = Monday).
  */
 
-/** Returns YYYY-MM-DD string for a Date */
+/** Returns YYYY-MM-DD string for a Date (UTC-based — use for dates created via parseDate) */
 export function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10)
+}
+
+/** Returns today's date as YYYY-MM-DD in local (server) time */
+export function todayString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /** Parse a YYYY-MM-DD string into a UTC midnight Date */
@@ -34,9 +40,13 @@ export function getWeekEnd(date: Date, weekStartsOn: 0 | 1 = 0): Date {
   return end
 }
 
-/** Returns the current week's start date as YYYY-MM-DD */
+/** Returns the current week's start date as YYYY-MM-DD in local (server) time */
 export function currentWeekStart(weekStartsOn: 0 | 1 = 0): string {
-  return toDateString(getWeekStart(new Date(), weekStartsOn))
+  const now = new Date()
+  // Build a UTC-midnight date from local components so getWeekStart's UTC operations
+  // reflect the correct local day rather than the UTC day (which can be yesterday in UTC+N).
+  const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+  return toDateString(getWeekStart(todayUtc, weekStartsOn))
 }
 
 /** Returns period boundaries (inclusive) for a category's period, given a week start date string */
