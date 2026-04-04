@@ -4,6 +4,18 @@
 
 ---
 
+## v1.9.0 — 2026-04-04
+
+### New Features
+- Transactions can now be retyped as a transfer when editing — changing away from transfer removes the paired leg
+- Running balance column on the desktop transaction table, toggled via a slider next to the Uncategorised button — hidden by default, state persists across sessions
+
+### Bug Fixes
+- Running balance is now computed server-side per account, making it accurate on any page and with any filter applied, and automatically correct after adding, editing, or deleting transactions
+- Preserve debit/credit sign when retyping a transaction as transfer (was incorrectly flipping debits to positive, inflating account balances)
+
+---
+
 ## v1.8.2 — 2026-04-01
 
 ### Bug Fixes
