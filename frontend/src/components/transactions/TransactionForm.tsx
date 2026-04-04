@@ -1,3 +1,4 @@
+import { format } from 'date-fns'
 import { useEffect, useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -124,7 +125,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = format(new Date(), 'yyyy-MM-dd')
 
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),

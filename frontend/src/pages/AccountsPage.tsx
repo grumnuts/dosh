@@ -42,7 +42,7 @@ const DEFAULT_COL_WIDTHS = {
 function ReconcileModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const qc = useQueryClient()
   const [actualBalance, setActualBalance] = useState('')
-  const today = new Date().toISOString().slice(0, 10)
+  const today = format(new Date(), 'yyyy-MM-dd')
   const [date, setDate] = useState(today)
 
   const actualBalanceCents = actualBalance !== '' ? Math.round(parseFloat(actualBalance) * 100) : null
@@ -179,7 +179,7 @@ function MonthYearPicker({ value, onChange }: { value: string; onChange: (v: str
 function AccountForm({ account, onClose }: { account?: Account | null; onClose: () => void }) {
   const qc = useQueryClient()
   const isEdit = !!account
-  const today = new Date().toISOString().slice(0, 10)
+  const today = format(new Date(), 'yyyy-MM-dd')
 
   const { register, watch, handleSubmit, control, formState: { errors } } = useForm<CreateAccountFormData>({
     resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),
@@ -490,6 +490,15 @@ export function AccountsPage() {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
       setSelectedIds(new Set())
+    },
+  })
+
+  const deleteSingle = useMutation({
+    mutationFn: (id: number) => transactionsApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
     },
   })
 
@@ -845,7 +854,13 @@ export function AccountsPage() {
                     className={`border-b ${tx.splits.length > 0 ? 'border-border/20' : 'border-border/50'} hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
                     onClick={() => {
                       if (someSelected) { toggleOne(tx.id); return }
-                      if (tx.type !== 'cover') setEditTx(tx)
+                      if (tx.type === 'cover') {
+                        if (confirm('Delete this cover transfer? Both legs will be removed.')) {
+                          deleteSingle.mutate(tx.id)
+                        }
+                        return
+                      }
+                      setEditTx(tx)
                     }}
                   >
                     <td className="pl-3 pr-1 py-2.5 w-px hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>

@@ -1,5 +1,5 @@
 import { getDb } from '../db/client'
-import { getPeriodBoundaries, weeklyEquivalent, parseDate, toDateString, getWeekStart } from '../utils/dates'
+import { getPeriodBoundaries, weeklyEquivalent, parseDate, toDateString, getWeekStart, currentWeekStart } from '../utils/dates'
 
 function getWeekStartsOn(): 0 | 1 {
   const db = getDb()
@@ -581,7 +581,7 @@ export function recordBudgetChange(
   effectiveFrom?: string,
 ): void {
   const db = getDb()
-  const weekStart = effectiveFrom ?? toDateString(getWeekStart(new Date(), getWeekStartsOn()))
+  const weekStart = effectiveFrom ?? currentWeekStart(getWeekStartsOn())
   const now = new Date().toISOString()
 
   db.prepare(

@@ -539,17 +539,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       .prepare(`SELECT id, type, transfer_pair_id, amount, date FROM transactions WHERE id IN (${placeholders})`)
       .all(...ids) as Array<{ id: number; type: string; transfer_pair_id: number | null; amount: number; date: string }>
 
-    // Cover transactions must not be bulk-deleted — they have paired budget effects and
-    // must be removed via the single-delete endpoint which handles both legs correctly.
-    const coverIds = txs.filter((t) => t.type === 'cover').map((t) => t.id)
-    if (coverIds.length > 0) {
-      return reply.code(400).send({
-        error: 'Cover transactions cannot be bulk deleted. Remove them individually.',
-        coverIds,
-      })
-    }
-
-    // Collect IDs to delete including transfer pair counterparts
+    // Collect IDs to delete including transfer pair counterparts (handles transfers and covers)
     const allIds = new Set<number>(ids)
     for (const tx of txs) {
       if (tx.transfer_pair_id) allIds.add(tx.transfer_pair_id)

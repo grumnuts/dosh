@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
+import { todayString } from '../utils/dates'
 import { recordBudgetChange } from '../services/budget'
 
 const createAccountSchema = z.object({
@@ -259,7 +260,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     if (!reconCat) return reply.code(500).send({ error: 'Reconciliation category not found' })
 
     const now = new Date().toISOString()
-    const txDate = body.data.date ?? now.slice(0, 10)
+    const txDate = body.data.date ?? todayString()
 
     const result = db
       .prepare(

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
-import { toDateString } from '../utils/dates'
+import { todayString } from '../utils/dates'
 import {
   getBudgetWeek,
   getCategoryOverspendAmount,
@@ -374,7 +374,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     if (!cat) return reply.code(404).send({ error: 'Category not found' })
 
     const now = new Date().toISOString()
-    const today = toDateString(new Date())
+    const today = todayString()
     const payee = 'Cover Overspend'
     const description = `Cover overspend: ${cat.name}`
 
