@@ -349,7 +349,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         </Select>
 
         {txType === 'transfer' && (!isEdit || transaction?.type === 'transfer') && (
-          <Select label="Transfer to/From" {...register('transferToAccountId')}>
+          <Select label="Transfer To" {...register('transferToAccountId')}>
             <option value="">Select account...</option>
             {accounts?.map((a) => (
               <option key={a.id} value={a.id}>
