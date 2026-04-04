@@ -44,10 +44,12 @@ function PayeeCombobox({
   value,
   onChange,
   payees,
+  disabled,
 }: {
   value: string
   onChange: (v: string) => void
   payees: { id: number; name: string }[]
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -67,9 +69,10 @@ function PayeeCombobox({
         placeholder="Who was this from/to?"
         value={value}
         onChange={(e) => { onChange(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => { if (!disabled) setOpen(true) }}
         onBlur={() => setTimeout(() => setOpen(false), 100)}
         autoComplete="off"
+        disabled={disabled}
       />
       {open && (filtered.length > 0 || showAdd) && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-surface-2 border border-border rounded-lg shadow-lg overflow-hidden">
@@ -116,6 +119,7 @@ const blankSplits = (): SplitRow[] => [
 export function TransactionForm({ open, onClose, transaction }: Props) {
   const qc = useQueryClient()
   const isEdit = !!transaction
+  const isReadOnly = isEdit && transaction?.type === 'cover'
 
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const { data: payees } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list })
@@ -326,13 +330,15 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
     />
   )
 
+  const modalTitle = isReadOnly ? 'Cover Transfer' : isEdit ? 'Edit Transaction' : 'Add Transaction'
+
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Transaction' : 'Add Transaction'}>
+    <Modal open={open} onClose={onClose} title={modalTitle}>
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Date" type="date" {...register('date')} error={errors.date?.message} />
+          <Input label="Date" type="date" {...register('date')} error={errors.date?.message} disabled={isReadOnly} />
 
-          <Select label="Type" {...register('type')}>
+          <Select label="Type" {...register('type')} disabled={isReadOnly}>
             <option value="debit">Debit</option>
             <option value="credit">Credit</option>
             <option value="transfer">Transfer</option>
@@ -340,7 +346,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           </Select>
         </div>
 
-        <Select label="Account" {...register('accountId')} error={errors.accountId?.message}>
+        <Select label="Account" {...register('accountId')} error={errors.accountId?.message} disabled={isReadOnly}>
           <option value="">Select account...</option>
           {accounts?.map((a) => (
             <option key={a.id} value={a.id}>
@@ -350,7 +356,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         </Select>
 
         {txType === 'transfer' && (!isEdit || transaction?.type === 'transfer') && (
-          <Select label="Transfer To" {...register('transferToAccountId')}>
+          <Select label="Transfer To" {...register('transferToAccountId')} disabled={isReadOnly}>
             <option value="">Select account...</option>
             {accounts?.map((a) => (
               <option key={a.id} value={a.id}>
@@ -364,12 +370,14 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           value={watch('payee') ?? ''}
           onChange={(v) => setValue('payee', v)}
           payees={payees ?? []}
+          disabled={isReadOnly}
         />
 
         <Input
           label="Description"
           placeholder="Optional details"
           {...register('description')}
+          disabled={isReadOnly}
         />
 
         <Input
@@ -380,10 +388,11 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           placeholder="0.00"
           {...register('amount')}
           error={errors.amount?.message}
+          disabled={isReadOnly}
         />
 
         {/* Category / Split section */}
-        {canSplit && !(isEdit && !!transaction?.category_is_unlisted) && (
+        {!isReadOnly && canSplit && !(isEdit && !!transaction?.category_is_unlisted) && (
           isSplit ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -470,7 +479,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         )}
 
         {/* Read-only unlisted category */}
-        {txType !== 'transfer' && txType !== 'starting_balance' && isEdit && !!transaction?.category_is_unlisted && (
+        {!isReadOnly && txType !== 'transfer' && txType !== 'starting_balance' && isEdit && !!transaction?.category_is_unlisted && (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
             <div className="input-base text-sm text-muted cursor-not-allowed">
@@ -479,10 +488,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           </div>
         )}
 
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input type="checkbox" {...register('ignoreRules')} className="w-4 h-4 accent-accent" />
-          <span className="text-sm text-secondary">Ignore rules</span>
-        </label>
+        {!isReadOnly && (
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" {...register('ignoreRules')} className="w-4 h-4 accent-accent" />
+            <span className="text-sm text-secondary">Ignore rules</span>
+          </label>
+        )}
 
         {mutation.isError && (
           <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
@@ -503,9 +514,11 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" loading={mutation.isPending}>
-            {isEdit ? 'Save' : 'Add'}
-          </Button>
+          {!isReadOnly && (
+            <Button type="submit" loading={mutation.isPending}>
+              {isEdit ? 'Save' : 'Add'}
+            </Button>
+          )}
         </div>
       </form>
     </Modal>
