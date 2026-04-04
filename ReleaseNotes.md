@@ -7,8 +7,11 @@
 ## v1.9.2 — 2026-04-05
 
 ### Bug Fixes
-- Cover transactions can now be deleted — click the row to confirm deletion, or select via checkbox for bulk delete
+- Cover transactions can now be deleted — click the row to open a read-only modal with a delete button, or select via checkbox for bulk delete
+- Cover transactions can now have their date and account edited — the date update applies to both legs
+- Covers on non-weekly categories (monthly, quarterly, annually, fortnightly) now persist for the full period, not just the week they were created
 - Dates now use server/browser local time instead of UTC, fixing incorrect "today" in non-UTC timezones (e.g. dates showing as yesterday before 10am in UTC+10)
+- Settings page now correctly reflects the current version number
 
 ---
 
