@@ -163,7 +163,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           date: transaction.date,
           type: deriveEditType(transaction),
           accountId: String(transaction.account_id),
-          transferToAccountId: '',
+          transferToAccountId: transaction.transfer_pair_account_id
+            ? String(transaction.transfer_pair_account_id)
+            : '',
           payee: transaction.payee ?? '',
           description: transaction.description ?? '',
           amount: (Math.abs(transaction.amount) / 100).toFixed(2),
@@ -232,8 +234,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             accountId: parseInt(data.accountId, 10),
             payee: data.payee || null,
             description: data.description || null,
-            amount: transaction!.type === 'transfer' ? transaction!.amount : amount,
+            amount,
             categoryId: null,
+            type: 'transaction',
             splits: splitsPayload,
             ignoreRules: data.ignoreRules,
           })
@@ -251,14 +254,17 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       }
 
       if (isEdit) {
-        const isTransfer = transaction!.type === 'transfer'
         await transactionsApi.update(transaction!.id, {
           date: data.date,
           accountId: parseInt(data.accountId, 10),
           payee: data.payee || null,
           description: data.description || null,
-          amount: isTransfer ? transaction!.amount : amount,
-          categoryId: isTransfer ? null : (data.categoryId ? parseInt(data.categoryId, 10) : null),
+          amount: data.type === 'transfer' ? Math.abs(amount) : amount,
+          categoryId: data.type === 'transfer' ? null : (data.categoryId ? parseInt(data.categoryId, 10) : null),
+          type: data.type === 'transfer' ? 'transfer' : 'transaction',
+          transferToAccountId: data.type === 'transfer' && data.transferToAccountId
+            ? parseInt(data.transferToAccountId, 10)
+            : null,
           splits: [],
           ignoreRules: data.ignoreRules,
         })
@@ -325,12 +331,10 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <Input label="Date" type="date" {...register('date')} error={errors.date?.message} />
 
-          <Select label="Type" {...register('type')} disabled={isEdit && transaction?.type === 'transfer'}>
+          <Select label="Type" {...register('type')}>
             <option value="debit">Debit</option>
             <option value="credit">Credit</option>
-            {(!isEdit || transaction?.type === 'transfer') && (
-              <option value="transfer">Transfer</option>
-            )}
+            <option value="transfer">Transfer</option>
             {!isEdit && <option value="starting_balance">Starting Balance</option>}
           </Select>
         </div>
@@ -344,7 +348,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           ))}
         </Select>
 
-        {txType === 'transfer' && !isEdit && (
+        {txType === 'transfer' && (
           <Select label="Transfer To" {...register('transferToAccountId')}>
             <option value="">Select destination...</option>
             {accounts?.map((a) => (
@@ -373,7 +377,6 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           step="0.01"
           min="0.01"
           placeholder="0.00"
-          disabled={isEdit && transaction?.type === 'transfer'}
           {...register('amount')}
           error={errors.amount?.message}
         />
