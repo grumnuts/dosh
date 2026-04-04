@@ -82,22 +82,28 @@ Before doing anything, confirm:
 Use exactly these three category names — omit any that have no entries: **New Features**, **Bug Fixes**, **Enhancements**.
 
 ### 3. Update README
-Update README.md with any relevant information. New or changed features etc. 
+Update README.md with any relevant information. New or changed features etc.
 
-### 3. Commit and push
+### 4. Update backend/package.json version
 ```bash
-git add ReleaseNotes.md
+# Update "version" field in backend/package.json to match the release version (without the v prefix)
+# This is what the Settings page reads to display the current version
+```
+
+### 5. Commit and push
+```bash
+git add ReleaseNotes.md backend/package.json
 git commit -m "chore: release v1.2.3"
 git push origin main
 ```
 
-### 4. Create GitHub release
+### 6. Create GitHub release
 Use the content from the version section of `ReleaseNotes.md` as the release notes:
 ```bash
 gh release create v1.2.3 --title "v1.2.3" --notes "..."
 ```
 
-### 5. Build and publish Docker image (multi-architecture)
+### 7. Build and publish Docker image (multi-architecture)
 ```bash
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
@@ -108,7 +114,7 @@ docker buildx build \
 
 > Docker Hub username: confirm with user if not set in context
 
-### 6. Update GitHub WiKi
+### 8. Update GitHub WiKi
 Document any new or changed features, functionality, processes etc. Ensure WiKi reflects Dosh's current state.
 
 ### Versioning
