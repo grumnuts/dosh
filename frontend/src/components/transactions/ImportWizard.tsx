@@ -29,7 +29,7 @@ export function ImportWizard({ open, onClose }: Props) {
   const [importedCount, setImportedCount] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
+  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list() })
 
   // Parse header row to show column names for mapping
   const headerRow = (() => {

@@ -6,6 +6,11 @@
 
 ## v1.9.3 — 2026-04-10
 
+### New Features
+- Accounts can now be closed — funds are transferred to another account before closing, and closed accounts are hidden from the UI with a toggle to show them
+- Category balances are now shown next to category names in all dropdowns throughout the app
+- Delete buttons throughout the app (accounts, transactions, categories, groups, rules) now show a confirmation prompt before deleting
+
 ### Bug Fixes
 - Credit transactions (e.g. refunds) now correctly reduce category spent and update the balance
 - New payees added during a transaction are now available immediately in subsequent modals — no page refresh required

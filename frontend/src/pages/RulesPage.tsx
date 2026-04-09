@@ -108,7 +108,7 @@ export function RulesPage() {
 
   // Used for rule summaries in the list — read from cache populated by Budget/Accounts pages.
   // Not fetched here; the modal fetches them when it opens.
-  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list, staleTime: 30_000, enabled: false })
+  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list(), staleTime: 30_000, enabled: false })
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories, staleTime: 30_000, enabled: false })
 
   const lookup = useNameLookup(accounts, categories)

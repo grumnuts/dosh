@@ -25,11 +25,12 @@ const updateAccountSchema = z.object({
 })
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/api/accounts', { preHandler: authenticate }, async (_req, reply) => {
+  app.get('/api/accounts', { preHandler: authenticate }, async (req, reply) => {
     const db = getDb()
+    const includeClosed = (req.query as Record<string, string>).includeClosed === 'true'
     const accounts = db
       .prepare(
-        `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order, a.goal_amount, a.goal_target_date,
+        `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order, a.goal_amount, a.goal_target_date, a.closed_at,
                 COALESCE(SUM(t.amount), 0) as transaction_total,
                 CASE WHEN a.type = 'debt' THEN
                   COALESCE((
@@ -50,9 +51,9 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
                 ELSE 0 END as categorized_payment_total
          FROM accounts a
          LEFT JOIN transactions t ON t.account_id = a.id
-         WHERE a.is_active = 1
+         WHERE a.is_active = 1${includeClosed ? '' : ' AND a.closed_at IS NULL'}
          GROUP BY a.id
-         ORDER BY a.sort_order, a.name`,
+         ORDER BY a.closed_at IS NOT NULL, a.sort_order, a.name`,
       )
       .all() as Array<{
       id: number
@@ -63,6 +64,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       sort_order: number
       goal_amount: number | null
       goal_target_date: string | null
+      closed_at: string | null
       transaction_total: number
       categorized_payment_total: number
     }>
@@ -77,6 +79,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
         sortOrder: a.sort_order,
         goalAmount: a.goal_amount,
         goalTargetDate: a.goal_target_date,
+        closedAt: a.closed_at,
       })),
     )
   })
@@ -282,6 +285,122 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     })
 
     return reply.send({ ok: true, adjustment, transactionId })
+  })
+
+  app.post('/api/accounts/:id/close', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const body = z.object({ transferToAccountId: z.number().int().optional() }).safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Invalid input' })
+
+    const db = getDb()
+
+    const account = db
+      .prepare(
+        `SELECT a.id, a.name, a.type, a.starting_balance,
+                COALESCE(SUM(t.amount), 0) as transaction_total,
+                CASE WHEN a.type = 'debt' THEN
+                  COALESCE((
+                    SELECT -SUM(pt.amount)
+                    FROM transactions pt
+                    JOIN budget_categories bc ON pt.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND pt.amount < 0
+                  ), 0) +
+                  COALESCE((
+                    SELECT -SUM(ts.amount)
+                    FROM transaction_splits ts
+                    JOIN transactions pt ON ts.transaction_id = pt.id
+                    JOIN budget_categories bc ON ts.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND ts.amount < 0
+                  ), 0)
+                ELSE 0 END as categorized_payment_total
+         FROM accounts a
+         LEFT JOIN transactions t ON t.account_id = a.id
+         WHERE a.id = ? AND a.is_active = 1 AND a.closed_at IS NULL
+         GROUP BY a.id`,
+      )
+      .get(id) as { id: number; name: string; type: string; starting_balance: number; transaction_total: number; categorized_payment_total: number } | undefined
+
+    if (!account) return reply.code(404).send({ error: 'Account not found or already closed' })
+
+    const currentBalance = account.starting_balance + account.transaction_total + account.categorized_payment_total
+
+    if (currentBalance < 0) {
+      return reply.code(400).send({ error: 'Account cannot be closed while the balance is negative. Please zero the account before closing.' })
+    }
+
+    if (currentBalance > 0 && !body.data.transferToAccountId) {
+      return reply.code(400).send({ error: 'Account has a positive balance. Provide transferToAccountId to transfer funds before closing.' })
+    }
+
+    const now = new Date().toISOString()
+
+    if (currentBalance > 0 && body.data.transferToAccountId) {
+      // Create a transfer pair to zero out the closing account:
+      //   closing account gets -currentBalance (zeroes it out)
+      //   target account gets +currentBalance
+      const txDate = now.slice(0, 10)
+
+      const fromResult = db
+        .prepare(
+          `INSERT INTO transactions (date, account_id, payee, amount, type, ignore_rules, created_at, updated_at, created_by)
+           VALUES (?, ?, 'Account Closed', ?, 'transfer', 1, ?, ?, ?)`,
+        )
+        .run(txDate, account.id, -currentBalance, now, now, request.user!.id)
+
+      const fromId = fromResult.lastInsertRowid as number
+
+      const toResult = db
+        .prepare(
+          `INSERT INTO transactions (date, account_id, payee, amount, type, transfer_pair_id, ignore_rules, created_at, updated_at, created_by)
+           VALUES (?, ?, 'Account Closed', ?, 'transfer', ?, 1, ?, ?, ?)`,
+        )
+        .run(txDate, body.data.transferToAccountId, currentBalance, fromId, now, now, request.user!.id)
+
+      const toId = toResult.lastInsertRowid as number
+      db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(toId, fromId)
+    }
+
+    db.prepare('UPDATE accounts SET closed_at = ?, updated_at = ? WHERE id = ?').run(now, now, account.id)
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'account.closed',
+      entityType: 'account',
+      entityId: account.id,
+      details: { name: account.name, balanceTransferred: currentBalance !== 0, transferToAccountId: body.data.transferToAccountId },
+      ipAddress: request.ip,
+    })
+
+    return reply.send({ ok: true })
+  })
+
+  app.post('/api/accounts/:id/reopen', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const db = getDb()
+
+    const account = db
+      .prepare('SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND closed_at IS NOT NULL')
+      .get(id) as { id: number; name: string } | undefined
+
+    if (!account) return reply.code(404).send({ error: 'Account not found or not closed' })
+
+    const now = new Date().toISOString()
+    db.prepare('UPDATE accounts SET closed_at = NULL, updated_at = ? WHERE id = ?').run(now, account.id)
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'account.reopened',
+      entityType: 'account',
+      entityId: account.id,
+      details: { name: account.name },
+      ipAddress: request.ip,
+    })
+
+    return reply.send({ ok: true })
   })
 
   app.delete('/api/accounts/:id', { preHandler: authenticate }, async (request, reply) => {

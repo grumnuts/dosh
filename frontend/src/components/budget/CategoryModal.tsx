@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ConfirmModal } from '../ui/ConfirmModal'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -72,6 +73,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const showCatchupToggle = isMidPeriod && !isIncomeGroup
 
   const [catchUp, setCatchUp] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -189,8 +191,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             <Button
               type="button"
               variant="danger"
-              onClick={() => deleteMutation.mutate()}
-              loading={deleteMutation.isPending}
+              onClick={() => setConfirmDelete(true)}
             >
               Delete
             </Button>
@@ -203,6 +204,14 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             {isEdit ? 'Save' : 'Add Category'}
           </Button>
         </div>
+        <ConfirmModal
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { deleteMutation.mutate(); setConfirmDelete(false) }}
+          title="Delete Category"
+          message={`Are you sure you want to delete "${category?.name}"? This cannot be undone.`}
+          loading={deleteMutation.isPending}
+        />
       </form>
     </Modal>
   )

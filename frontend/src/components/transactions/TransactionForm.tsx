@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, startOfWeek } from 'date-fns'
 import { useEffect, useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -9,10 +9,12 @@ import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
 import { CategoryCombobox } from '../ui/CategoryCombobox'
+import { ConfirmModal } from '../ui/ConfirmModal'
 import { transactionsApi, Transaction } from '../../api/transactions'
 import { accountsApi } from '../../api/accounts'
 import { budgetApi } from '../../api/budget'
 import { payeesApi } from '../../api/payees'
+import { settingsApi } from '../../api/settings'
 
 const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Required'),
@@ -121,13 +123,24 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   const isEdit = !!transaction
   const isCover = isEdit && transaction?.type === 'cover'
 
-  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
+  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list() })
   const { data: payees } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list })
   const { data: budgetWeek } = useQuery({
     queryKey: ['budget', 'categories-flat'],
     queryFn: () => budgetApi.getCategories(),
   })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
+  const currentWeekStart = format(startOfWeek(new Date(), { weekStartsOn }), 'yyyy-MM-dd')
+  const { data: currentBudget } = useQuery({
+    queryKey: ['budget', currentWeekStart],
+    queryFn: () => budgetApi.getWeek(currentWeekStart),
+  })
+  const balances: Record<number, number> = {}
+  for (const g of currentBudget?.groups ?? []) {
+    for (const c of g.categories) balances[c.id] = c.balance
+  }
 
   const today = format(new Date(), 'yyyy-MM-dd')
 
@@ -148,6 +161,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   const [isSplit, setIsSplit] = useState(false)
   const [splits, setSplits] = useState<SplitRow[]>(blankSplits())
   const [splitError, setSplitError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const txType = watch('type')
   const amountStr = watch('amount')
@@ -328,6 +342,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       onChange={onChange}
       categories={categories ?? []}
       groups={groups ?? []}
+      balances={balances}
     />
   )
 
@@ -474,6 +489,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
                 onChange={(v) => setValue('categoryId', v)}
                 categories={categories ?? []}
                 groups={groups ?? []}
+                balances={balances}
               />
             </div>
           )
@@ -505,8 +521,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             <Button
               type="button"
               variant="danger"
-              onClick={() => deleteMutation.mutate()}
-              loading={deleteMutation.isPending}
+              onClick={() => setConfirmDelete(true)}
             >
               Delete
             </Button>
@@ -519,6 +534,14 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             {isEdit ? 'Save' : 'Add'}
           </Button>
         </div>
+        <ConfirmModal
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { deleteMutation.mutate(); setConfirmDelete(false) }}
+          title="Delete Transaction"
+          message="Are you sure you want to delete this transaction? This cannot be undone."
+          loading={deleteMutation.isPending}
+        />
       </form>
     </Modal>
   )

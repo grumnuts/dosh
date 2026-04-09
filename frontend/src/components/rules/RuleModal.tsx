@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Input'
+import { ConfirmModal } from '../ui/ConfirmModal'
 import { ApiError } from '../../api/client'
 import {
   rulesApi,
@@ -348,7 +349,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
   const qc = useQueryClient()
   const isEdit = !!rule
 
-  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list, enabled: open })
+  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list(), enabled: open })
   const { data: payees = [] } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list, enabled: open })
   const { data: categoriesRaw = [] } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories, enabled: open })
   const { data: budgetGroupsRaw = [] } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups, enabled: open })
@@ -356,6 +357,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
   const categories = categoriesRaw as unknown as Array<{ id: number; group_id: number; name: string }>
   const budgetGroups = budgetGroupsRaw as Array<{ id: number; name: string }>
 
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [name, setName] = useState('')
   const [groupId, setGroupId] = useState<string>('')
   const [conditionLogic, setConditionLogic] = useState<ConditionLogic>('AND')
@@ -573,7 +575,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
 
         <div className="flex items-center gap-3 pt-2 pb-safe">
           {isEdit && (
-            <Button type="button" variant="danger" onClick={() => deleteMutation.mutate()} loading={deleteMutation.isPending}>
+            <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)}>
               Delete
             </Button>
           )}
@@ -583,6 +585,14 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
             {isEdit ? 'Save' : 'Add rule'}
           </Button>
         </div>
+        <ConfirmModal
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { deleteMutation.mutate(); setConfirmDelete(false) }}
+          title="Delete Rule"
+          message={`Are you sure you want to delete "${name}"? This cannot be undone.`}
+          loading={deleteMutation.isPending}
+        />
       </div>
     </Modal>
   )

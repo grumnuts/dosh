@@ -19,7 +19,7 @@ export function BudgetPage() {
 
   const { data: accounts } = useQuery({
     queryKey: ['accounts'],
-    queryFn: accountsApi.list,
+    queryFn: () => accountsApi.list(),
   })
 
   const parsedStart = weekStart ? parseISO(weekStart) : null

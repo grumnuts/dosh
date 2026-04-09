@@ -20,12 +20,14 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, startOfWeek } from 'date-fns'
 import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
+import { settingsApi } from '../api/settings'
 import { formatMoney, Amount } from '../components/ui/AmountDisplay'
 import { Modal } from '../components/ui/Modal'
+import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { Button } from '../components/ui/Button'
 import { Input, Select, Textarea } from '../components/ui/Input'
 import { TransactionForm } from '../components/transactions/TransactionForm'
@@ -179,7 +181,15 @@ function MonthYearPicker({ value, onChange }: { value: string; onChange: (v: str
 function AccountForm({ account, onClose }: { account?: Account | null; onClose: () => void }) {
   const qc = useQueryClient()
   const isEdit = !!account
+  const isClosed = !!account?.closedAt
   const today = format(new Date(), 'yyyy-MM-dd')
+
+  const [closeStep, setCloseStep] = useState<'idle' | 'confirm' | 'transfer' | 'negative'>('idle')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [transferToId, setTransferToId] = useState('')
+
+  const { data: openAccounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list() })
+  const transferTargets = openAccounts?.filter((a) => a.id !== account?.id) ?? []
 
   const { register, watch, handleSubmit, control, formState: { errors } } = useForm<CreateAccountFormData>({
     resolver: zodResolver(isEdit ? baseAccountSchema : createAccountSchema),
@@ -219,6 +229,38 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     },
   })
 
+  const closeMutation = useMutation({
+    mutationFn: (transferToAccountId?: number) => accountsApi.close(account!.id, transferToAccountId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      onClose()
+    },
+  })
+
+  const reopenMutation = useMutation({
+    mutationFn: () => accountsApi.reopen(account!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      onClose()
+    },
+  })
+
+  const handleCloseAccount = () => {
+    if (account!.currentBalance < 0) {
+      setCloseStep('negative')
+    } else if (account!.currentBalance === 0) {
+      setCloseStep('confirm')
+    } else {
+      setCloseStep('transfer')
+    }
+  }
+
+  const handleTransferAndClose = () => {
+    if (!transferToId) return
+    closeMutation.mutate(parseInt(transferToId, 10))
+  }
+
   const onSubmit = (data: CreateAccountFormData) => {
     const goalCents = data.type === 'savings' && data.goalAmount
       ? Math.round(parseFloat(data.goalAmount) * 100) || null
@@ -240,10 +282,77 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     }
   }
 
+  if (closeStep === 'confirm') {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-secondary">
+          Are you sure you want to close <span className="font-medium text-primary">{account!.name}</span>? It will become read-only and hidden from the UI.
+        </p>
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="ghost" type="button" onClick={() => setCloseStep('idle')}>Cancel</Button>
+          <Button variant="danger" type="button" onClick={() => closeMutation.mutate(undefined)} loading={closeMutation.isPending}>Close Account</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (closeStep === 'negative') {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-danger">
+          Account cannot be closed while the balance is negative. Please zero the account before closing.
+        </p>
+        <div className="flex justify-end">
+          <Button variant="ghost" type="button" onClick={() => setCloseStep('idle')}>Back</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (closeStep === 'transfer') {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-secondary">
+          <span className="font-medium text-primary">{account!.name}</span> has a balance of{' '}
+          <span className={`font-mono font-semibold ${account!.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>
+            {formatMoney(account!.currentBalance)}
+          </span>
+          . Select an account to transfer the funds into before closing.
+        </p>
+        <Select
+          label="Transfer funds to"
+          value={transferToId}
+          onChange={(e) => setTransferToId(e.target.value)}
+        >
+          <option value="">Select account…</option>
+          {transferTargets.map((a) => (
+            <option key={a.id} value={String(a.id)}>{a.name}</option>
+          ))}
+        </Select>
+        {closeMutation.isError && (
+          <p className="text-sm text-danger">{(closeMutation.error as Error).message}</p>
+        )}
+        <div className="flex items-center gap-3 pt-2">
+          <Button variant="ghost" type="button" onClick={() => setCloseStep('idle')}>Back</Button>
+          <div className="flex-1" />
+          <Button
+            variant="danger"
+            type="button"
+            onClick={handleTransferAndClose}
+            loading={closeMutation.isPending}
+            disabled={!transferToId}
+          >
+            Transfer &amp; Close
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit as (data: CreateAccountFormData) => void)} className="space-y-4">
-      <Input label="Account Name" {...register('name')} error={errors.name?.message} autoFocus />
-      <Select label="Type" {...register('type')}>
+      <Input label="Account Name" {...register('name')} error={errors.name?.message} autoFocus disabled={isClosed} />
+      <Select label="Type" {...register('type')} disabled={isClosed}>
         <option value="transactional">Transactional</option>
         <option value="savings">Savings</option>
         <option value="debt">Debt</option>
@@ -257,6 +366,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
             min="0"
             placeholder="0.00"
             {...register('goalAmount')}
+            disabled={isClosed}
           />
           <Controller
             name="goalTargetDate"
@@ -283,20 +393,34 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
           />
         </div>
       )}
-      <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
+      <Textarea label="Notes (optional)" {...register('notes')} rows={2} disabled={isClosed} />
       {mutation.isError && (
         <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
       )}
-      <div className="flex items-center gap-3 pt-2">
-        {isEdit && (
-          <Button type="button" variant="danger" onClick={() => deleteMutation.mutate()} loading={deleteMutation.isPending}>
-            Delete
-          </Button>
-        )}
-        <div className="flex-1" />
-        <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-        <Button type="submit" loading={mutation.isPending}>{isEdit ? 'Save' : 'Add Account'}</Button>
-      </div>
+      {isEdit && !isClosed ? (
+        <div className="grid grid-cols-2 gap-x-2 gap-y-5 pt-2 sm:flex sm:items-center sm:gap-3">
+          <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)} className="w-full sm:w-auto px-2 sm:px-4">Delete</Button>
+          <Button type="button" variant="ghost" onClick={handleCloseAccount} loading={closeMutation.isPending} className="w-full sm:w-auto px-2 sm:px-4 text-muted hover:text-secondary border border-border">Close Account</Button>
+          <Button variant="ghost" type="button" onClick={onClose} className="w-full sm:w-auto px-2 sm:px-4 sm:ml-auto">Cancel</Button>
+          <Button type="submit" loading={mutation.isPending} className="w-full sm:w-auto px-2 sm:px-4">Save</Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-end gap-2 pt-2">
+          {isEdit && isClosed && (
+            <Button type="button" variant="ghost" onClick={() => reopenMutation.mutate()} loading={reopenMutation.isPending}>Reopen Account</Button>
+          )}
+          <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+          {!isClosed && <Button type="submit" loading={mutation.isPending}>Add Account</Button>}
+        </div>
+      )}
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => { deleteMutation.mutate(); setConfirmDelete(false) }}
+        title="Delete Account"
+        message={`Are you sure you want to delete "${account?.name}"? This cannot be undone.`}
+        loading={deleteMutation.isPending}
+      />
     </form>
   )
 }
@@ -395,6 +519,40 @@ function SortableAccountRow({
   )
 }
 
+function ClosedAccountRow({ account, onEdit }: { account: Account; onEdit: () => void }) {
+  const typeLabel = account.type.charAt(0).toUpperCase() + account.type.slice(1)
+  return (
+    <div className="flex items-center gap-2 pl-7 md:pl-9 pr-4 py-1.5 border-t border-border opacity-50">
+      <div className="w-36 min-w-0 shrink-0">
+        <div className="text-sm font-medium truncate text-secondary">{account.name}</div>
+        <div className="text-xs text-muted sm:hidden">{typeLabel}</div>
+      </div>
+      <div className="hidden sm:block w-28 shrink-0">
+        <span className="text-sm text-muted">{typeLabel}</span>
+      </div>
+      <div className="hidden sm:block flex-1 min-w-0">
+        <span className="text-xs font-medium text-muted uppercase tracking-wide border border-border rounded px-1.5 py-0.5">Closed</span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0 ml-auto">
+        <div className="text-right">
+          <div className="text-sm font-bold font-mono text-muted">{formatMoney(account.currentBalance)}</div>
+        </div>
+        <button
+          title="Edit account"
+          className="p-1 rounded text-muted hover:text-primary transition-colors"
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        {/* Spacer to align with open account rows that have a reconcile button */}
+        <div className="hidden sm:block w-6" />
+      </div>
+    </div>
+  )
+}
+
 export function AccountsPage() {
   const qc = useQueryClient()
 
@@ -407,6 +565,7 @@ export function AccountsPage() {
   const [accountModal, setAccountModal] = useState<{ open: boolean; account?: Account | null }>({ open: false })
   const [reconcileAccount, setReconcileAccount] = useState<Account | null>(null)
   const [orderedAccounts, setOrderedAccounts] = useState<Account[]>([])
+  const [showClosed, setShowClosed] = useLocalStorageBool('dosh:show-closed-accounts', false)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -424,9 +583,16 @@ export function AccountsPage() {
 
   const PAGE_SIZE = 100
 
-  const { data: accounts, isLoading: accountsLoading } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
+  const { data: accounts, isLoading: accountsLoading } = useQuery({
+    queryKey: ['accounts', { includeClosed: showClosed }],
+    queryFn: () => accountsApi.list(showClosed),
+  })
 
-  useEffect(() => { if (accounts) setOrderedAccounts(accounts) }, [accounts])
+  const closedAccounts = accounts?.filter((a) => !!a.closedAt) ?? []
+
+  useEffect(() => {
+    if (accounts) setOrderedAccounts(accounts.filter((a) => !a.closedAt))
+  }, [accounts])
 
   const handleAccountDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -442,6 +608,17 @@ export function AccountsPage() {
 
   const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
+  const currentWeekStart = format(startOfWeek(new Date(), { weekStartsOn }), 'yyyy-MM-dd')
+  const { data: currentBudget } = useQuery({
+    queryKey: ['budget', currentWeekStart],
+    queryFn: () => budgetApi.getWeek(currentWeekStart),
+  })
+  const categoryBalances: Record<number, number> = {}
+  for (const g of currentBudget?.groups ?? []) {
+    for (const c of g.categories) categoryBalances[c.id] = c.balance
+  }
   const { data: payees } = useQuery({ queryKey: ['transactions', 'payees'], queryFn: transactionsApi.payees })
   const { data: txData, isLoading: txLoading } = useQuery({
     queryKey: ['transactions', filters, uncategorisedOnly, page],
@@ -525,17 +702,17 @@ export function AccountsPage() {
   }
   const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly
 
-  const totalBalance = accounts?.reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
-  const transactionalTotal = accounts?.filter((a) => a.type === 'transactional').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
-
-  const savingsTotal = accounts?.filter((a) => a.type === 'savings').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
-  const debtTotal = accounts?.filter((a) => a.type === 'debt').reduce((sum, a) => sum + a.currentBalance, 0) ?? 0
-  const hasDebt = accounts?.some((a) => a.type === 'debt') ?? false
+  const openAccountsAll = accounts?.filter((a) => !a.closedAt) ?? []
+  const totalBalance = openAccountsAll.reduce((sum, a) => sum + a.currentBalance, 0)
+  const transactionalTotal = openAccountsAll.filter((a) => a.type === 'transactional').reduce((sum, a) => sum + a.currentBalance, 0)
+  const savingsTotal = openAccountsAll.filter((a) => a.type === 'savings').reduce((sum, a) => sum + a.currentBalance, 0)
+  const debtTotal = openAccountsAll.filter((a) => a.type === 'debt').reduce((sum, a) => sum + a.currentBalance, 0)
+  const hasDebt = openAccountsAll.some((a) => a.type === 'debt')
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-3 md:px-6">
       {/* Accounts header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <button
           className="flex items-center gap-2 text-xl font-bold text-primary hover:text-accent transition-colors"
           onClick={() => setAccountsCollapsed((c) => !c)}
@@ -545,9 +722,17 @@ export function AccountsPage() {
           </svg>
           Accounts
         </button>
-        <Button size="sm" onClick={() => setAccountModal({ open: true, account: null })}>
-          + Add Account
-        </Button>
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            className={`text-xs px-2 py-1 rounded border transition-colors ${showClosed ? 'border-accent text-accent' : 'border-border text-muted hover:text-secondary'}`}
+            onClick={() => setShowClosed((v) => !v)}
+          >
+            {showClosed ? 'Hide closed' : 'Show closed'}
+          </button>
+          <Button size="sm" onClick={() => setAccountModal({ open: true, account: null })}>
+            + Add Account
+          </Button>
+        </div>
       </div>
 
       {!accountsCollapsed && (
@@ -572,7 +757,7 @@ export function AccountsPage() {
       {/* Account list grouped by type (mobile net worth card sits above groups with consistent spacing) */}
       {accountsLoading ? (
         <div className="text-center py-12 text-secondary">Loading...</div>
-      ) : orderedAccounts.length === 0 ? (
+      ) : orderedAccounts.length === 0 && closedAccounts.length === 0 ? (
         <div className="border-y border-border px-5 py-12 text-center text-secondary -mx-4 md:mx-0">No accounts yet.</div>
       ) : (
         <div className="-mx-4 md:mx-0 overflow-hidden md:rounded-t-lg">
@@ -612,6 +797,13 @@ export function AccountsPage() {
               ))}
             </SortableContext>
           </DndContext>
+          {showClosed && closedAccounts.map((account) => (
+            <ClosedAccountRow
+              key={account.id}
+              account={account}
+              onEdit={() => setAccountModal({ open: true, account })}
+            />
+          ))}
           {/* Mobile: Net Worth footer */}
           <div className="flex items-center justify-between px-4 py-2 sm:hidden border-t border-b border-border">
             <span className="text-xs font-medium text-muted uppercase tracking-wide">Net Worth</span>
@@ -757,7 +949,7 @@ export function AccountsPage() {
               label="Account"
               value={filters.accountId}
               onChange={(v) => setFilter('accountId', v)}
-              items={(accounts ?? []).map((a) => ({ id: String(a.id), label: a.name }))}
+              items={openAccountsAll.map((a) => ({ id: String(a.id), label: a.name }))}
               allLabel="All accounts"
             />
             <SearchableSelect
@@ -898,6 +1090,7 @@ export function AccountsPage() {
                             buttonClassName={`text-sm text-left ${tx.category_name ? 'text-primary hover:text-accent' : 'text-muted hover:text-accent italic'} transition-colors`}
                             showSplit={tx.splits.length === 0}
                             onSplitClick={() => setEditTx(tx)}
+                            balances={categoryBalances}
                           />
                         )
                       ) : (

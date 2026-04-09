@@ -30,7 +30,7 @@ export function CoverModal({
 
   const { data: accounts } = useQuery({
     queryKey: ['accounts'],
-    queryFn: accountsApi.list,
+    queryFn: () => accountsApi.list(),
   })
 
   const savingsAccounts = accounts?.filter((a) => a.type === 'savings') ?? []

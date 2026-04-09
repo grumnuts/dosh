@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { formatMoney } from './AmountDisplay'
 
 interface Category {
   id: number
@@ -26,6 +27,7 @@ interface Props {
   showSplit?: boolean
   onSplitClick?: () => void
   showClear?: boolean
+  balances?: Record<number, number>
 }
 
 export function CategoryCombobox({
@@ -40,6 +42,7 @@ export function CategoryCombobox({
   showSplit,
   onSplitClick,
   showClear,
+  balances,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -158,10 +161,15 @@ export function CategoryCombobox({
               <button
                 key={c.id}
                 type="button"
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-surface-3 transition-colors ${String(c.id) === value ? 'text-accent' : 'text-primary'}`}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-surface-3 transition-colors flex items-center justify-between gap-2 ${String(c.id) === value ? 'text-accent' : 'text-primary'}`}
                 onMouseDown={(e) => { e.preventDefault(); select(String(c.id)) }}
               >
-                {c.name}
+                <span>{c.name}</span>
+                {balances && balances[c.id] !== undefined && (
+                  <span className={`font-mono text-xs tabular-nums shrink-0 ${balances[c.id] < 0 ? 'text-danger' : 'text-accent'}`}>
+                    {formatMoney(balances[c.id])}
+                  </span>
+                )}
               </button>
             ))}
           </div>

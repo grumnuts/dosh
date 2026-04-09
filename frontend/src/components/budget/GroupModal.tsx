@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { ConfirmModal } from '../ui/ConfirmModal'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,6 +22,7 @@ interface Props {
 export function GroupModal({ open, onClose, group, isIncome }: Props) {
   const qc = useQueryClient()
   const isEdit = !!group
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -70,8 +72,7 @@ export function GroupModal({ open, onClose, group, isIncome }: Props) {
             <Button
               type="button"
               variant="danger"
-              onClick={() => deleteMutation.mutate()}
-              loading={deleteMutation.isPending}
+              onClick={() => setConfirmDelete(true)}
             >
               Delete
             </Button>
@@ -84,6 +85,14 @@ export function GroupModal({ open, onClose, group, isIncome }: Props) {
             {isEdit ? 'Save' : 'Add Group'}
           </Button>
         </div>
+        <ConfirmModal
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { deleteMutation.mutate(); setConfirmDelete(false) }}
+          title="Delete Group"
+          message={`Are you sure you want to delete "${group?.name}"? All categories in this group will also be deleted. This cannot be undone.`}
+          loading={deleteMutation.isPending}
+        />
       </form>
     </Modal>
   )
