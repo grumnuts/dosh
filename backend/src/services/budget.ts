@@ -329,15 +329,15 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     const ph = ids.map(() => '?').join(',')
     const rows = db
       .prepare(
-        `SELECT category_id, ABS(COALESCE(SUM(total), 0)) AS spent FROM (
+        `SELECT category_id, -COALESCE(SUM(total), 0) AS spent FROM (
            SELECT t.category_id, t.amount AS total FROM transactions t
            WHERE t.category_id IN (${ph}) AND t.date >= ? AND t.date <= ?
-             AND t.type = 'transaction' AND t.amount < 0
+             AND t.type = 'transaction'
            UNION ALL
            SELECT ts.category_id, ts.amount AS total FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
            WHERE ts.category_id IN (${ph}) AND t.date >= ? AND t.date <= ?
-             AND t.type = 'transaction' AND ts.amount < 0
+             AND t.type = 'transaction'
          )
          GROUP BY category_id`,
       )
@@ -543,20 +543,20 @@ export function getCategoryOverspendAmount(categoryId: number, weekStart: string
 
   const spentRow = db
     .prepare(
-      `SELECT COALESCE(SUM(total), 0) as total FROM (
+      `SELECT -COALESCE(SUM(total), 0) as spent FROM (
          SELECT t.amount as total FROM transactions t
          WHERE t.category_id = ? AND t.date >= ? AND t.date <= ?
-           AND t.type = 'transaction' AND t.amount < 0
+           AND t.type = 'transaction'
          UNION ALL
          SELECT ts.amount as total FROM transaction_splits ts
          JOIN transactions t ON t.id = ts.transaction_id
          WHERE ts.category_id = ? AND t.date >= ? AND t.date <= ?
-           AND t.type = 'transaction' AND ts.amount < 0
+           AND t.type = 'transaction'
        )`,
     )
-    .get(categoryId, bounds.start, bounds.end, categoryId, bounds.start, bounds.end) as { total: number }
+    .get(categoryId, bounds.start, bounds.end, categoryId, bounds.start, bounds.end) as { spent: number }
 
-  const spent = Math.abs(spentRow.total)
+  const spent = spentRow.spent
 
   const coversRow = db
     .prepare(

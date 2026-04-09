@@ -305,6 +305,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['payees'] })
       onClose()
     },
   })

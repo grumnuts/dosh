@@ -40,6 +40,15 @@ function buildChartData(series: GoalSeries) {
   return chartData
 }
 
+function weeksUntilEndOfMonth(yearMonth: string): number {
+  const [year, month] = yearMonth.split('-').map(Number)
+  const endOfMonth = new Date(year, month, 0) // last day of that month
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000
+  return Math.max(1, (endOfMonth.getTime() - today.getTime()) / msPerWeek)
+}
+
 function GoalCard({ series }: { series: GoalSeries }) {
   const chartData = buildChartData(series)
 
@@ -52,13 +61,22 @@ function GoalCard({ series }: { series: GoalSeries }) {
     ? Math.min(100, Math.round(Math.max(0, series.currentBalance) / series.goalAmount * 100))
     : 0
 
+  const weeklyNeeded = (!goalAlreadyMet && series.goalTargetDate)
+    ? Math.ceil((series.goalAmount - series.currentBalance) / weeksUntilEndOfMonth(series.goalTargetDate))
+    : null
+
   let statusLabel: React.ReactNode = null
   if (!goalAlreadyMet) {
     if (series.goalTargetDate) {
       const onTrack = projectionHitsGoal && projectedEnd!.month <= series.goalTargetDate
-      statusLabel = onTrack
-        ? <p className="text-sm text-accent">On track</p>
-        : <p className="text-sm text-danger">Off track</p>
+      statusLabel = (
+        <>
+          <p className={`text-sm ${onTrack ? 'text-accent' : 'text-danger'}`}>{onTrack ? 'On track' : 'Off track'}</p>
+          {weeklyNeeded !== null && (
+            <p className="text-xs text-muted">{formatMoney(weeklyNeeded)} / week needed</p>
+          )}
+        </>
+      )
     } else if (projectionHitsGoal) {
       statusLabel = <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
     } else if (projectedEnd) {

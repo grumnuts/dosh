@@ -4,6 +4,18 @@
 
 ---
 
+## v1.9.3 — 2026-04-10
+
+### Bug Fixes
+- Credit transactions (e.g. refunds) now correctly reduce category spent and update the balance
+- New payees added during a transaction are now available immediately in subsequent modals — no page refresh required
+
+### Enhancements
+- Budget page footer no longer shows the unallocated amount — only the total weekly allocation is displayed
+- Goal cards with a target date now show the weekly contribution needed to reach the goal on time
+
+---
+
 ## v1.9.2 — 2026-04-05
 
 ### Bug Fixes

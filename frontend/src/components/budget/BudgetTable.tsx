@@ -869,17 +869,9 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       <div className="card">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="text-sm font-semibold text-primary">Total weekly allocation</div>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="text-right">
-              <div className="font-mono text-sm font-semibold text-secondary tabular-nums">{formatMoney(data.totalWeeklyBudget)}</div>
-              <div className="text-xs text-muted">allocated</div>
-            </div>
-            <div className="text-right">
-              <div className={`font-mono text-sm font-semibold tabular-nums ${data.unallocated !== 0 ? 'text-warn' : 'text-accent'}`}>
-                {formatMoney(data.unallocated)}
-              </div>
-              <div className="text-xs text-muted">unallocated</div>
-            </div>
+          <div className="text-right">
+            <div className="font-mono text-sm font-semibold text-primary tabular-nums">{formatMoney(data.totalWeeklyBudget)}</div>
+            <div className="text-xs text-muted">allocated</div>
           </div>
         </div>
       </div>
