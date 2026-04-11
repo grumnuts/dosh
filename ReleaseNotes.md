@@ -4,6 +4,30 @@
 
 ---
 
+## v1.10.0 — 2026-04-12
+
+### Enhancements
+- Rebuilt mobile UI: bottom tab bar navigation replaces the top header; More menu is a bottom popup above the nav bar for easier one-handed use
+- Floating action button (FAB) on the Budget and Accounts pages on mobile — tap to expand a speed dial with quick access to common actions (add group, category, transaction, account, import, reconcile)
+- Budget page week navigation is now a fixed bar above the mobile nav; tap the week label to jump to the current week; current week is highlighted in green
+- Budget group rows support long-press (1 second) to open the group editor on mobile; quick tap collapses/expands categories
+- Account rows support long-press (1 second) to open the account editor on mobile; quick tap filters the transaction list to that account
+- Budget table on mobile hides the Spent column (expense groups) and Outstanding column (debt groups) to maximise category name space
+- Transaction filters on mobile now open as a modal instead of an inline panel
+- Tapping an account on mobile instantly filters the transaction list without opening the filter modal
+- Edit button on budget group rows moved to desktop only; period indicators moved to the left of category names with fixed width
+- Cash Flow report In vs Out now includes all transaction types (starting balances, reconciliation, etc.) — transfers remain excluded
+- Debt Payment budget table columns (Budgeted, Weekly, Paid, Outstanding) now align with the expense table columns
+
+### Bug Fixes
+- Closing the search bar on the Accounts page now clears the active search filter
+- Debt accounts with only one month of transaction history now correctly show payoff projections in the Goals report
+- Filtering by uncategorised transactions now clears automatically when the last uncategorised transaction is categorised
+- Changing an existing account type to Debt now correctly creates the linked budget category
+- Budget page now updates immediately after adding or modifying an account — no manual refresh required
+
+---
+
 ## v1.9.3 — 2026-04-10
 
 ### New Features

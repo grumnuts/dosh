@@ -13,10 +13,15 @@
     box-sizing: border-box;
   }
 
+  html {
+    overflow-x: hidden;
+  }
+
   body {
     background-color: #111111;
     color: #e8e8e8;
     min-height: 100dvh;
+    overflow-x: hidden;
   }
 
   /* Fix iOS date input — prevents the native widget from overriding the h-9 height */
@@ -38,20 +43,31 @@
     -moz-appearance: textfield;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /* Custom scrollbar — desktop only */
+  @media (min-width: 768px) {
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1c1c1c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #333333;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #444444;
+    }
   }
-  ::-webkit-scrollbar-track {
-    background: #1c1c1c;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #333333;
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #444444;
+
+  @media (max-width: 767px) {
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      scrollbar-width: none;
+    }
   }
 }
 

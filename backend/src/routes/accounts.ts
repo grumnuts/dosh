@@ -203,11 +203,38 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       id,
     )
 
-    // Keep the linked debt category name in sync with the account name
-    if (body.data.type === 'debt' && body.data.name !== existing.name) {
-      db.prepare(
-        'UPDATE budget_categories SET name = ?, updated_at = ? WHERE linked_account_id = ?',
-      ).run(body.data.name, updatedAt, id)
+    // Keep the linked debt category name in sync, or create one if type changed to debt
+    if (body.data.type === 'debt') {
+      const existingCat = db
+        .prepare('SELECT id FROM budget_categories WHERE linked_account_id = ?')
+        .get(id) as { id: number } | undefined
+
+      if (existingCat) {
+        if (body.data.name !== existing.name) {
+          db.prepare('UPDATE budget_categories SET name = ?, updated_at = ? WHERE linked_account_id = ?')
+            .run(body.data.name, updatedAt, id)
+        }
+      } else {
+        const debtGroup = db
+          .prepare('SELECT id FROM budget_groups WHERE is_debt = 1 LIMIT 1')
+          .get() as { id: number } | undefined
+
+        if (debtGroup) {
+          const maxCatOrder = (
+            db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM budget_categories WHERE group_id = ?')
+              .get(debtGroup.id) as { m: number }
+          ).m
+
+          const catResult = db
+            .prepare(
+              `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, linked_account_id, is_system, sort_order, created_at, updated_at)
+               VALUES (?, ?, 0, 'monthly', ?, 1, ?, ?, ?)`,
+            )
+            .run(debtGroup.id, body.data.name, id, maxCatOrder + 1, updatedAt, updatedAt)
+
+          recordBudgetChange(catResult.lastInsertRowid as number, 0, 'monthly', request.user!.id)
+        }
+      }
     }
 
     logAudit({

@@ -6,22 +6,11 @@ export function MobileHeader() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
 
-  const tabClass = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-      isActive ? 'bg-accent-muted text-accent' : 'text-secondary hover:text-primary'
-    }`
-
   return (
     <>
       {/* Top bar */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-surface border-b border-border h-14 flex items-center px-3 gap-2">
-        <img src="/DoshLogoFull.png" alt="Dosh" className="h-8 w-auto shrink-0" />
-
-        {/* Inline tabs */}
-        <nav className="flex-1 flex items-center justify-center gap-1">
-          <NavLink to="/budget" className={tabClass}>Budget</NavLink>
-          <NavLink to="/accounts" className={tabClass}>Accounts</NavLink>
-        </nav>
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-surface border-b border-border h-10 flex items-center px-3">
+        <img src="/DoshLogoFull.png" alt="Dosh" className="h-7 w-auto flex-1" />
 
         {/* Hamburger */}
         <button

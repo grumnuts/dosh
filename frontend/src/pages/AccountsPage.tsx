@@ -36,6 +36,7 @@ import { BulkEditModal } from '../components/transactions/BulkEditModal'
 import { CategoryCombobox } from '../components/ui/CategoryCombobox'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
+import { useLongPress } from '../hooks/useLongPress'
 
 const DEFAULT_COL_WIDTHS = {
   date: 68, account: 205, payee: 160, description: 240, category: 160, amount: 110,
@@ -217,6 +218,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
       onClose()
     },
   })
@@ -225,6 +227,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     mutationFn: () => accountsApi.delete(account!.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
       onClose()
     },
   })
@@ -234,6 +237,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
       onClose()
     },
   })
@@ -242,6 +246,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     mutationFn: () => accountsApi.reopen(account!.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
       onClose()
     },
   })
@@ -462,6 +467,7 @@ function SortableAccountRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined }
+  const longPress = useLongPress(onEdit)
 
   const typeLabel = account.type.charAt(0).toUpperCase() + account.type.slice(1)
 
@@ -471,6 +477,7 @@ function SortableAccountRow({
       style={style}
       className={`flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 cursor-pointer group border-t border-border transition-colors ${isSelected ? 'bg-accent/10' : 'hover:bg-surface-2/50'}`}
       onClick={onSelect}
+      {...longPress}
     >
       <div className="hidden md:flex">
         <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />
@@ -498,7 +505,7 @@ function SortableAccountRow({
         </div>
         <button
           title="Edit account"
-          className="p-1 rounded text-muted hover:text-primary transition-colors"
+          className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onEdit() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -539,7 +546,7 @@ function ClosedAccountRow({ account, onEdit }: { account: Account; onEdit: () =>
         </div>
         <button
           title="Edit account"
-          className="p-1 rounded text-muted hover:text-primary transition-colors"
+          className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
           onClick={(e) => { e.stopPropagation(); onEdit() }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -578,6 +585,8 @@ export function AccountsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [fabOpen, setFabOpen] = useState(false)
+  const [reconcilePickerOpen, setReconcilePickerOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [page, setPage] = useState(0)
 
@@ -643,6 +652,13 @@ export function AccountsPage() {
     queryKey: ['transactions', 'uncategorised-count'],
     queryFn: transactionsApi.uncategorisedCount,
   })
+
+  useEffect(() => {
+    if (uncategorisedOnly && uncategorisedData?.count === 0) {
+      setUncategorisedOnly(false)
+      setPage(0)
+    }
+  }, [uncategorisedOnly, uncategorisedData?.count])
 
   const assignCategory = useMutation({
     mutationFn: ({ id, tx, categoryId }: { id: number; tx: Transaction; categoryId: number | null }) =>
@@ -710,26 +726,25 @@ export function AccountsPage() {
   const hasDebt = openAccountsAll.some((a) => a.type === 'debt')
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-3 md:px-6">
+    <div className="max-w-7xl mx-auto px-4 pt-4 pb-6 md:py-6 space-y-3 md:px-6">
       {/* Accounts header */}
       <div className="flex items-center justify-between gap-2">
         <button
-          className="flex items-center gap-2 text-xl font-bold text-primary hover:text-accent transition-colors"
+          className="text-xl font-bold text-primary hover:text-accent transition-colors"
           onClick={() => setAccountsCollapsed((c) => !c)}
         >
-          <svg className={`w-4 h-4 transition-transform duration-150 ${accountsCollapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
           Accounts
         </button>
         <div className="flex items-center gap-2 ml-auto">
-          <button
-            className={`text-xs px-2 py-1 rounded border transition-colors ${showClosed ? 'border-accent text-accent' : 'border-border text-muted hover:text-secondary'}`}
-            onClick={() => setShowClosed((v) => !v)}
-          >
-            {showClosed ? 'Hide closed' : 'Show closed'}
-          </button>
-          <Button size="sm" onClick={() => setAccountModal({ open: true, account: null })}>
+          {!accountsCollapsed && (
+            <button
+              className={`text-xs px-2 py-1 rounded border transition-colors ${showClosed ? 'border-accent text-accent' : 'border-border text-muted hover:text-secondary'}`}
+              onClick={() => setShowClosed((v) => !v)}
+            >
+              {showClosed ? 'Hide closed' : 'Show closed'}
+            </button>
+          )}
+          <Button size="sm" onClick={() => setAccountModal({ open: true, account: null })} className="hidden sm:inline-flex">
             + Add Account
           </Button>
         </div>
@@ -772,7 +787,7 @@ export function AccountsPage() {
             <div className="hidden sm:block flex-1 min-w-0">
               <span className="text-xs font-medium text-muted uppercase tracking-wide">Notes</span>
             </div>
-            <div className="ml-auto shrink-0 pr-16">
+            <div className="ml-auto shrink-0 text-right sm:pr-16">
               <span className="text-xs font-medium text-muted uppercase tracking-wide">Balance</span>
             </div>
           </div>
@@ -789,8 +804,10 @@ export function AccountsPage() {
                     const next = filters.accountId === id ? '' : id
                     setFilter('accountId', next)
                     setTransactionsCollapsed(false)
-                    if (next) setFiltersOpen(true)
-                    else setFiltersOpen(false)
+                    if (window.innerWidth >= 768) {
+                      if (next) setFiltersOpen(true)
+                      else setFiltersOpen(false)
+                    }
                   }}
                   isSelected={filters.accountId === String(account.id)}
                 />
@@ -820,12 +837,9 @@ export function AccountsPage() {
       {/* Transactions header */}
       <div className="flex items-center justify-between gap-2">
         <button
-          className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-accent transition-colors shrink-0"
+          className="text-lg font-semibold text-primary hover:text-accent transition-colors shrink-0"
           onClick={() => setTransactionsCollapsed((c) => !c)}
         >
-          <svg className={`w-4 h-4 transition-transform duration-150 ${transactionsCollapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
           Transactions
         </button>
         <div className="flex items-center gap-2">
@@ -883,7 +897,7 @@ export function AccountsPage() {
           )}
           <button
             className={`p-1.5 rounded transition-colors ${searchOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
-            onClick={() => setSearchOpen((o) => !o)}
+            onClick={() => setSearchOpen((o) => { if (o) setFilter('search', ''); return !o; })}
             aria-label="Toggle search"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -891,8 +905,8 @@ export function AccountsPage() {
             </svg>
           </button>
           <button
-            className={`p-1.5 rounded transition-colors ${filtersOpen ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
-            onClick={() => setFiltersOpen((o) => { if (o) clearFilters(); return !o; })}
+            className={`p-1.5 rounded transition-colors ${filtersOpen || hasFilters ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
+            onClick={() => setFiltersOpen((o) => !o)}
             aria-label="Toggle filters"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -909,16 +923,7 @@ export function AccountsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
           </button>
-          {/* Add: mobile = icon, desktop = button */}
-          <button
-            className="sm:hidden p-1.5 rounded transition-colors text-muted hover:text-primary"
-            onClick={() => setAddTxOpen(true)}
-            aria-label="Add transaction"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
+          {/* Add: desktop only (mobile uses FAB) */}
           <Button size="sm" onClick={() => setAddTxOpen(true)} className="hidden sm:inline-flex">+ Add</Button>
         </div>
       </div>
@@ -934,9 +939,55 @@ export function AccountsPage() {
         />
       )}
 
+      {/* Filter modal — mobile */}
+      <div className="md:hidden">
+      <Modal open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+        <div className="space-y-4 py-1">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted uppercase tracking-wide">From</label>
+            <input type="date" value={filters.startDate} onChange={(e) => setFilter('startDate', e.target.value)} className="input-base text-sm" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted uppercase tracking-wide">To</label>
+            <input type="date" value={filters.endDate} onChange={(e) => setFilter('endDate', e.target.value)} className="input-base text-sm" />
+          </div>
+          <SearchableSelect
+            label="Account"
+            value={filters.accountId}
+            onChange={(v) => setFilter('accountId', v)}
+            items={openAccountsAll.map((a) => ({ id: String(a.id), label: a.name }))}
+            allLabel="All accounts"
+          />
+          <SearchableSelect
+            label="Payee"
+            value={filters.payee}
+            onChange={(v) => setFilter('payee', v)}
+            items={(payees ?? []).map((p) => ({ id: p, label: p }))}
+            allLabel="All payees"
+          />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted uppercase tracking-wide">Category</label>
+            <CategoryCombobox
+              value={filters.categoryId}
+              onChange={(v) => setFilter('categoryId', v)}
+              categories={(categories as Array<{ id: number; group_id: number; name: string }> | undefined) ?? []}
+              groups={groups ?? []}
+              placeholder="All categories"
+              showClear
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="danger" className="flex-1" onClick={() => { clearFilters(); setFiltersOpen(false) }}>Clear</Button>
+            <Button className="flex-1" onClick={() => setFiltersOpen(false)}>Show Results</Button>
+          </div>
+        </div>
+      </Modal>
+      </div>
+
+      {/* Filter panel — desktop */}
       {!transactionsCollapsed && filtersOpen && (
-        <div className="card p-4 space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="hidden md:block card p-4 space-y-3">
+          <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-muted uppercase tracking-wide">From</label>
               <input type="date" value={filters.startDate} onChange={(e) => setFilter('startDate', e.target.value)} className="input-base text-sm" />
@@ -1176,6 +1227,60 @@ export function AccountsPage() {
           </div>
         )}
       </div>}
+
+      {/* Mobile FAB */}
+      <div className="md:hidden">
+        {fabOpen && <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setFabOpen(false)} />}
+
+        {/* Speed dial options */}
+        <div className={`fixed bottom-36 right-4 z-40 flex flex-col items-end gap-3 ${fabOpen ? '' : 'pointer-events-none'}`}>
+          {[
+            { label: 'Add Transaction', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />, action: () => { setFabOpen(false); setAddTxOpen(true) } },
+            { label: 'Import Transactions', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />, action: () => { setFabOpen(false); setImportOpen(true) } },
+            { label: 'Add Account', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />, action: () => { setFabOpen(false); setAccountModal({ open: true, account: null }) } },
+            { label: 'Reconcile Account', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />, action: () => { setFabOpen(false); setReconcilePickerOpen(true) } },
+          ].map(({ label, icon, action }, i, arr) => (
+            <button
+              key={label}
+              className={`flex items-center gap-2 transition-all duration-150 ${fabOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-20 scale-75'}`}
+              style={{ transitionDelay: `${(fabOpen ? (arr.length - 1 - i) : i) * 35}ms` }}
+              onClick={action}
+            >
+              <span className="bg-surface-2 text-primary text-sm px-3 py-1.5 rounded-lg shadow">{label}</span>
+              <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center shadow mx-1">
+                <svg className="w-6 h-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">{icon}</svg>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <button
+          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-accent-dim text-white flex items-center justify-center transition-transform shadow-[0_4px_14px_rgba(74,222,128,0.4)]"
+          style={{ transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)' }}
+          onClick={() => setFabOpen((o) => !o)}
+          aria-label="Add"
+        >
+          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Reconcile account picker */}
+      <Modal open={reconcilePickerOpen} onClose={() => setReconcilePickerOpen(false)} title="Select Account">
+        <div className="space-y-1 py-1">
+          {orderedAccounts.map((a) => (
+            <button
+              key={a.id}
+              className="w-full text-left px-3 py-3 rounded-lg text-sm text-primary hover:bg-surface-2 transition-colors flex items-center justify-between"
+              onClick={() => { setReconcilePickerOpen(false); setReconcileAccount(a) }}
+            >
+              <span>{a.name}</span>
+              <span className={`font-mono text-xs ${a.currentBalance < 0 ? 'text-danger' : 'text-accent'}`}>{formatMoney(a.currentBalance)}</span>
+            </button>
+          ))}
+        </div>
+      </Modal>
 
       {/* Modals */}
       <Modal open={accountModal.open} onClose={() => setAccountModal({ open: false })} title={accountModal.account ? 'Edit Account' : 'Add Account'}>
