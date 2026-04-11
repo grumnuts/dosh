@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+import { useLongPress } from '../../hooks/useLongPress'
 import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
@@ -115,32 +116,32 @@ function CategoryRow({
         className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
         onClick={() => setEditOpen(true)}
       >
-        <td className="px-2 py-2.5 hidden md:table-cell w-8">
+        <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-12 pr-4 py-2.5">
+        <td className="pl-2 pr-2 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-primary">{cat.name}</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+            <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
               {PERIOD_LABELS[cat.period]}
             </span>
+            <span className="text-sm text-primary">{cat.name}</span>
             {isCovered && (
               <span className="text-xs text-accent-dim hidden sm:inline">covered</span>
             )}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-sm text-secondary tabular-nums hidden md:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm text-secondary tabular-nums hidden md:table-cell">
           {formatMoney(cat.budgetedAmount)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-sm text-secondary tabular-nums hidden lg:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm text-secondary tabular-nums">
           {formatMoney(cat.weeklyEquivalent)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden sm:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden sm:table-cell">
           <span className={cat.spent > cat.budgetedAmount ? 'text-danger' : 'text-secondary'}>
             {formatMoney(cat.spent)}
           </span>
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums">
           <span className={
             cat.isOverspent
               ? 'text-danger font-semibold'
@@ -151,9 +152,9 @@ function CategoryRow({
             {formatMoney(cat.balance)}
           </span>
         </td>
-        <td className="text-right relative">
+        <td className="hidden sm:table-cell text-right relative">
           {cat.isOverspent && (
-            <div className="absolute inset-0 hidden sm:flex items-center justify-end px-2 sm:px-3">
+            <div className="absolute inset-0 flex items-center justify-end px-3">
               <Button
                 size="sm"
                 variant="danger"
@@ -239,6 +240,7 @@ function GroupSection({
   const [editOpen, setEditOpen] = useState(false)
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:group:${group.id}`, false)
   const [orderedCats, setOrderedCats] = useState<BudgetCategory[]>(group.categories)
+
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -265,56 +267,49 @@ function GroupSection({
   const groupWeekly = group.categories.reduce((s, c) => s + c.weeklyEquivalent, 0)
   const showCategories = !collapsed && !isBeingDragged
 
+  const longPress = useLongPress(() => setEditOpen(true))
+
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-white/5">
-        <td className="px-2 py-2.5 hidden md:table-cell w-8">
+      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+        <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-2 pr-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <button
-              className="text-muted hover:text-primary transition-colors"
-              onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? 'Expand group' : 'Collapse group'}
-            >
-              <svg
-                className={`w-3.5 h-3.5 transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <button
-              className="text-sm font-semibold text-primary hover:text-accent transition-colors"
-              onClick={() => setEditOpen(true)}
-            >
-              {group.name}
-            </button>
-          </div>
+        <td className="pl-2 pr-2 py-2.5">
+          <span className="text-sm font-semibold text-primary">{group.name}</span>
         </td>
         <td className="hidden md:table-cell" />
-        <td className="px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden lg:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
           {formatMoney(groupWeekly)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden sm:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden sm:table-cell">
           {formatMoney(groupSpent)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs tabular-nums">
           <span className={groupBalance < 0 ? 'text-danger' : 'text-secondary'}>
             {formatMoney(groupBalance)}
           </span>
         </td>
-        <td className="px-2 py-2.5 text-right sm:px-3">
-          <button
-            className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
-            onClick={() => onAddCategory(group.id, group.name)}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Add</span>
-          </button>
+        <td className="hidden sm:table-cell px-1.5 py-2.5">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              className="text-muted hover:text-secondary transition-colors"
+              onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+              aria-label="Edit group"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
+              onClick={(e) => { e.stopPropagation(); onAddCategory(group.id, group.name) }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
         </td>
       </tr>
 
@@ -403,15 +398,15 @@ function IncomeCategoryRow({
         className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
         onClick={() => setEditOpen(true)}
       >
-        <td className="px-2 py-2.5 hidden md:table-cell w-8">
+        <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-12 pr-4 py-2.5">
+        <td className="pl-2 pr-2 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-primary">{cat.name}</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+            <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
               {PERIOD_LABELS[cat.period]}
             </span>
+            <span className="text-sm text-primary">{cat.name}</span>
           </div>
         </td>
         <td className="hidden md:table-cell" />
@@ -420,7 +415,7 @@ function IncomeCategoryRow({
         <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums">
           <span className="text-accent">{formatMoney(cat.received)}</span>
         </td>
-        <td />
+        <td className="hidden sm:table-cell" />
       </tr>
 
       <CategoryModal
@@ -459,45 +454,28 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
   const [editCat, setEditCat] = useState<DebtCategory | null>(null)
 
   const groupPaid = group.categories.reduce((s, c) => s + c.spent, 0)
-  const groupBalance = group.categories.reduce((s, c) => s + c.balance, 0)
   const groupOutstanding = group.categories.reduce((s, c) => s + c.linkedAccountBalance, 0)
   const groupWeekly = group.categories.reduce((s, c) => s + c.weeklyEquivalent, 0)
   const showCategories = !collapsed
 
   return (
     <>
-      <tr className="bg-white/5">
-        <td className="px-2 py-2.5 hidden md:table-cell w-8" />
-        <td className="pl-2 pr-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <button
-              className="text-muted hover:text-primary transition-colors"
-              onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? 'Expand group' : 'Collapse group'}
-            >
-              <svg
-                className={`w-3.5 h-3.5 transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <span className="text-sm font-semibold text-primary">{group.name}</span>
-          </div>
+      <tr className="bg-white/5 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+        <td className="px-2 py-2.5 hidden md:table-cell w-6" />
+        <td className="pl-2 pr-2 py-2.5">
+          <span className="text-sm font-semibold text-primary">{group.name}</span>
         </td>
         <td className="hidden md:table-cell" />
-        <td className="px-3 py-2.5 text-right font-mono text-xs text-secondary tabular-nums hidden lg:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-secondary tabular-nums">
           {formatMoney(groupWeekly)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-xs text-secondary tabular-nums hidden sm:table-cell">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-secondary tabular-nums">
           {formatMoney(groupPaid)}
         </td>
-        <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums hidden sm:table-cell">
-          <span className={groupBalance < 0 ? 'text-accent' : 'text-secondary'}>{formatMoney(groupBalance)}</span>
-        </td>
-        <td className="px-2 py-2.5 text-right font-mono text-xs tabular-nums sm:px-3">
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs tabular-nums hidden sm:table-cell">
           <span className={groupOutstanding >= 0 ? 'text-accent' : 'text-danger'}>{formatMoney(groupOutstanding)}</span>
         </td>
+        <td className="hidden sm:table-cell" />
       </tr>
 
       {showCategories && group.categories.map((cat) => (
@@ -506,30 +484,28 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
           className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
           onClick={() => setEditCat(cat)}
         >
-          <td className="px-2 py-2.5 hidden md:table-cell w-8" />
-          <td className="pl-12 pr-4 py-2.5">
+          <td className="px-2 py-2.5 hidden md:table-cell w-6" />
+          <td className="pl-2 pr-2 py-2.5">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-primary">{cat.name}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+              <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
                 {PERIOD_LABELS[cat.period]}
               </span>
+              <span className="text-sm text-primary">{cat.name}</span>
             </div>
           </td>
-          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden md:table-cell">
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden md:table-cell">
             <span className="text-secondary">{formatMoney(cat.budgetedAmount)}</span>
           </td>
-          <td className="px-3 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden lg:table-cell">
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
             {formatMoney(cat.weeklyEquivalent)}
           </td>
-          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden sm:table-cell">
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums">
             <span className="text-secondary">{formatMoney(cat.spent)}</span>
           </td>
-          <td className="px-3 py-2.5 text-right font-mono text-sm tabular-nums hidden sm:table-cell">
-            <span className={cat.balance < 0 ? 'text-accent' : 'text-primary'}>{formatMoney(cat.balance)}</span>
-          </td>
-          <td className="px-2 py-2.5 text-right font-mono text-sm tabular-nums sm:px-3">
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden sm:table-cell">
             <span className={cat.linkedAccountBalance >= 0 ? 'text-accent' : 'text-danger'}>{formatMoney(cat.linkedAccountBalance)}</span>
           </td>
+          <td className="hidden sm:table-cell" />
         </tr>
       ))}
 
@@ -595,33 +571,16 @@ function IncomeGroupSection({
   const groupReceived = group.categories.reduce((s, c) => s + c.received, 0)
   const showCategories = !collapsed && !isBeingDragged
 
+  const longPress = useLongPress(() => setEditOpen(true))
+
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-white/5">
-        <td className="px-2 py-2.5 hidden md:table-cell w-8">
+      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+        <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-2 pr-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <button
-              className="text-muted hover:text-primary transition-colors"
-              onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? 'Expand group' : 'Collapse group'}
-            >
-              <svg
-                className={`w-3.5 h-3.5 transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <button
-              className="text-sm font-semibold text-primary hover:text-accent transition-colors"
-              onClick={() => setEditOpen(true)}
-            >
-              {group.name}
-            </button>
-          </div>
+        <td className="pl-2 pr-2 py-2.5">
+          <span className="text-sm font-semibold text-primary">{group.name}</span>
         </td>
         <td className="hidden md:table-cell" />
         <td className="hidden lg:table-cell" />
@@ -629,16 +588,26 @@ function IncomeGroupSection({
         <td className="px-3 py-2.5 text-right font-mono text-xs text-accent tabular-nums">
           {formatMoney(groupReceived)}
         </td>
-        <td className="px-2 py-2.5 text-right sm:px-3">
-          <button
-            className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
-            onClick={() => onAddCategory(group.id, group.name)}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Add</span>
-          </button>
+        <td className="hidden sm:table-cell px-1.5 py-2.5">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              className="text-muted hover:text-secondary transition-colors"
+              onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+              aria-label="Edit group"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
+              onClick={(e) => { e.stopPropagation(); onAddCategory(group.id, group.name) }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
         </td>
       </tr>
 
@@ -697,10 +666,10 @@ function SortableIncomeGroupSection(props: Omit<IncomeGroupSectionProps, 'rowRef
 
 // ─── Main table ──────────────────────────────────────────────────────────────
 
-const BUDGET_DEFAULT_COL_WIDTHS = { category: 220, budgeted: 110, weekly: 100, spent: 100, balance: 100 }
+const BUDGET_DEFAULT_COL_WIDTHS = { category: 220, budgeted: 110, weekly: 78, spent: 100, balance: 100 }
 
 export function BudgetTable({ data, accounts }: BudgetTableProps) {
-  const { widths, onResizeStart } = useResizableCols(BUDGET_DEFAULT_COL_WIDTHS, 'dosh:budget-col-widths')
+  const { widths, onResizeStart } = useResizableCols(BUDGET_DEFAULT_COL_WIDTHS, 'dosh:budget-col-widths-v2')
   const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string; isIncome: boolean } | null>(null)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
   const [addIncomeGroupOpen, setAddIncomeGroupOpen] = useState(false)
@@ -745,16 +714,16 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       {/* Expense table */}
       <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm table-auto md:table-fixed">
             <thead>
               <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
-                <th className="px-2 py-3 hidden md:table-cell w-8" />
-                <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
-                <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
-                <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
-                <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
-                <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20">
+                <th className="px-2 py-3 hidden md:table-cell w-6" />
+                <th className="px-2 py-3 text-left font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                <th className="px-1.5 sm:px-2 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+                <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
+                <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+                <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16">
                   <button
                     className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
                     onClick={() => setAddGroupOpen(true)}
@@ -762,7 +731,6 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    <span className="hidden sm:inline">Add Group</span>
                   </button>
                 </th>
               </tr>
@@ -799,16 +767,16 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       {debtGroups.length > 0 && (
         <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed">
+            <table className="w-full text-sm table-auto md:table-fixed">
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
-                  <th className="px-2 py-3 hidden md:table-cell w-8" />
-                  <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Debt Payments<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
-                  <th className="px-3 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
-                  <th className="px-3 py-3 text-right font-medium hidden lg:table-cell relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
-                  <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.spent }}>Paid<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
-                  <th className="px-3 py-3 text-right font-medium hidden sm:table-cell relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                  <th className="px-2 py-3 text-right font-medium sm:px-3">Outstanding</th>
+                  <th className="px-2 py-3 hidden md:table-cell w-6" />
+                  <th className="px-2 py-3 text-left font-medium relative" style={{ width: widths.category }}>Debt Payments<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.spent }}>Paid<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.balance }}>Outstanding<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+                  <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16" />
                 </tr>
               </thead>
               <tbody>
@@ -824,16 +792,16 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
       {/* Income table */}
       <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm table-auto md:table-fixed">
             <thead>
               <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
-                <th className="px-2 py-3 hidden md:table-cell w-8" />
-                <th className="px-4 py-3 text-left font-medium relative" style={{ width: widths.category }}>Income<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                <th className="px-2 py-3 hidden md:table-cell w-6" />
+                <th className="px-2 py-3 text-left font-medium relative" style={{ width: widths.category }}>Income<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
                 <th className="hidden md:table-cell" style={{ width: widths.budgeted }} />
                 <th className="hidden lg:table-cell" style={{ width: widths.weekly }} />
                 <th className="hidden md:table-cell" style={{ width: widths.spent }} />
                 <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
-                <th className="px-2 py-3 w-10 sm:px-3 sm:w-20">
+                <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16">
                   <button
                     className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
                     onClick={() => setAddIncomeGroupOpen(true)}
@@ -841,7 +809,6 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    <span className="hidden sm:inline">Add Group</span>
                   </button>
                 </th>
               </tr>

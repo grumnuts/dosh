@@ -11,11 +11,12 @@ interface Props {
   value: string
   onChange: (v: string) => void
   label?: string
+  hideLabel?: boolean
   allLabel?: string
   className?: string
 }
 
-export function SearchableSelect({ items, value, onChange, label, allLabel = 'All', className = '' }: Props) {
+export function SearchableSelect({ items, value, onChange, label, hideLabel, allLabel = 'All', className = '' }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({})
@@ -116,7 +117,7 @@ export function SearchableSelect({ items, value, onChange, label, allLabel = 'Al
 
   return (
     <div ref={containerRef} className={`flex flex-col gap-1 ${className}`}>
-      {label && <span className="text-xs text-muted uppercase tracking-wide">{label}</span>}
+      {label && <span className={`text-xs text-muted uppercase tracking-wide ${hideLabel ? 'hidden md:block' : ''}`}>{label}</span>}
       <div className="relative">
         <button ref={triggerRef} type="button" className={`${triggerClass} ${value ? 'pr-7' : ''}`} onClick={() => setOpen((o) => !o)}>
           {selected?.label ?? allLabel}

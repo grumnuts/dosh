@@ -275,7 +275,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         const totalDelta = last3[last3.length - 1].balance - last3[0].balance
         avgDelta = totalDelta / (last3.length - 1)
       } else if (last3.length === 1) {
-        avgDelta = last3[0].balance > 0 ? last3[0].balance / 12 : 0
+        const firstMonthChange = last3[0].balance - startingBal
+        avgDelta = firstMonthChange > 0 ? firstMonthChange : (last3[0].balance > 0 ? last3[0].balance / 12 : 0)
       }
 
       const projection: Array<{ month: string; balance: number }> = []
@@ -362,10 +363,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                 SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
          FROM transactions t
-         LEFT JOIN budget_categories bc ON bc.id = t.category_id
-         WHERE t.type = 'transaction'
+         WHERE t.type NOT IN ('transfer', 'cover')
            AND strftime('%Y', t.date) = ?
-           AND (bc.is_system = 0 OR bc.id IS NULL)
          GROUP BY month
          ORDER BY month`,
       )
