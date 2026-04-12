@@ -4,6 +4,17 @@
 
 ---
 
+## v1.11.1 — 2026-04-12
+
+### Bug Fixes
+- Account balances chart now supports clicking a row to isolate that account and auto-scale the Y-axis — makes changes in smaller accounts visible alongside large ones like superannuation
+- Sidebar now correctly stays fixed while page content scrolls on desktop
+- Debt payoff projections now appear correctly when the account was created in the same month as the first payments
+- Overspend report now shows one summarised row per category for the full year instead of a separate row per budget period
+- Week navigation on the budget page now animates with a slide transition on mobile
+
+---
+
 ## v1.11.0 — 2026-04-12
 
 ### New Features
