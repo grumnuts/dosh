@@ -5,7 +5,7 @@ import { useRef, useCallback } from 'react'
  * - Quick tap: does nothing (lets the existing onClick fire naturally via browser click synthesis)
  * - Long press (threshold ms): calls onLongPress and suppresses the synthesised click
  */
-export function useLongPress(onLongPress: () => void, threshold = 1000) {
+export function useLongPress(onLongPress: () => void, threshold = 600) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firedRef = useRef(false)
   const startXRef = useRef(0)

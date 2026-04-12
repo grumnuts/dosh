@@ -188,6 +188,8 @@ function CategoryRow({
         groupName={groupName}
         weekStart={weekStart}
         category={cat}
+        fullCategory={cat}
+        transactionalAccounts={transactionalAccounts}
       />
     </>
   )
@@ -271,7 +273,7 @@ function GroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
@@ -575,7 +577,7 @@ function IncomeGroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>

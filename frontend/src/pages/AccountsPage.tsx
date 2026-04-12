@@ -475,7 +475,7 @@ function SortableAccountRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 cursor-pointer group border-t border-border transition-colors ${isSelected ? 'bg-accent/10' : 'hover:bg-surface-2/50'}`}
+      className={`flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 cursor-pointer group border-t border-border transition-colors select-none ${isSelected ? 'bg-accent/10' : 'hover:bg-surface-2/50'}`}
       onClick={onSelect}
       {...longPress}
     >
@@ -1233,7 +1233,7 @@ export function AccountsPage() {
         {fabOpen && <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setFabOpen(false)} />}
 
         {/* Speed dial options */}
-        <div className={`fixed bottom-36 right-4 z-40 flex flex-col items-end gap-3 ${fabOpen ? '' : 'pointer-events-none'}`}>
+        <div className={`fixed bottom-40 right-4 z-40 flex flex-col items-end gap-3 ${fabOpen ? '' : 'pointer-events-none'}`}>
           {[
             { label: 'Add Transaction', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />, action: () => { setFabOpen(false); setAddTxOpen(true) } },
             { label: 'Import Transactions', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />, action: () => { setFabOpen(false); setImportOpen(true) } },
@@ -1255,7 +1255,7 @@ export function AccountsPage() {
         </div>
 
         <button
-          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-accent-dim text-white flex items-center justify-center transition-transform shadow-[0_4px_14px_rgba(74,222,128,0.4)]"
+          className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-accent-dim text-white flex items-center justify-center transition-transform shadow-[0_4px_14px_rgba(74,222,128,0.4)]"
           style={{ transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)' }}
           onClick={() => setFabOpen((o) => !o)}
           aria-label="Add"

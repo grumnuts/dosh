@@ -7,7 +7,7 @@ export function BottomNav() {
   const [open, setOpen] = useState(false)
 
   const tabClass = ({ isActive }: { isActive: boolean }) =>
-    `flex-1 flex flex-col items-center justify-center py-2 text-xs gap-1 transition-colors ${
+    `flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors ${
       isActive ? 'text-accent' : 'text-muted'
     }`
 
@@ -18,7 +18,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 flex h-16" style={{ transform: 'translateZ(0)' }}>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 flex h-20" style={{ transform: 'translateZ(0)' }}>
 
         {/* Budget */}
         <NavLink to="/budget" className={tabClass}>
@@ -49,12 +49,12 @@ export function BottomNav() {
 
         {/* More (hamburger) */}
         <button
-          className={`flex-1 flex flex-col items-center justify-center py-2 text-xs gap-1 transition-colors ${open ? 'text-accent' : 'text-muted'}`}
+          className={`flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors ${open ? 'text-accent' : 'text-muted'}`}
           onClick={() => setOpen(true)}
           aria-label="More"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           <span>More</span>
         </button>
@@ -70,7 +70,7 @@ export function BottomNav() {
 
       {/* Bottom popup */}
       <div
-        className={`md:hidden fixed left-0 right-0 bottom-16 z-50 bg-surface border border-border rounded-t-2xl transition-transform duration-200 ease-in-out ${
+        className={`md:hidden fixed left-0 right-0 bottom-20 z-50 bg-surface border border-border rounded-t-2xl transition-transform duration-200 ease-in-out ${
           open ? 'translate-y-0' : 'translate-y-full invisible'
         }`}
       >
