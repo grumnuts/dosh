@@ -343,14 +343,29 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         history.push({ month: row.month, balance: running })
       }
 
-      const last3 = history.slice(-3)
+      // Compute the projection trend from real cash flows only — exclude starting balance
+      // and reconciliation transactions (is_unlisted = 1) so a large initial debt entry
+      // in the same month as payments doesn't swamp the average and kill the projection.
+      const trendRows = db
+        .prepare(
+          `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
+           FROM transactions
+           WHERE account_id = ?
+             AND (category_id IS NULL OR category_id NOT IN (
+               SELECT id FROM budget_categories WHERE is_unlisted = 1
+             ))
+           GROUP BY month
+           ORDER BY month`,
+        )
+        .all(accountId) as Array<{ month: string; net_change: number }>
+
+      const recentTrend = trendRows.slice(-3)
       let avgDelta = 0
-      if (last3.length >= 2) {
-        const totalDelta = last3[last3.length - 1].balance - last3[0].balance
-        avgDelta = totalDelta / (last3.length - 1)
-      } else if (last3.length === 1) {
-        const firstMonthChange = last3[0].balance - startingBal
-        avgDelta = firstMonthChange > 0 ? firstMonthChange : (last3[0].balance > 0 ? last3[0].balance / 12 : 0)
+      if (recentTrend.length >= 2) {
+        const totalChange = recentTrend.reduce((s, r) => s + r.net_change, 0)
+        avgDelta = Math.round(totalChange / recentTrend.length)
+      } else if (recentTrend.length === 1) {
+        avgDelta = Math.round(recentTrend[0].net_change)
       }
 
       const projection: Array<{ month: string; balance: number }> = []
