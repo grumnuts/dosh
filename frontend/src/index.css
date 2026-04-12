@@ -17,13 +17,13 @@
 }
 
 @keyframes slideInFromRight {
-  from { transform: translateX(48px); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+  from { transform: translateX(120px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
 }
 
 @keyframes slideInFromLeft {
-  from { transform: translateX(-48px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
+  from { transform: translateX(-120px); opacity: 0; }
+  to   { transform: translateX(0);      opacity: 1; }
 }
 
 @layer base {
