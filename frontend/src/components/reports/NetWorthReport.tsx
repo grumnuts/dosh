@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   LineChart,
@@ -26,6 +27,7 @@ interface Props {
 
 export function NetWorthReport({ section }: Props = {}) {
   const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:networth-col-widths')
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'networth'],
     queryFn: reportsApi.networth,
@@ -36,7 +38,6 @@ export function NetWorthReport({ section }: Props = {}) {
 
   const latestNetWorth = data.netWorth[data.netWorth.length - 1]?.balance ?? 0
 
-  // Assets (positive balance accounts) and liabilities (negative balance)
   const accountCurrentBalances = data.accounts.map((a) => ({
     ...a,
     currentBalance: a.history.length > 0 ? a.history[a.history.length - 1].balance : 0,
@@ -44,15 +45,12 @@ export function NetWorthReport({ section }: Props = {}) {
   const assets = accountCurrentBalances.filter((a) => a.currentBalance > 0)
   const liabilities = accountCurrentBalances.filter((a) => a.currentBalance < 0)
 
-  // Net worth chart data
   const netWorthChartData = data.netWorth.map((p) => ({
     month: p.month,
     'Net Worth': p.balance / 100,
   }))
 
-  // Account balance chart — only accounts with any history
   const activeAccounts = data.accounts.filter((a) => a.history.length > 0)
-  // Build unified month list
   const allMonths = Array.from(new Set(data.netWorth.map((p) => p.month))).sort()
   const balanceChartData = allMonths.map((month) => {
     const entry: Record<string, number | string> = { month }
@@ -62,6 +60,8 @@ export function NetWorthReport({ section }: Props = {}) {
     }
     return entry
   })
+
+  const accountColourMap = new Map(activeAccounts.map((a, i) => [a.id, ACCOUNT_COLOURS[i % ACCOUNT_COLOURS.length]]))
 
   if (section === 'networth') {
     return (
@@ -105,20 +105,60 @@ export function NetWorthReport({ section }: Props = {}) {
   }
 
   if (section === 'balances') {
+    const chartAccounts = selectedAccountId
+      ? activeAccounts.filter((a) => a.id === selectedAccountId)
+      : activeAccounts
+
+    let yDomain: [number | 'auto', number | 'auto'] = ['auto', 'auto']
+    if (selectedAccountId && chartAccounts.length > 0) {
+      const values = balanceChartData.map((d) => (d[chartAccounts[0].name] as number) ?? 0)
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      const pad = Math.max((max - min) * 0.1, 500)
+      yDomain = [Math.floor(min - pad), Math.ceil(max + pad)]
+    }
+
     return (
       <div className="space-y-6">
         {activeAccounts.length > 0 && (
           <div className="card p-4">
-            <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Account Balances Over Time</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Account Balances Over Time</p>
+              {selectedAccountId && (
+                <button
+                  onClick={() => setSelectedAccountId(null)}
+                  className="text-xs text-accent hover:underline"
+                >
+                  Show all
+                </button>
+              )}
+            </div>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={balanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={55} />
-                <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
-                <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
-                {activeAccounts.map((account, i) => (
-                  <Line key={account.id} type="monotone" dataKey={account.name} stroke={ACCOUNT_COLOURS[i % ACCOUNT_COLOURS.length]} strokeWidth={2} dot={false} />
+                <YAxis
+                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  width={55}
+                  domain={yDomain}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
+                  labelStyle={{ color: '#e5e7eb' }}
+                  formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
+                />
+                {chartAccounts.map((account) => (
+                  <Line
+                    key={account.id}
+                    type="monotone"
+                    dataKey={account.name}
+                    stroke={accountColourMap.get(account.id)!}
+                    strokeWidth={2}
+                    dot={false}
+                  />
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -133,15 +173,31 @@ export function NetWorthReport({ section }: Props = {}) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {accountCurrentBalances.map((a) => (
-              <tr key={a.id} className="hover:bg-surface-2">
-                <td className="py-1.5 pr-4 text-primary">{a.name}</td>
-                <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
-                <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
-                  {formatMoney(a.currentBalance)}
-                </td>
-              </tr>
-            ))}
+            {accountCurrentBalances.map((a) => {
+              const colour = accountColourMap.get(a.id)
+              const isSelected = selectedAccountId === a.id
+              return (
+                <tr
+                  key={a.id}
+                  className={`${colour ? 'cursor-pointer' : ''} ${isSelected ? 'bg-surface-2' : colour ? 'hover:bg-surface-2' : ''}`}
+                  onClick={() => colour && setSelectedAccountId(isSelected ? null : a.id)}
+                >
+                  <td className="py-1.5 pr-4 text-primary">
+                    <span className="flex items-center gap-2">
+                      {colour
+                        ? <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colour }} />
+                        : <span className="w-2 h-2 shrink-0" />
+                      }
+                      {a.name}
+                    </span>
+                  </td>
+                  <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
+                  <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
+                    {formatMoney(a.currentBalance)}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t border-border font-semibold">
