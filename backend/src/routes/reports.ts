@@ -429,6 +429,9 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
          FROM transactions t
          WHERE t.type NOT IN ('transfer', 'cover', 'sweep')
            AND strftime('%Y', t.date) = ?
+           AND (t.category_id IS NULL OR t.category_id NOT IN (
+             SELECT id FROM budget_categories WHERE is_unlisted = 1
+           ))
          GROUP BY month
          ORDER BY month`,
       )
