@@ -21,7 +21,7 @@ export interface Transaction {
   category_name: string | null
   group_name: string | null
   category_is_unlisted: number | null
-  type: 'transaction' | 'transfer' | 'cover'
+  type: 'transaction' | 'transfer' | 'cover' | 'sweep'
   transfer_pair_id: number | null
   transfer_pair_account_id: number | null
   cover_week_start: string | null

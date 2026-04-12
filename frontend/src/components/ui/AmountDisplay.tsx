@@ -9,7 +9,7 @@ export function formatMoney(cents: number): string {
 
 interface AmountProps {
   cents: number
-  type?: 'transaction' | 'transfer' | 'cover' | 'auto'
+  type?: 'transaction' | 'transfer' | 'cover' | 'sweep' | 'auto'
   className?: string
   colored?: boolean
 }
@@ -23,7 +23,7 @@ interface AmountProps {
 export function Amount({ cents, type = 'auto', className = '', colored = true }: AmountProps) {
   let colorClass = ''
   if (colored) {
-    if (type === 'transfer' || type === 'cover') {
+    if (type === 'transfer' || type === 'cover' || type === 'sweep') {
       colorClass = 'text-transfer'
     } else if (cents >= 0) {
       colorClass = 'text-accent'

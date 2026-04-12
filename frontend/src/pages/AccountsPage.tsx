@@ -1145,7 +1145,7 @@ export function AccountsPage() {
                           />
                         )
                       ) : (
-                        <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : 'Transfer'}</span>
+                        <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : tx.type === 'sweep' ? 'Sweep to savings' : 'Transfer'}</span>
                       )}
                     </td>
                     <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap sm:w-auto sm:px-3">
