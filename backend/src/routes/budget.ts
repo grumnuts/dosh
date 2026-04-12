@@ -6,6 +6,7 @@ import { logAudit } from '../utils/audit'
 import { todayString } from '../utils/dates'
 import {
   getBudgetWeek,
+  getCategoryBalance,
   getCategoryOverspendAmount,
   recordBudgetChange,
 } from '../services/budget'
@@ -422,6 +423,104 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       debitTransactionId: debitId,
       creditTransactionId: creditId,
       amount: overspendAmount,
+    })
+  })
+
+  // --- Sweep Unspent ---
+
+  app.post('/api/budget/sweep', { preHandler: authenticate }, async (request, reply) => {
+    const body = z
+      .object({
+        categoryId: z.number().int(),
+        weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        amount: z.number().int().positive(),
+        sourceAccountId: z.number().int(),
+        destinationAccountId: z.number().int(),
+      })
+      .safeParse(request.body)
+
+    if (!body.success) {
+      return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
+    }
+
+    const { categoryId, weekStart, amount: sweepAmount, sourceAccountId, destinationAccountId } = body.data
+    const db = getDb()
+
+    const availableBalance = getCategoryBalance(categoryId, weekStart)
+    if (availableBalance <= 0) {
+      return reply.code(400).send({ error: 'Category has no unspent balance to sweep' })
+    }
+    if (sweepAmount > availableBalance) {
+      return reply.code(400).send({ error: 'Sweep amount exceeds available balance' })
+    }
+
+    const sourceAccount = db
+      .prepare('SELECT id, name FROM accounts WHERE id = ? AND is_active = 1')
+      .get(sourceAccountId) as { id: number; name: string } | undefined
+    if (!sourceAccount) {
+      return reply.code(400).send({ error: 'Source account not found' })
+    }
+
+    const destAccount = db
+      .prepare("SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND type = 'savings'")
+      .get(destinationAccountId) as { id: number; name: string } | undefined
+    if (!destAccount) {
+      return reply.code(400).send({ error: 'Destination savings account not found' })
+    }
+
+    const cat = db
+      .prepare('SELECT name FROM budget_categories WHERE id = ?')
+      .get(categoryId) as { name: string } | undefined
+    if (!cat) return reply.code(404).send({ error: 'Category not found' })
+
+    const now = new Date().toISOString()
+    const today = todayString()
+    const payee = 'Sweep to Savings'
+    const description = `Sweep unspent: ${cat.name}`
+
+    // Debit from spending account (tagged to category — reduces balance)
+    const debitResult = db
+      .prepare(
+        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'sweep', ?, ?, ?, ?)`,
+      )
+      .run(today, sourceAccountId, payee, description, -sweepAmount, categoryId, weekStart, now, now, request.user!.id)
+
+    const debitId = debitResult.lastInsertRowid as number
+
+    // Credit to savings account (no category — just a money movement)
+    const creditResult = db
+      .prepare(
+        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, transfer_pair_id, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, NULL, 'sweep', ?, ?, ?, ?, ?)`,
+      )
+      .run(today, destinationAccountId, payee, description, sweepAmount, weekStart, debitId, now, now, request.user!.id)
+
+    const creditId = creditResult.lastInsertRowid as number
+
+    db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(creditId, debitId)
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'budget.unspent_swept',
+      entityType: 'budget_category',
+      entityId: categoryId,
+      details: {
+        categoryName: cat.name,
+        weekStart,
+        amount: sweepAmount,
+        sourceAccount: sourceAccount.name,
+        destinationAccount: destAccount.name,
+      },
+      ipAddress: request.ip,
+    })
+
+    return reply.send({
+      ok: true,
+      debitTransactionId: debitId,
+      creditTransactionId: creditId,
+      amount: sweepAmount,
     })
   })
 }

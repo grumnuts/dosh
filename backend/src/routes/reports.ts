@@ -35,13 +35,13 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.type NOT IN ('transfer','cover')
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
-           WHERE t.type NOT IN ('transfer','cover')
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
@@ -111,13 +111,13 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.type NOT IN ('transfer','cover')
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
-           WHERE t.type NOT IN ('transfer','cover')
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
@@ -147,13 +147,13 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.type NOT IN ('transfer','cover')
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
-           WHERE t.type NOT IN ('transfer','cover')
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
@@ -295,7 +295,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                 SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
          FROM transactions t
-         WHERE t.type NOT IN ('transfer','cover')
+         WHERE t.type NOT IN ('transfer','cover','sweep')
            AND strftime('%Y', t.date) = ?
            AND t.payee IS NOT NULL AND t.payee != ''
          GROUP BY t.payee, month
@@ -427,7 +427,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                 SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
          FROM transactions t
-         WHERE t.type NOT IN ('transfer', 'cover')
+         WHERE t.type NOT IN ('transfer', 'cover', 'sweep')
            AND strftime('%Y', t.date) = ?
          GROUP BY month
          ORDER BY month`,

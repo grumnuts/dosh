@@ -136,6 +136,7 @@ interface BudgetCategory {
   weeklyEquivalent: number
   spent: number
   covers: number
+  sweeps: number
   balance: number
   isOverspent: boolean
   notes: string | null
@@ -324,6 +325,22 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     for (const r of rows) coversMap.set(r.category_id, r.total)
   }
 
+  // --- Batch: fetch sweeps (unspent money swept out to savings) ---
+  const sweepsMap = new Map<number, number>()
+  for (const { start, end, ids } of spentByPeriodKey.values()) {
+    const ph = ids.map(() => '?').join(',')
+    const rows = db
+      .prepare(
+        `SELECT category_id, COALESCE(-SUM(amount), 0) AS total
+         FROM transactions
+         WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+           AND type = 'sweep' AND amount < 0
+         GROUP BY category_id`,
+      )
+      .all(...ids, start, end) as Array<{ category_id: number; total: number }>
+    for (const r of rows) sweepsMap.set(r.category_id, r.total)
+  }
+
   const spentMap = new Map<number, number>()
   for (const { start, end, ids } of spentByPeriodKey.values()) {
     const ph = ids.map(() => '?').join(',')
@@ -387,7 +404,8 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
       const { budgetedAmount, period } = effectiveBudgetMap.get(cat.id)!
       const spent = spentMap.get(cat.id) ?? 0
       const covers = coversMap.get(cat.id) ?? 0
-      const balance = budgetedAmount - spent + covers
+      const sweeps = sweepsMap.get(cat.id) ?? 0
+      const balance = budgetedAmount - spent + covers - sweeps
       const weekly = cat.catch_up
         ? catchUpWeeklyEquivalent(cat.id, budgetedAmount, period, weekStart)
         : weeklyEquivalent(budgetedAmount, period)
@@ -401,6 +419,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
         weeklyEquivalent: weekly,
         spent,
         covers,
+        sweeps,
         balance,
         isOverspent: balance < 0,
         notes: cat.notes,
@@ -534,9 +553,10 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 }
 
 /**
- * Calculate the current overspend amount for a category in a given week.
+ * Calculate the net balance for a category in a given week's period.
+ * Returns positive value when there is unspent budget, negative when overspent.
  */
-export function getCategoryOverspendAmount(categoryId: number, weekStart: string): number {
+export function getCategoryBalance(categoryId: number, weekStart: string): number {
   const { budgetedAmount, period } = getEffectiveBudget(categoryId, weekStart)
   const bounds = getPeriodBoundaries(weekStart, period, getWeekStartsOn())
   const db = getDb()
@@ -556,8 +576,6 @@ export function getCategoryOverspendAmount(categoryId: number, weekStart: string
     )
     .get(categoryId, bounds.start, bounds.end, categoryId, bounds.start, bounds.end) as { spent: number }
 
-  const spent = spentRow.spent
-
   const coversRow = db
     .prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
@@ -567,9 +585,23 @@ export function getCategoryOverspendAmount(categoryId: number, weekStart: string
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
 
-  const covers = coversRow.total
-  const balance = budgetedAmount - spent + covers
+  const sweepsRow = db
+    .prepare(
+      `SELECT COALESCE(-SUM(amount), 0) as total
+       FROM transactions
+       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+         AND type = 'sweep' AND amount < 0`,
+    )
+    .get(categoryId, bounds.start, bounds.end) as { total: number }
 
+  return budgetedAmount - spentRow.spent + coversRow.total - sweepsRow.total
+}
+
+/**
+ * Calculate the current overspend amount for a category in a given week.
+ */
+export function getCategoryOverspendAmount(categoryId: number, weekStart: string): number {
+  const balance = getCategoryBalance(categoryId, weekStart)
   return balance < 0 ? Math.abs(balance) : 0
 }
 

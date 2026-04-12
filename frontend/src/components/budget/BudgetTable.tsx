@@ -24,6 +24,7 @@ import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
 import { CoverModal } from './CoverModal'
+import { SweepModal } from './SweepModal'
 import { CategoryModal } from './CategoryModal'
 import { GroupModal } from './GroupModal'
 
@@ -104,9 +105,11 @@ function CategoryRow({
   dragAttributes,
 }: CategoryRowProps) {
   const [coverOpen, setCoverOpen] = useState(false)
+  const [sweepOpen, setSweepOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
   const isCovered = cat.covers > 0 && !cat.isOverspent
+  const isSwept = cat.sweeps > 0 && !cat.isOverspent
 
   return (
     <>
@@ -127,6 +130,9 @@ function CategoryRow({
             <span className="text-sm text-primary">{cat.name}</span>
             {isCovered && (
               <span className="text-xs text-accent-dim hidden sm:inline">covered</span>
+            )}
+            {isSwept && (
+              <span className="text-xs text-transfer hidden sm:inline">swept</span>
             )}
           </div>
         </td>
@@ -153,8 +159,8 @@ function CategoryRow({
           </span>
         </td>
         <td className="hidden sm:table-cell text-right relative">
-          {cat.isOverspent && (
-            <div className="absolute inset-0 flex items-center justify-end px-3">
+          <div className="absolute inset-0 flex items-center justify-end px-3 gap-2">
+            {cat.isOverspent && (
               <Button
                 size="sm"
                 variant="danger"
@@ -166,8 +172,21 @@ function CategoryRow({
               >
                 Cover
               </Button>
-            </div>
-          )}
+            )}
+            {!cat.isOverspent && cat.balance > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSweepOpen(true)
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                Sweep
+              </Button>
+            )}
+          </div>
         </td>
       </tr>
 
@@ -175,6 +194,15 @@ function CategoryRow({
         <CoverModal
           open={coverOpen}
           onClose={() => setCoverOpen(false)}
+          category={cat}
+          weekStart={weekStart}
+          transactionalAccounts={transactionalAccounts}
+        />
+      )}
+      {sweepOpen && (
+        <SweepModal
+          open={sweepOpen}
+          onClose={() => setSweepOpen(false)}
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
