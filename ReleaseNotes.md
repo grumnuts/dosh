@@ -15,7 +15,7 @@
 - Overspend report: now shows one summarised row per category for the full year, instead of a separate row per budget period
 - In vs Out report: starting balance and reconciliation transactions are now excluded, so the chart reflects real income and expenses only
 - Sweep transactions now display in grey like cover and transfer amounts in the transaction list
-- Sidebar now stays fixed while page content scrolls (desktop)
+- Sidebar now stays fixed while page content scrolls on desktop — main content area scrolls independently
 
 ---
 
