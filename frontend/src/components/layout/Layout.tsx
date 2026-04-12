@@ -7,13 +7,12 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex h-screen overflow-hidden bg-bg">
       <Sidebar />
       <BottomNav />
-      <main className="flex-1 min-w-0 pb-20 md:pb-0">
+      <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">
         {children}
       </main>
-
     </div>
   )
 }
