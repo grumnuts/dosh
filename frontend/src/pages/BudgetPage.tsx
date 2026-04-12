@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO, addDays, getWeek } from 'date-fns'
 import { useWeek } from '../hooks/useWeek'
@@ -21,6 +21,17 @@ export function BudgetPage() {
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
   const { weekStart, goNext, goPrev, goToday, isCurrentWeek } = useWeek(weekStartsOn)
+  const slideDir = useRef<'left' | 'right'>('left')
+
+  const handleNext = useCallback(() => {
+    slideDir.current = 'left'
+    goNext()
+  }, [goNext])
+
+  const handlePrev = useCallback(() => {
+    slideDir.current = 'right'
+    goPrev()
+  }, [goPrev])
 
   const { data: budgetData, isLoading, error } = useQuery({
     queryKey: ['budget', weekStart],
@@ -49,7 +60,7 @@ export function BudgetPage() {
         </Button>
       )}
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={goPrev} aria-label="Previous week">
+        <Button variant="ghost" size="sm" onClick={handlePrev} aria-label="Previous week">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -63,7 +74,7 @@ export function BudgetPage() {
           <p className="text-xs text-muted leading-tight hidden md:block">{weekYear}</p>
           <p className="text-xs text-secondary leading-tight">{weekRange}</p>
         </button>
-        <Button variant="ghost" size="sm" onClick={goNext} aria-label="Next week">
+        <Button variant="ghost" size="sm" onClick={handleNext} aria-label="Next week">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -73,7 +84,7 @@ export function BudgetPage() {
   )
 
   const expenseGroups = budgetData?.groups ?? []
-  const swipe = useSwipe(goNext, goPrev)
+  const swipe = useSwipe(handleNext, handlePrev)
 
   return (
     <>
@@ -161,20 +172,25 @@ export function BudgetPage() {
           {weekNav}
         </div>
 
-        {/* Content */}
-        {isLoading && (
-          <div className="text-center py-16 text-secondary">Loading budget...</div>
-        )}
+        {/* Content — keyed on weekStart so it remounts (and re-animates) on each week change */}
+        <div
+          key={weekStart}
+          className={slideDir.current === 'left' ? 'slide-in-from-right' : 'slide-in-from-left'}
+        >
+          {isLoading && (
+            <div className="text-center py-16 text-secondary">Loading budget...</div>
+          )}
 
-        {error && (
-          <div className="card p-6 text-center text-danger">
-            Failed to load budget data.
-          </div>
-        )}
+          {error && (
+            <div className="card p-6 text-center text-danger">
+              Failed to load budget data.
+            </div>
+          )}
 
-        {budgetData && accounts && (
-          <BudgetTable data={budgetData} accounts={accounts} />
-        )}
+          {budgetData && accounts && (
+            <BudgetTable data={budgetData} accounts={accounts} />
+          )}
+        </div>
       </div>
     </>
   )
