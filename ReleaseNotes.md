@@ -12,7 +12,10 @@
 ### Bug Fixes
 - Overspend report: credit and refund transactions now reduce the reported spent amount for a category, instead of being ignored
 - Overspend report: weekly and fortnightly categories are now compared per-week (and per-fortnight) instead of being averaged across the month — individual overspent weeks now appear correctly
+- Overspend report: now shows one summarised row per category for the full year, instead of a separate row per budget period
 - In vs Out report: starting balance and reconciliation transactions are now excluded, so the chart reflects real income and expenses only
+- Sweep transactions now display in grey like cover and transfer amounts in the transaction list
+- Sidebar now stays fixed while page content scrolls (desktop)
 
 ---
 
