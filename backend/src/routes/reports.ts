@@ -204,78 +204,88 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       return `${MONTH_LABELS[m - 1]} ${d}`
     }
 
+    // Accumulate per-category totals — one result row per category
+    const catTotals = new Map<number, { spent: number; annualBudget: number; overspend: number }>()
+
+    for (const cat of categories) {
+      const budget = budgetMap.get(cat.id)
+      if (!budget || budget.amount === 0) continue
+
+      let totalOverspend = 0
+      let totalSpent = 0
+
+      if (budget.period === 'annual') {
+        const spent = spendingRows
+          .filter((r) => r.category_id === cat.id)
+          .reduce((s, r) => s + r.spent_cents, 0)
+        totalSpent = spent
+        totalOverspend = Math.max(0, spent - budget.amount)
+      } else if (budget.period === 'quarterly') {
+        for (const months of Object.values(QUARTER_MONTHS)) {
+          const spent = months.reduce((s, m) => s + (spendByMonth.get(`${cat.id}:${m}`) ?? 0), 0)
+          totalSpent += spent
+          totalOverspend += Math.max(0, spent - budget.amount)
+        }
+      } else if (budget.period === 'monthly') {
+        for (let m = 1; m <= 12; m++) {
+          const monthStr = String(m).padStart(2, '0')
+          const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
+          totalSpent += spent
+          totalOverspend += Math.max(0, spent - budget.amount)
+        }
+      } else if (budget.period === 'fortnightly') {
+        const weeks = weeksByCat.get(cat.id) ?? []
+        for (let i = 0; i < weeks.length; i += 2) {
+          const w1 = spendByWeek.get(`${cat.id}:${weeks[i]}`) ?? 0
+          const w2 = i + 1 < weeks.length ? (spendByWeek.get(`${cat.id}:${weeks[i + 1]}`) ?? 0) : 0
+          const spent = w1 + w2
+          totalSpent += spent
+          totalOverspend += Math.max(0, spent - budget.amount)
+        }
+      } else {
+        // weekly
+        const weeks = weeksByCat.get(cat.id) ?? []
+        for (const weekStart of weeks) {
+          const spent = spendByWeek.get(`${cat.id}:${weekStart}`) ?? 0
+          totalSpent += spent
+          totalOverspend += Math.max(0, spent - budget.amount)
+        }
+      }
+
+      if (totalOverspend > 0) {
+        // Annual budget equivalent for context
+        const periodsPerYear: Record<string, number> = { weekly: 52, fortnightly: 26, monthly: 12, quarterly: 4, annual: 1 }
+        const annualBudget = Math.round(budget.amount * (periodsPerYear[budget.period] ?? 1))
+        catTotals.set(cat.id, { spent: totalSpent, annualBudget, overspend: totalOverspend })
+      }
+    }
+
     const results: Array<{
       category: string
       group_name: string
       group_sort: number
       cat_sort: number
-      period_label: string
       spent_cents: number
       budgeted_cents: number
       overspend_cents: number
     }> = []
 
     for (const cat of categories) {
-      const budget = budgetMap.get(cat.id)
-      if (!budget || budget.amount === 0) continue
-
-      if (budget.period === 'annual') {
-        // Compare full year spending against annual budget
-        const spent = spendingRows
-          .filter((r) => r.category_id === cat.id)
-          .reduce((s, r) => s + r.spent_cents, 0)
-        const overspend = Math.max(0, spent - budget.amount)
-        if (overspend > 0) {
-          results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: year, spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
-        }
-      } else if (budget.period === 'quarterly') {
-        // Compare each quarter's spending against quarterly budget
-        for (const [quarter, months] of Object.entries(QUARTER_MONTHS)) {
-          const spent = months.reduce((s, m) => s + (spendByMonth.get(`${cat.id}:${m}`) ?? 0), 0)
-          const overspend = Math.max(0, spent - budget.amount)
-          if (overspend > 0) {
-            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: quarter, spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
-          }
-        }
-      } else if (budget.period === 'monthly') {
-        // Compare each calendar month's spending against the monthly budget
-        for (let m = 1; m <= 12; m++) {
-          const monthStr = String(m).padStart(2, '0')
-          const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
-          const overspend = Math.max(0, spent - budget.amount)
-          if (overspend > 0) {
-            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: MONTH_LABELS[m - 1], spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
-          }
-        }
-      } else if (budget.period === 'fortnightly') {
-        // Pair consecutive weeks and compare each fortnight against the fortnightly budget
-        const weeks = weeksByCat.get(cat.id) ?? []
-        for (let i = 0; i < weeks.length; i += 2) {
-          const w1 = spendByWeek.get(`${cat.id}:${weeks[i]}`) ?? 0
-          const w2 = i + 1 < weeks.length ? (spendByWeek.get(`${cat.id}:${weeks[i + 1]}`) ?? 0) : 0
-          const spent = w1 + w2
-          const overspend = Math.max(0, spent - budget.amount)
-          if (overspend > 0) {
-            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: formatWeekLabel(weeks[i]), spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
-          }
-        }
-      } else {
-        // weekly: compare each individual week against the weekly budget
-        const weeks = weeksByCat.get(cat.id) ?? []
-        for (const weekStart of weeks) {
-          const spent = spendByWeek.get(`${cat.id}:${weekStart}`) ?? 0
-          const overspend = Math.max(0, spent - budget.amount)
-          if (overspend > 0) {
-            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: formatWeekLabel(weekStart), spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
-          }
-        }
-      }
+      const totals = catTotals.get(cat.id)
+      if (!totals) continue
+      results.push({
+        category: cat.category,
+        group_name: cat.group_name,
+        group_sort: cat.group_sort,
+        cat_sort: cat.cat_sort,
+        spent_cents: totals.spent,
+        budgeted_cents: totals.annualBudget,
+        overspend_cents: totals.overspend,
+      })
     }
 
     results.sort((a, b) =>
-      a.group_sort !== b.group_sort ? a.group_sort - b.group_sort
-        : a.cat_sort !== b.cat_sort ? a.cat_sort - b.cat_sort
-          : a.period_label.localeCompare(b.period_label),
+      a.group_sort !== b.group_sort ? a.group_sort - b.group_sort : a.cat_sort - b.cat_sort,
     )
 
     return reply.send(results)
