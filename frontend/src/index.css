@@ -8,11 +8,11 @@
   }
 
   .slide-in-from-right {
-    animation: slideInFromRight 0.22s ease-out both;
+    animation: slideInFromRight 0.35s ease-out both;
   }
 
   .slide-in-from-left {
-    animation: slideInFromLeft 0.22s ease-out both;
+    animation: slideInFromLeft 0.35s ease-out both;
   }
 }
 
