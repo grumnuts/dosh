@@ -30,20 +30,18 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         `SELECT bc.name AS category, bg.name AS group_name,
                 bc.id AS category_id, bg.sort_order AS group_sort, bc.sort_order AS cat_sort,
                 strftime('%m', combined.date) AS month,
-                SUM(ABS(combined.amount)) AS total_cents
+                -SUM(combined.amount) AS total_cents
          FROM (
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.type NOT IN ('transfer','cover')
-             AND ts.amount < 0
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
-           WHERE t.type NOT IN ('transfer','cover')
-             AND t.amount < 0
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
@@ -52,6 +50,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
          JOIN budget_groups bg ON bg.id = bc.group_id
          WHERE bg.is_income = 0
          GROUP BY combined.category_id, month
+         HAVING SUM(-combined.amount) > 0
          ORDER BY bg.sort_order, bc.sort_order, month`,
       )
       .all(year, year) as Array<{
@@ -94,25 +93,67 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       )
       .all() as Array<{ id: number; category: string; group_name: string; group_sort: number; cat_sort: number }>
 
-    // Get spending per category per month for the year
-    const spendingRows = db
+    // Fetch week_start_day setting (0 = Sunday, 1 = Monday)
+    const settingsRow = db.prepare(`SELECT value FROM settings WHERE key = 'week_start_day'`).get() as { value: string } | undefined
+    const weekStartDay = settingsRow?.value === '1' ? '1' : '0'
+
+    // Spending per category per week (for weekly/fortnightly categories)
+    // Week start computed from date using the configured week_start_day
+    const weeklySpendingRows = db
       .prepare(
         `SELECT combined.category_id,
-                strftime('%m', combined.date) AS month,
-                SUM(ABS(combined.amount)) AS spent_cents
+                CASE WHEN ? = '1'
+                  THEN date(combined.date, '-' || ((CAST(strftime('%w', combined.date) AS INTEGER) + 6) % 7) || ' days')
+                  ELSE date(combined.date, '-' || CAST(strftime('%w', combined.date) AS INTEGER) || ' days')
+                END AS week_start,
+                -SUM(combined.amount) AS spent_cents
          FROM (
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.type NOT IN ('transfer','cover')
-             AND ts.amount < 0
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
-           WHERE t.type NOT IN ('transfer','cover')
-             AND t.amount < 0
+           WHERE t.type NOT IN ('transfer','cover','sweep')
+             AND strftime('%Y', t.date) = ?
+             AND t.category_id IS NOT NULL
+             AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
+         ) AS combined
+         GROUP BY combined.category_id, week_start`,
+      )
+      .all(weekStartDay, year, year) as Array<{ category_id: number; week_start: string; spent_cents: number }>
+
+    // Build week-level spend lookup and collect week starts per category
+    const spendByWeek = new Map<string, number>()
+    const weeksByCat = new Map<number, string[]>()
+    for (const s of weeklySpendingRows) {
+      spendByWeek.set(`${s.category_id}:${s.week_start}`, s.spent_cents)
+      if (!weeksByCat.has(s.category_id)) weeksByCat.set(s.category_id, [])
+      weeksByCat.get(s.category_id)!.push(s.week_start)
+    }
+    // Ensure each category's weeks are sorted
+    for (const weeks of weeksByCat.values()) weeks.sort()
+
+    // Spending per category per month (for monthly/quarterly/annual categories)
+    const spendingRows = db
+      .prepare(
+        `SELECT combined.category_id,
+                strftime('%m', combined.date) AS month,
+                -SUM(combined.amount) AS spent_cents
+         FROM (
+           SELECT ts.amount, ts.category_id, t.date
+           FROM transaction_splits ts
+           JOIN transactions t ON t.id = ts.transaction_id
+           WHERE t.type NOT IN ('transfer','cover','sweep')
+             AND strftime('%Y', t.date) = ?
+             AND ts.category_id IS NOT NULL
+           UNION ALL
+           SELECT t.amount, t.category_id, t.date
+           FROM transactions t
+           WHERE t.type NOT IN ('transfer','cover','sweep')
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
@@ -157,6 +198,12 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       Q1: ['01','02','03'], Q2: ['04','05','06'], Q3: ['07','08','09'], Q4: ['10','11','12'],
     }
 
+    // Format a week_start ISO date as "Jan 5" (UTC, no timezone shift)
+    function formatWeekLabel(isoDate: string): string {
+      const [, m, d] = isoDate.split('-').map(Number)
+      return `${MONTH_LABELS[m - 1]} ${d}`
+    }
+
     const results: Array<{
       category: string
       group_name: string
@@ -190,19 +237,36 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
             results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: quarter, spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
           }
         }
-      } else {
-        // weekly/fortnightly/monthly: compare per month
-        const monthlyBudget = budget.period === 'monthly'
-          ? budget.amount
-          : budget.period === 'fortnightly'
-            ? Math.round((budget.amount * 26) / 12)
-            : Math.round((budget.amount * 52) / 12)
+      } else if (budget.period === 'monthly') {
+        // Compare each calendar month's spending against the monthly budget
         for (let m = 1; m <= 12; m++) {
           const monthStr = String(m).padStart(2, '0')
           const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
-          const overspend = Math.max(0, spent - monthlyBudget)
+          const overspend = Math.max(0, spent - budget.amount)
           if (overspend > 0) {
-            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: MONTH_LABELS[m - 1], spent_cents: spent, budgeted_cents: monthlyBudget, overspend_cents: overspend })
+            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: MONTH_LABELS[m - 1], spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
+          }
+        }
+      } else if (budget.period === 'fortnightly') {
+        // Pair consecutive weeks and compare each fortnight against the fortnightly budget
+        const weeks = weeksByCat.get(cat.id) ?? []
+        for (let i = 0; i < weeks.length; i += 2) {
+          const w1 = spendByWeek.get(`${cat.id}:${weeks[i]}`) ?? 0
+          const w2 = i + 1 < weeks.length ? (spendByWeek.get(`${cat.id}:${weeks[i + 1]}`) ?? 0) : 0
+          const spent = w1 + w2
+          const overspend = Math.max(0, spent - budget.amount)
+          if (overspend > 0) {
+            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: formatWeekLabel(weeks[i]), spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
+          }
+        }
+      } else {
+        // weekly: compare each individual week against the weekly budget
+        const weeks = weeksByCat.get(cat.id) ?? []
+        for (const weekStart of weeks) {
+          const spent = spendByWeek.get(`${cat.id}:${weekStart}`) ?? 0
+          const overspend = Math.max(0, spent - budget.amount)
+          if (overspend > 0) {
+            results.push({ category: cat.category, group_name: cat.group_name, group_sort: cat.group_sort, cat_sort: cat.cat_sort, period_label: formatWeekLabel(weekStart), spent_cents: spent, budgeted_cents: budget.amount, overspend_cents: overspend })
           }
         }
       }
@@ -231,7 +295,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                 SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
          FROM transactions t
-         WHERE t.type NOT IN ('transfer','cover')
+         WHERE t.type NOT IN ('transfer','cover','sweep')
            AND strftime('%Y', t.date) = ?
            AND t.payee IS NOT NULL AND t.payee != ''
          GROUP BY t.payee, month
@@ -363,8 +427,11 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                 SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
          FROM transactions t
-         WHERE t.type NOT IN ('transfer', 'cover')
+         WHERE t.type NOT IN ('transfer', 'cover', 'sweep')
            AND strftime('%Y', t.date) = ?
+           AND (t.category_id IS NULL OR t.category_id NOT IN (
+             SELECT id FROM budget_categories WHERE is_unlisted = 1
+           ))
          GROUP BY month
          ORDER BY month`,
       )

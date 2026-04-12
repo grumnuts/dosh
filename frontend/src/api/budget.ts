@@ -8,6 +8,7 @@ export interface BudgetCategory {
   weeklyEquivalent: number
   spent: number
   covers: number
+  sweeps: number
   balance: number
   isOverspent: boolean
   notes: string | null
@@ -113,4 +114,12 @@ export const budgetApi = {
     sourceAccountId: number
     destinationAccountId: number
   }) => api.post<{ ok: boolean; amount: number }>('/api/budget/cover', data),
+
+  sweepUnspent: (data: {
+    categoryId: number
+    weekStart: string
+    amount: number
+    sourceAccountId: number
+    destinationAccountId: number
+  }) => api.post<{ ok: boolean; amount: number }>('/api/budget/sweep', data),
 }

@@ -9,6 +9,7 @@ import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
 import { budgetApi, BudgetCategory, CategoryInput } from '../../api/budget'
 import { CoverModal } from './CoverModal'
+import { SweepModal } from './SweepModal'
 import { Account } from '../../api/accounts'
 
 const schema = z.object({
@@ -80,8 +81,10 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const [catchUp, setCatchUp] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
+  const [sweepOpen, setSweepOpen] = useState(false)
 
   const showCoverButton = isEdit && category?.isOverspent && !!fullCategory && !!transactionalAccounts?.length
+  const showSweepButton = isEdit && !category?.isOverspent && !!fullCategory && (fullCategory.balance > 0) && !!transactionalAccounts?.length
 
   useEffect(() => {
     if (open) {
@@ -214,6 +217,16 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
               Cover
             </Button>
           )}
+          {showSweepButton && (
+            <Button
+              type="button"
+              variant="outline"
+              className="md:hidden"
+              onClick={() => setSweepOpen(true)}
+            >
+              Sweep
+            </Button>
+          )}
           <div className="flex-1" />
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
@@ -226,6 +239,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           <CoverModal
             open={coverOpen}
             onClose={() => setCoverOpen(false)}
+            category={fullCategory}
+            weekStart={weekStart}
+            transactionalAccounts={transactionalAccounts}
+          />
+        )}
+        {showSweepButton && fullCategory && transactionalAccounts && (
+          <SweepModal
+            open={sweepOpen}
+            onClose={() => setSweepOpen(false)}
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
