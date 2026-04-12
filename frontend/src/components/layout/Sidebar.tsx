@@ -5,7 +5,7 @@ export function Sidebar() {
   const { user, logout } = useAuth()
 
   return (
-    <aside className="hidden md:flex flex-col w-56 bg-surface border-r border-border h-screen sticky top-0 shrink-0">
+    <aside className="hidden md:flex flex-col w-56 bg-surface border-r border-border h-screen sticky top-0 shrink-0 self-start">
       {/* Logo */}
       <div className="px-5 py-3 border-b border-border flex justify-center">
         <img src="/DoshLogoFull.png" alt="Dosh" className="h-14 w-auto" />
