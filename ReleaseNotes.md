@@ -4,6 +4,18 @@
 
 ---
 
+## v1.11.0 — 2026-04-12
+
+### New Features
+- Sweep unspent balance to savings — when a category has leftover budget, a **Sweep** button appears on hover (desktop) or in the category editor (mobile). Enter an amount, select the spending and savings accounts, and the unspent money is transferred out and the category balance reduced accordingly
+
+### Bug Fixes
+- Overspend report: credit and refund transactions now reduce the reported spent amount for a category, instead of being ignored
+- Overspend report: weekly and fortnightly categories are now compared per-week (and per-fortnight) instead of being averaged across the month — individual overspent weeks now appear correctly
+- In vs Out report: starting balance and reconciliation transactions are now excluded, so the chart reflects real income and expenses only
+
+---
+
 ## v1.10.1 — 2026-04-12
 
 ### Enhancements
