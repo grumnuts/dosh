@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button'
 import { GroupModal } from '../components/budget/GroupModal'
 import { CategoryModal } from '../components/budget/CategoryModal'
 import { Modal } from '../components/ui/Modal'
+import { useSwipe } from '../hooks/useSwipe'
 
 export function BudgetPage() {
   const [fabOpen, setFabOpen] = useState(false)
@@ -58,7 +59,7 @@ export function BudgetPage() {
           onClick={!isCurrentWeek ? goToday : undefined}
           aria-label={!isCurrentWeek ? 'Go to current week' : undefined}
         >
-          <p className={`text-xs font-semibold leading-tight ${isCurrentWeek ? 'text-accent' : 'text-primary'}`}>Week {weekNumber}</p>
+          <p className={`text-sm font-semibold leading-tight ${isCurrentWeek ? 'text-accent' : 'text-primary'}`}>Week {weekNumber}</p>
           <p className="text-xs text-muted leading-tight hidden md:block">{weekYear}</p>
           <p className="text-xs text-secondary leading-tight">{weekRange}</p>
         </button>
@@ -72,6 +73,7 @@ export function BudgetPage() {
   )
 
   const expenseGroups = budgetData?.groups ?? []
+  const swipe = useSwipe(goNext, goPrev)
 
   return (
     <>
@@ -83,7 +85,7 @@ export function BudgetPage() {
         )}
 
         {/* Speed dial options */}
-        <div className={`fixed bottom-36 right-4 z-40 flex flex-col items-end gap-3 ${fabOpen ? '' : 'pointer-events-none'}`}>
+        <div className={`fixed bottom-40 right-4 z-40 flex flex-col items-end gap-3 ${fabOpen ? '' : 'pointer-events-none'}`}>
           {[
             { label: 'Add Group', action: () => { setFabOpen(false); setAddGroupOpen(true) }, path: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
             { label: 'Add Category', action: () => { setFabOpen(false); setGroupPickerOpen(true) }, path: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z' },
@@ -106,7 +108,7 @@ export function BudgetPage() {
 
         {/* FAB */}
         <button
-          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-accent-dim text-white flex items-center justify-center transition-transform shadow-[0_4px_14px_rgba(74,222,128,0.4)]"
+          className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-accent-dim text-white flex items-center justify-center transition-transform shadow-[0_4px_14px_rgba(74,222,128,0.4)]"
           style={{ transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)' }}
           onClick={() => setFabOpen((o) => !o)}
           aria-label="Add"
@@ -145,11 +147,11 @@ export function BudgetPage() {
       )}
 
       {/* Mobile bottom week nav bar */}
-      <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 bg-surface border-t border-border flex items-center justify-center px-4 py-2" style={{ transform: 'translateZ(0)' }}>
+      <div className="md:hidden fixed bottom-20 left-0 right-0 z-30 bg-surface border-t border-border flex items-center justify-center px-4 py-2" style={{ transform: 'translateZ(0)' }}>
         {weekNav}
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 pt-4 pb-28 md:py-6 md:pb-6 md:space-y-5 md:px-6">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-28 md:py-6 md:pb-6 md:space-y-5 md:px-6" {...swipe}>
         {/* Mobile title */}
         <h1 className="md:hidden text-xl font-bold text-primary mb-3">Budget</h1>
 

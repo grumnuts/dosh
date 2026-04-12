@@ -4,6 +4,16 @@
 
 ---
 
+## v1.10.1 — 2026-04-12
+
+### Enhancements
+- Swipe left/right on the Budget page to navigate between weeks on mobile
+- Cover button now appears in the category editor modal on mobile when the category is overspent — no need to close the modal to cover an overspend
+- Mobile nav bar height increased for easier tapping
+- Long press on budget group rows and account rows now reliably opens the editor — fixed text-selection interference by adding CSS user-select: none and reducing the trigger threshold to 600ms
+
+---
+
 ## v1.10.0 — 2026-04-12
 
 ### Enhancements

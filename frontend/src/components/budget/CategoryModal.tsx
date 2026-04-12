@@ -7,7 +7,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
-import { budgetApi, CategoryInput } from '../../api/budget'
+import { budgetApi, BudgetCategory, CategoryInput } from '../../api/budget'
+import { CoverModal } from './CoverModal'
+import { Account } from '../../api/accounts'
 
 const schema = z.object({
   name: z.string().min(1, 'Required'),
@@ -25,6 +27,7 @@ interface CategoryProp {
   budgetedAmount: number
   notes: string | null
   catchUp: boolean
+  isOverspent?: boolean
 }
 
 interface Props {
@@ -36,6 +39,8 @@ interface Props {
   isIncomeGroup?: boolean
   isDebtGroup?: boolean
   category?: CategoryProp | null
+  fullCategory?: BudgetCategory
+  transactionalAccounts?: Account[]
 }
 
 function getPeriodStart(weekStart: string, period: string): string {
@@ -54,7 +59,7 @@ function getPeriodStart(weekStart: string, period: string): string {
   }
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, category }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, category, fullCategory, transactionalAccounts }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
@@ -74,6 +79,9 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
   const [catchUp, setCatchUp] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [coverOpen, setCoverOpen] = useState(false)
+
+  const showCoverButton = isEdit && category?.isOverspent && !!fullCategory && !!transactionalAccounts?.length
 
   useEffect(() => {
     if (open) {
@@ -196,6 +204,16 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
               Delete
             </Button>
           )}
+          {showCoverButton && (
+            <Button
+              type="button"
+              variant="outline"
+              className="md:hidden"
+              onClick={() => setCoverOpen(true)}
+            >
+              Cover
+            </Button>
+          )}
           <div className="flex-1" />
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
@@ -204,6 +222,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             {isEdit ? 'Save' : 'Add Category'}
           </Button>
         </div>
+        {showCoverButton && fullCategory && transactionalAccounts && (
+          <CoverModal
+            open={coverOpen}
+            onClose={() => setCoverOpen(false)}
+            category={fullCategory}
+            weekStart={weekStart}
+            transactionalAccounts={transactionalAccounts}
+          />
+        )}
         <ConfirmModal
           open={confirmDelete}
           onClose={() => setConfirmDelete(false)}
