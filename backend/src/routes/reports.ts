@@ -30,20 +30,18 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         `SELECT bc.name AS category, bg.name AS group_name,
                 bc.id AS category_id, bg.sort_order AS group_sort, bc.sort_order AS cat_sort,
                 strftime('%m', combined.date) AS month,
-                SUM(ABS(combined.amount)) AS total_cents
+                -SUM(combined.amount) AS total_cents
          FROM (
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
            WHERE t.type NOT IN ('transfer','cover')
-             AND ts.amount < 0
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
            WHERE t.type NOT IN ('transfer','cover')
-             AND t.amount < 0
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
@@ -52,6 +50,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
          JOIN budget_groups bg ON bg.id = bc.group_id
          WHERE bg.is_income = 0
          GROUP BY combined.category_id, month
+         HAVING SUM(-combined.amount) > 0
          ORDER BY bg.sort_order, bc.sort_order, month`,
       )
       .all(year, year) as Array<{
@@ -99,20 +98,18 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT combined.category_id,
                 strftime('%m', combined.date) AS month,
-                SUM(ABS(combined.amount)) AS spent_cents
+                -SUM(combined.amount) AS spent_cents
          FROM (
            SELECT ts.amount, ts.category_id, t.date
            FROM transaction_splits ts
            JOIN transactions t ON t.id = ts.transaction_id
            WHERE t.type NOT IN ('transfer','cover')
-             AND ts.amount < 0
              AND strftime('%Y', t.date) = ?
              AND ts.category_id IS NOT NULL
            UNION ALL
            SELECT t.amount, t.category_id, t.date
            FROM transactions t
            WHERE t.type NOT IN ('transfer','cover')
-             AND t.amount < 0
              AND strftime('%Y', t.date) = ?
              AND t.category_id IS NOT NULL
              AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
