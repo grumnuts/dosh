@@ -191,7 +191,7 @@ export function NetWorthReport({ section }: Props = {}) {
                       {a.name}
                     </span>
                   </td>
-                  <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
+                  <td className="py-1.5 pr-4 text-secondary capitalize">{a.type === 'investment_portfolio' ? 'Investments' : a.type}</td>
                   <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
                     {formatMoney(a.currentBalance)}
                   </td>

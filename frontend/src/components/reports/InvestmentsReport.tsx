@@ -158,8 +158,9 @@ export function InvestmentsReport() {
           </tbody>
           <tfoot>
             <tr className="border-t border-border font-semibold">
-              <td colSpan={2} className="py-2.5 pr-3 text-xs text-muted uppercase tracking-wide">Total</td>
+              <td className="py-2.5 pr-3 text-xs text-muted uppercase tracking-wide">Total</td>
               <td className="py-2.5 pr-3 hidden sm:table-cell" />
+              <td className="py-2.5 pr-3" />
               <td className="py-2.5 pr-3 hidden md:table-cell" />
               <td className="py-2.5 pr-3" />
               <td className="py-2.5 pr-3 text-right font-mono tabular-nums text-primary">
