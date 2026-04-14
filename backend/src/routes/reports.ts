@@ -569,34 +569,37 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const { year, accountId } = query.data
     const db = getDb()
 
-    const rows = accountId
-      ? db.prepare(
-          `SELECT strftime('%m', t.date) AS month,
-                  SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
-                  SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
-           FROM transactions t
-           WHERE t.type NOT IN ('transfer', 'cover', 'sweep')
-             AND strftime('%Y', t.date) = ?
-             AND t.account_id = ?
-             AND (t.category_id IS NULL OR t.category_id NOT IN (
-               SELECT id FROM budget_categories WHERE is_unlisted = 1
-             ))
-           GROUP BY month
-           ORDER BY month`,
-        ).all(year, accountId)
-      : db.prepare(
-          `SELECT strftime('%m', t.date) AS month,
-                  SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
-                  SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
-           FROM transactions t
-           WHERE t.type NOT IN ('transfer', 'cover', 'sweep')
-             AND strftime('%Y', t.date) = ?
-             AND (t.category_id IS NULL OR t.category_id NOT IN (
-               SELECT id FROM budget_categories WHERE is_unlisted = 1
-             ))
-           GROUP BY month
-           ORDER BY month`,
-        ).all(year)
+    // Build the combined (splits + direct) subquery with optional account filter
+    const accountFilter = accountId ? 'AND t.account_id = ?' : ''
+    const params = accountId ? [year, accountId, year, accountId] : [year, year]
+
+    const rows = db.prepare(
+      `SELECT month,
+              SUM(CASE WHEN bg.is_income = 1 THEN combined.amount ELSE 0 END) AS income_cents,
+              SUM(CASE WHEN bg.is_income = 0 THEN -combined.amount ELSE 0 END) AS expense_cents
+       FROM (
+         SELECT ts.amount, ts.category_id, strftime('%m', t.date) AS month
+         FROM transaction_splits ts
+         JOIN transactions t ON t.id = ts.transaction_id
+         WHERE t.type NOT IN ('transfer','cover','sweep')
+           AND strftime('%Y', t.date) = ?
+           AND ts.category_id IS NOT NULL
+           ${accountFilter}
+         UNION ALL
+         SELECT t.amount, t.category_id, strftime('%m', t.date) AS month
+         FROM transactions t
+         WHERE t.type NOT IN ('transfer','cover','sweep')
+           AND strftime('%Y', t.date) = ?
+           AND t.category_id IS NOT NULL
+           AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
+           ${accountFilter}
+       ) AS combined
+       JOIN budget_categories bc ON bc.id = combined.category_id
+       JOIN budget_groups bg ON bg.id = bc.group_id
+       WHERE bc.is_unlisted = 0
+       GROUP BY month
+       ORDER BY month`,
+    ).all(...params)
 
     const typedRows = rows as Array<{ month: string; income_cents: number; expense_cents: number }>
 
