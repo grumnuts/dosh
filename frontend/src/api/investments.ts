@@ -1,8 +1,6 @@
 import { api } from './client'
 
 export interface HoldingRow {
-  accountId: number
-  accountName: string
   ticker: string
   name: string | null
   quantity: number
@@ -20,7 +18,13 @@ export interface InvestmentPortfolioData {
   lastUpdated: string | null
 }
 
+export interface InvestmentHistoryData {
+  chartData: Array<Record<string, number | string>>
+  tickers: string[]
+}
+
 export const investmentsApi = {
   holdings: () => api.get<InvestmentPortfolioData>('/api/investments/holdings'),
+  history: () => api.get<InvestmentHistoryData>('/api/investments/history'),
   refreshPrices: () => api.post<{ ok: boolean }>('/api/investments/prices/refresh'),
 }
