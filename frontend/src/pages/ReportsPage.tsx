@@ -2,24 +2,18 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { reportsApi } from '../api/reports'
 import { CashflowReport } from '../components/reports/CashflowReport'
-import { OverspendReport } from '../components/reports/OverspendReport'
-import { PayeeReport } from '../components/reports/PayeeReport'
-import { GoalReport } from '../components/reports/GoalReport'
+import { PortfolioReport } from '../components/reports/PortfolioReport'
 import { Select } from '../components/ui/Input'
 
-type Tab = 'cashflow' | 'overspend' | 'payees' | 'goals'
+type Tab = 'portfolio' | 'cashflow'
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'portfolio', label: 'Portfolio' },
   { id: 'cashflow', label: 'Cashflow' },
-  { id: 'overspend', label: 'Overspend' },
-  { id: 'payees', label: 'Payees' },
-  { id: 'goals', label: 'Goals' },
 ]
 
-const YEAR_TABS: Tab[] = ['cashflow', 'overspend', 'payees']
-
 export function ReportsPage() {
-  const [tab, setTab] = useState<Tab>('cashflow')
+  const [tab, setTab] = useState<Tab>('portfolio')
   const currentYear = new Date().getFullYear().toString()
   const [year, setYear] = useState(currentYear)
 
@@ -29,13 +23,12 @@ export function ReportsPage() {
   })
 
   const yearOptions = years && years.length > 0 ? years : [currentYear]
-  const showYearSelector = YEAR_TABS.includes(tab)
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 md:px-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">Reports</h1>
-        {showYearSelector && (
+        {tab === 'cashflow' && (
           <div className="w-32">
             <Select value={year} onChange={(e) => setYear(e.target.value)}>
               {yearOptions.map((y) => (
@@ -65,9 +58,7 @@ export function ReportsPage() {
 
       {/* Content */}
       {tab === 'cashflow' && <CashflowReport year={year} />}
-      {tab === 'overspend' && <OverspendReport year={year} />}
-      {tab === 'payees' && <PayeeReport year={year} />}
-      {tab === 'goals' && <GoalReport />}
+      {tab === 'portfolio' && <PortfolioReport />}
     </div>
   )
 }

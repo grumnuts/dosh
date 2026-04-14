@@ -1,13 +1,9 @@
+import { useQuery } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
-import { SpendingReport } from './SpendingReport'
-import { IncomeReport } from './IncomeReport'
-import { InVsOutReport } from './InVsOutReport'
-import { OverspendReport } from './OverspendReport'
-import { PayeeReport } from './PayeeReport'
-
-interface Props {
-  year: string
-}
+import { NetWorthReport } from './NetWorthReport'
+import { GoalReport } from './GoalReport'
+import { InvestmentsReport } from './InvestmentsReport'
+import { investmentsApi } from '../../api/investments'
 
 function CollapsibleSection({ title, storageKey, children }: { title: string; storageKey: string; children: React.ReactNode }) {
   const [open, setOpen] = useLocalStorageBool(storageKey, true)
@@ -27,28 +23,33 @@ function CollapsibleSection({ title, storageKey, children }: { title: string; st
   )
 }
 
-export function CashflowReport({ year }: Props) {
+export function PortfolioReport() {
+  const { data } = useQuery({
+    queryKey: ['investments', 'holdings'],
+    queryFn: investmentsApi.holdings,
+  })
+
+  const hasHoldings = (data?.holdings.length ?? 0) > 0
+
   return (
     <div className="space-y-2">
-      <CollapsibleSection title="Spending by Category" storageKey="dosh:report-open:cashflow-spending">
-        <SpendingReport year={year} />
+      <CollapsibleSection title="Net Worth" storageKey="dosh:report-open:portfolio-networth">
+        <NetWorthReport section="networth" />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Overspend" storageKey="dosh:report-open:cashflow-overspend">
-        <OverspendReport year={year} />
+      <CollapsibleSection title="Account Balances" storageKey="dosh:report-open:portfolio-balances">
+        <NetWorthReport section="balances" />
       </CollapsibleSection>
 
-      <CollapsibleSection title="Income by Category" storageKey="dosh:report-open:cashflow-income">
-        <IncomeReport year={year} />
+      <CollapsibleSection title="Goals" storageKey="dosh:report-open:portfolio-goals">
+        <GoalReport />
       </CollapsibleSection>
 
-      <CollapsibleSection title="In vs Out" storageKey="dosh:report-open:cashflow-invsout">
-        <InVsOutReport year={year} />
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Payees" storageKey="dosh:report-open:cashflow-payees">
-        <PayeeReport year={year} />
-      </CollapsibleSection>
+      {hasHoldings && (
+        <CollapsibleSection title="Investments" storageKey="dosh:report-open:portfolio-investments">
+          <InvestmentsReport />
+        </CollapsibleSection>
+      )}
     </div>
   )
 }

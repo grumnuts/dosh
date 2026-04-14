@@ -66,6 +66,54 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(rows)
   })
 
+  // GET /api/reports/income?year=YYYY — income category totals by month
+  app.get('/api/reports/income', { preHandler: authenticate }, async (request, reply) => {
+    const query = yearSchema.safeParse(request.query)
+    if (!query.success) return reply.code(400).send({ error: 'Invalid year' })
+    const { year } = query.data
+    const db = getDb()
+
+    const rows = db
+      .prepare(
+        `SELECT bc.name AS category, bg.name AS group_name,
+                bc.id AS category_id, bg.sort_order AS group_sort, bc.sort_order AS cat_sort,
+                strftime('%m', combined.date) AS month,
+                SUM(combined.amount) AS total_cents
+         FROM (
+           SELECT ts.amount, ts.category_id, t.date
+           FROM transaction_splits ts
+           JOIN transactions t ON t.id = ts.transaction_id
+           WHERE t.type NOT IN ('transfer','cover','sweep')
+             AND strftime('%Y', t.date) = ?
+             AND ts.category_id IS NOT NULL
+           UNION ALL
+           SELECT t.amount, t.category_id, t.date
+           FROM transactions t
+           WHERE t.type NOT IN ('transfer','cover','sweep')
+             AND strftime('%Y', t.date) = ?
+             AND t.category_id IS NOT NULL
+             AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
+         ) AS combined
+         JOIN budget_categories bc ON bc.id = combined.category_id
+         JOIN budget_groups bg ON bg.id = bc.group_id
+         WHERE bg.is_income = 1
+         GROUP BY combined.category_id, month
+         HAVING SUM(combined.amount) > 0
+         ORDER BY bg.sort_order, bc.sort_order, month`,
+      )
+      .all(year, year) as Array<{
+      category: string
+      group_name: string
+      category_id: number
+      group_sort: number
+      cat_sort: number
+      month: string
+      total_cents: number
+    }>
+
+    return reply.send(rows)
+  })
+
   // GET /api/reports/overspend?year=YYYY — overspend per category, period-aware
   app.get('/api/reports/overspend', { preHandler: authenticate }, async (request, reply) => {
     const query = yearSchema.safeParse(request.query)
@@ -325,8 +373,9 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/reports/goals', { preHandler: authenticate }, async (_req, reply) => {
     const db = getDb()
 
-    const buildSeries = (accountId: number, startingBal: number, goalBalance: number) => {
-      const monthlyChanges = db
+    const buildSeries = (accountId: number, startingBal: number, goalBalance: number, isDebt = false) => {
+      // Build a month -> net_change map from direct transactions on this account
+      const directChanges = db
         .prepare(
           `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
            FROM transactions
@@ -336,17 +385,60 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         )
         .all(accountId) as Array<{ month: string; net_change: number }>
 
+      const historyMap = new Map<string, number>()
+      for (const r of directChanges) historyMap.set(r.month, (historyMap.get(r.month) ?? 0) + r.net_change)
+
+      // For debt accounts, also collect categorised payments made from other accounts.
+      // These are tracked separately so they can be cleanly merged into both history and trend.
+      const paymentMap = new Map<string, number>()
+      if (isDebt) {
+        // Debt payments are made from other accounts, categorised with a budget category
+        // whose linked_account_id points to this debt account. These payments reduce the
+        // outstanding balance (i.e. they are positive contributions to the running balance).
+        const catPayments = db
+          .prepare(
+            `SELECT strftime('%Y-%m', t.date) AS month, SUM(ABS(t.amount)) AS net_change
+             FROM transactions t
+             JOIN budget_categories bc ON t.category_id = bc.id
+             WHERE bc.linked_account_id = ?
+               AND t.account_id != ?
+             GROUP BY month`,
+          )
+          .all(accountId, accountId) as Array<{ month: string; net_change: number }>
+
+        for (const r of catPayments) paymentMap.set(r.month, (paymentMap.get(r.month) ?? 0) + r.net_change)
+
+        const splitPayments = db
+          .prepare(
+            `SELECT strftime('%Y-%m', t.date) AS month, SUM(ABS(s.amount)) AS net_change
+             FROM transaction_splits s
+             JOIN budget_categories bc ON s.category_id = bc.id
+             JOIN transactions t ON s.transaction_id = t.id
+             WHERE bc.linked_account_id = ?
+               AND t.account_id != ?
+             GROUP BY month`,
+          )
+          .all(accountId, accountId) as Array<{ month: string; net_change: number }>
+
+        for (const r of splitPayments) paymentMap.set(r.month, (paymentMap.get(r.month) ?? 0) + r.net_change)
+
+        for (const [month, amount] of paymentMap) {
+          historyMap.set(month, (historyMap.get(month) ?? 0) + amount)
+        }
+      }
+
+      const sortedMonths = Array.from(historyMap.keys()).sort()
       let running = startingBal
       const history: Array<{ month: string; balance: number }> = []
-      for (const row of monthlyChanges) {
-        running += row.net_change
-        history.push({ month: row.month, balance: running })
+      for (const month of sortedMonths) {
+        running += historyMap.get(month)!
+        history.push({ month, balance: running })
       }
 
       // Compute the projection trend from real cash flows only — exclude starting balance
       // and reconciliation transactions (is_unlisted = 1) so a large initial debt entry
       // in the same month as payments doesn't swamp the average and kill the projection.
-      const trendRows = db
+      const directTrend = db
         .prepare(
           `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
            FROM transactions
@@ -358,6 +450,20 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            ORDER BY month`,
         )
         .all(accountId) as Array<{ month: string; net_change: number }>
+
+      const trendMap = new Map<string, number>()
+      for (const r of directTrend) trendMap.set(r.month, (trendMap.get(r.month) ?? 0) + r.net_change)
+
+      if (isDebt) {
+        // Categorised payments are real recurring cash flows — add them to the trend map
+        for (const [month, amount] of paymentMap) {
+          trendMap.set(month, (trendMap.get(month) ?? 0) + amount)
+        }
+      }
+
+      const trendRows = Array.from(trendMap.keys())
+        .sort()
+        .map((month) => ({ month, net_change: trendMap.get(month)! }))
 
       const recentTrend = trendRows.slice(-3)
       let avgDelta = 0
@@ -400,7 +506,23 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const debtAccounts = db
       .prepare(
         `SELECT id, name, starting_balance,
-                starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
+                starting_balance
+                + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0)
+                + COALESCE((
+                    SELECT -SUM(pt.amount)
+                    FROM transactions pt
+                    JOIN budget_categories bc ON pt.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND pt.amount < 0
+                  ), 0)
+                + COALESCE((
+                    SELECT -SUM(ts.amount)
+                    FROM transaction_splits ts
+                    JOIN transactions pt ON ts.transaction_id = pt.id
+                    JOIN budget_categories bc ON ts.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND ts.amount < 0
+                  ), 0) AS current_balance
          FROM accounts a
          WHERE type = 'debt' AND is_active = 1`,
       )
@@ -422,7 +544,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     })
 
     const debts = debtAccounts.map((account) => {
-      const { history, projection } = buildSeries(account.id, account.starting_balance, 0)
+      const { history, projection } = buildSeries(account.id, account.starting_balance, 0, true)
       return {
         type: 'debt' as const,
         accountId: account.id,
@@ -439,30 +561,49 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     return reply.send([...savings, ...debts])
   })
 
-  // GET /api/reports/invsout?year=YYYY — total income vs expenses by month
+  // GET /api/reports/invsout?year=YYYY&accountId=N — total income vs expenses by month
   app.get('/api/reports/invsout', { preHandler: authenticate }, async (request, reply) => {
-    const query = yearSchema.safeParse(request.query)
-    if (!query.success) return reply.code(400).send({ error: 'Invalid year' })
-    const { year } = query.data
+    const schema = yearSchema.extend({ accountId: z.coerce.number().int().positive().optional() })
+    const query = schema.safeParse(request.query)
+    if (!query.success) return reply.code(400).send({ error: 'Invalid query' })
+    const { year, accountId } = query.data
     const db = getDb()
 
-    const rows = db
-      .prepare(
-        `SELECT strftime('%m', t.date) AS month,
-                SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS income_cents,
-                SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS expense_cents
-         FROM transactions t
-         WHERE t.type NOT IN ('transfer', 'cover', 'sweep')
-           AND strftime('%Y', t.date) = ?
-           AND (t.category_id IS NULL OR t.category_id NOT IN (
-             SELECT id FROM budget_categories WHERE is_unlisted = 1
-           ))
-         GROUP BY month
-         ORDER BY month`,
-      )
-      .all(year) as Array<{ month: string; income_cents: number; expense_cents: number }>
+    // Build the combined (splits + direct) subquery with optional account filter
+    const accountFilter = accountId ? 'AND t.account_id = ?' : ''
+    const params = accountId ? [year, accountId, year, accountId] : [year, year]
 
-    return reply.send(rows)
+    const rows = db.prepare(
+      `SELECT month,
+              SUM(CASE WHEN bg.is_income = 1 THEN combined.amount ELSE 0 END) AS income_cents,
+              SUM(CASE WHEN bg.is_income = 0 THEN -combined.amount ELSE 0 END) AS expense_cents
+       FROM (
+         SELECT ts.amount, ts.category_id, strftime('%m', t.date) AS month
+         FROM transaction_splits ts
+         JOIN transactions t ON t.id = ts.transaction_id
+         WHERE t.type NOT IN ('transfer','cover','sweep')
+           AND strftime('%Y', t.date) = ?
+           AND ts.category_id IS NOT NULL
+           ${accountFilter}
+         UNION ALL
+         SELECT t.amount, t.category_id, strftime('%m', t.date) AS month
+         FROM transactions t
+         WHERE t.type NOT IN ('transfer','cover','sweep')
+           AND strftime('%Y', t.date) = ?
+           AND t.category_id IS NOT NULL
+           AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
+           ${accountFilter}
+       ) AS combined
+       JOIN budget_categories bc ON bc.id = combined.category_id
+       JOIN budget_groups bg ON bg.id = bc.group_id
+       WHERE bc.is_unlisted = 0
+       GROUP BY month
+       ORDER BY month`,
+    ).all(...params)
+
+    const typedRows = rows as Array<{ month: string; income_cents: number; expense_cents: number }>
+
+    return reply.send(typedRows)
   })
 
   // GET /api/reports/networth — all-time monthly account balances and net worth
@@ -495,6 +636,63 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
       return { id: account.id, name: account.name, type: account.type, startingBalance: account.starting_balance, history }
     })
+
+    // Build investment portfolio history from price snapshots × running quantity
+    const investmentTxRows = db
+      .prepare(
+        `SELECT strftime('%Y-%m', date) AS month, investment_ticker AS ticker,
+                SUM(investment_quantity) AS qty_change
+         FROM transactions
+         WHERE investment_ticker IS NOT NULL
+         GROUP BY month, investment_ticker
+         ORDER BY month`,
+      )
+      .all() as Array<{ month: string; ticker: string; qty_change: number }>
+
+    const priceHistoryRows = db
+      .prepare(`SELECT month, ticker, price_cents FROM share_price_history ORDER BY month`)
+      .all() as Array<{ month: string; ticker: string; price_cents: number }>
+
+    if (priceHistoryRows.length > 0) {
+      // Build cumulative quantity per ticker over time
+      const runningQty = new Map<string, number>()
+      const qtyByMonth = new Map<string, Map<string, number>>()
+      for (const row of investmentTxRows) {
+        const prev = runningQty.get(row.ticker) ?? 0
+        runningQty.set(row.ticker, prev + row.qty_change)
+        if (!qtyByMonth.has(row.month)) qtyByMonth.set(row.month, new Map())
+        qtyByMonth.get(row.month)!.set(row.ticker, runningQty.get(row.ticker)!)
+      }
+
+      // Build portfolio value per price-history month
+      const portfolioByMonth = new Map<string, number>()
+      const allPriceMonths = [...new Set(priceHistoryRows.map((r) => r.month))].sort()
+      const lastQty = new Map<string, number>()
+
+      for (const month of allPriceMonths) {
+        // Advance running quantities up to this month
+        for (const [m, qtys] of qtyByMonth) {
+          if (m <= month) {
+            for (const [t, q] of qtys) lastQty.set(t, q)
+          }
+        }
+        const pricesThisMonth = priceHistoryRows.filter((r) => r.month === month)
+        let total = 0
+        for (const pr of pricesThisMonth) {
+          total += (lastQty.get(pr.ticker) ?? 0) * pr.price_cents
+        }
+        portfolioByMonth.set(month, Math.round(total))
+      }
+
+      // Inject virtual "Investment Portfolio" entry
+      accountHistories.push({
+        id: -1,
+        name: 'Investment Portfolio',
+        type: 'investment_portfolio',
+        startingBalance: 0,
+        history: [...portfolioByMonth.entries()].map(([month, balance]) => ({ month, balance })),
+      })
+    }
 
     // Collect all distinct months across all accounts
     const allMonths = Array.from(

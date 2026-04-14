@@ -14,6 +14,7 @@ import { Account } from '../../api/accounts'
 
 const schema = z.object({
   name: z.string().min(1, 'Required'),
+  ticker: z.string().optional(),
   budgetedAmount: z.string().refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) >= 0, 'Must be a positive number'),
   period: z.enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'annually']),
   notes: z.string().optional(),
@@ -24,10 +25,12 @@ type FormData = z.infer<typeof schema>
 interface CategoryProp {
   id: number
   name: string
+  ticker?: string | null
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   budgetedAmount: number
   notes: string | null
   catchUp: boolean
+  isInvestment: boolean
   isOverspent?: boolean
 }
 
@@ -39,6 +42,7 @@ interface Props {
   weekStart?: string
   isIncomeGroup?: boolean
   isDebtGroup?: boolean
+  isInvestmentGroup?: boolean
   category?: CategoryProp | null
   fullCategory?: BudgetCategory
   transactionalAccounts?: Account[]
@@ -60,7 +64,7 @@ function getPeriodStart(weekStart: string, period: string): string {
   }
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, category, fullCategory, transactionalAccounts }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
@@ -68,6 +72,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      ticker: '',
       budgetedAmount: '0.00',
       period: 'weekly',
       notes: '',
@@ -79,6 +84,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const showCatchupToggle = isMidPeriod && !isIncomeGroup
 
   const [catchUp, setCatchUp] = useState(false)
+  const [isInvestment, setIsInvestment] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
@@ -90,15 +96,18 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
     if (open) {
       if (category) {
         setCatchUp(category.catchUp)
+        setIsInvestment(category.isInvestment)
         reset({
           name: category.name,
+          ticker: category.ticker ?? '',
           budgetedAmount: (category.budgetedAmount / 100).toFixed(2),
           period: category.period,
           notes: category.notes ?? '',
         })
       } else {
         setCatchUp(false)
-        reset({ name: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
+        setIsInvestment(false)
+        reset({ name: '', ticker: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
       }
     }
   }, [open, category, reset])
@@ -133,11 +142,13 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       period: data.period,
       notes: data.notes || null,
       catchUp,
+      isInvestment: isInvestmentGroup ? true : isInvestment,
+      ticker: isInvestmentGroup ? (data.ticker?.toUpperCase().trim() || null) : null,
     })
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Category' : 'Add Category'}>
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Category' : (isInvestmentGroup ? 'Add Investment' : 'Add Category')}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <p className="text-xs text-muted">Group: {groupName}</p>
 
@@ -149,6 +160,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           </div>
         ) : (
           <Input label="Name" {...register('name')} error={errors.name?.message} />
+        )}
+
+        {isInvestmentGroup && (
+          <Input
+            label="Ticker"
+            placeholder="e.g. VAS.AX"
+            {...register('ticker')}
+            className="uppercase"
+          />
         )}
 
         <div className={`grid gap-3 ${isIncomeGroup ? '' : 'grid-cols-2'}`}>
@@ -187,6 +207,26 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
               className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${catchUp ? 'bg-accent' : 'bg-surface-3'}`}
             >
               <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${catchUp ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        )}
+
+        {!isDebtGroup && !isIncomeGroup && !isInvestmentGroup && (
+          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
+            <div>
+              <div className="text-sm font-medium text-primary">Investment Category</div>
+              <p className="text-xs text-muted mt-0.5 leading-relaxed">
+                Enables Ticker &amp; Quantity fields on transactions so share purchases are tracked in your portfolio.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isInvestment}
+              onClick={() => setIsInvestment((v) => !v)}
+              className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${isInvestment ? 'bg-accent' : 'bg-surface-3'}`}
+            >
+              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isInvestment ? 'translate-x-4' : 'translate-x-0'}`} />
             </button>
           </div>
         )}

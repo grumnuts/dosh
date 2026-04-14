@@ -16,6 +16,8 @@ import { payeeRoutes } from './routes/payees'
 import { ruleRoutes } from './routes/rules'
 import { settingsRoutes } from './routes/settings'
 import { reportRoutes } from './routes/reports'
+import { investmentRoutes } from './routes/investments'
+import { refreshAllPrices } from './services/investments'
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -59,6 +61,13 @@ async function start(): Promise<void> {
   await app.register(ruleRoutes)
   await app.register(settingsRoutes)
   await app.register(reportRoutes)
+  await app.register(investmentRoutes)
+
+  // Hourly price refresh for investment holdings
+  refreshAllPrices().catch((err) => console.error('[investments] Initial price refresh failed:', err))
+  setInterval(() => {
+    refreshAllPrices().catch((err) => console.error('[investments] Hourly price refresh failed:', err))
+  }, 3_600_000)
 
   // Serve frontend static files in production
   const frontendDist = path.join(__dirname, '../../frontend/dist')

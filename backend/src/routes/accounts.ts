@@ -22,6 +22,7 @@ const updateAccountSchema = z.object({
   sortOrder: z.number().int().optional(),
   goalAmount: z.number().int().optional().nullable(),
   goalTargetDate: z.string().regex(/^\d{4}-\d{2}$/).optional().nullable(),
+  startingBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 })
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
@@ -32,6 +33,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order, a.goal_amount, a.goal_target_date, a.closed_at,
                 COALESCE(SUM(t.amount), 0) as transaction_total,
+                (SELECT date FROM transactions WHERE account_id = a.id AND category_id IN (SELECT id FROM budget_categories WHERE name = 'Starting Balance' AND is_system = 1) ORDER BY date LIMIT 1) AS starting_balance_date,
                 CASE WHEN a.type = 'debt' THEN
                   COALESCE((
                     SELECT -SUM(pt.amount)
@@ -66,6 +68,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       goal_target_date: string | null
       closed_at: string | null
       transaction_total: number
+      starting_balance_date: string | null
       categorized_payment_total: number
     }>
 
@@ -80,6 +83,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
         goalAmount: a.goal_amount,
         goalTargetDate: a.goal_target_date,
         closedAt: a.closed_at,
+        startingBalanceDate: a.starting_balance_date,
       })),
     )
   })
@@ -151,6 +155,30 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
+    // Auto-create a linked budget category for savings accounts
+    if (body.data.type === 'savings') {
+      const savingsGroup = db
+        .prepare('SELECT id FROM budget_groups WHERE is_savings = 1 LIMIT 1')
+        .get() as { id: number } | undefined
+
+      if (savingsGroup) {
+        const maxCatOrder = (
+          db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM budget_categories WHERE group_id = ?')
+            .get(savingsGroup.id) as { m: number }
+        ).m
+
+        const catResult = db
+          .prepare(
+            `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, linked_account_id, is_system, sort_order, created_at, updated_at)
+             VALUES (?, ?, 0, 'monthly', ?, 1, ?, ?, ?)`,
+          )
+          .run(savingsGroup.id, body.data.name, id, maxCatOrder + 1, now, now)
+
+        const catId = catResult.lastInsertRowid as number
+        recordBudgetChange(catId, 0, 'monthly', request.user!.id)
+      }
+    }
+
     logAudit({
       userId: request.user!.id,
       username: request.user!.username,
@@ -203,38 +231,48 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       id,
     )
 
-    // Keep the linked debt category name in sync, or create one if type changed to debt
-    if (body.data.type === 'debt') {
-      const existingCat = db
-        .prepare('SELECT id FROM budget_categories WHERE linked_account_id = ?')
-        .get(id) as { id: number } | undefined
+    // Keep the linked debt/savings category name in sync, or create one if type changed
+    if (body.data.type === 'debt' || body.data.type === 'savings') {
+      const groupFlag = body.data.type === 'debt' ? 'is_debt' : 'is_savings'
+      const targetGroup = db
+        .prepare(`SELECT id FROM budget_groups WHERE ${groupFlag} = 1 LIMIT 1`)
+        .get() as { id: number } | undefined
+
+      const existingCat = targetGroup
+        ? db.prepare('SELECT id FROM budget_categories WHERE linked_account_id = ? AND group_id = ?')
+            .get(id, targetGroup.id) as { id: number } | undefined
+        : undefined
 
       if (existingCat) {
         if (body.data.name !== existing.name) {
-          db.prepare('UPDATE budget_categories SET name = ?, updated_at = ? WHERE linked_account_id = ?')
-            .run(body.data.name, updatedAt, id)
+          db.prepare('UPDATE budget_categories SET name = ?, updated_at = ? WHERE id = ?')
+            .run(body.data.name, updatedAt, existingCat.id)
         }
-      } else {
-        const debtGroup = db
-          .prepare('SELECT id FROM budget_groups WHERE is_debt = 1 LIMIT 1')
-          .get() as { id: number } | undefined
+      } else if (targetGroup) {
+        const maxCatOrder = (
+          db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM budget_categories WHERE group_id = ?')
+            .get(targetGroup.id) as { m: number }
+        ).m
 
-        if (debtGroup) {
-          const maxCatOrder = (
-            db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM budget_categories WHERE group_id = ?')
-              .get(debtGroup.id) as { m: number }
-          ).m
+        const catResult = db
+          .prepare(
+            `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, linked_account_id, is_system, sort_order, created_at, updated_at)
+             VALUES (?, ?, 0, 'monthly', ?, 1, ?, ?, ?)`,
+          )
+          .run(targetGroup.id, body.data.name, id, maxCatOrder + 1, updatedAt, updatedAt)
 
-          const catResult = db
-            .prepare(
-              `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, linked_account_id, is_system, sort_order, created_at, updated_at)
-               VALUES (?, ?, 0, 'monthly', ?, 1, ?, ?, ?)`,
-            )
-            .run(debtGroup.id, body.data.name, id, maxCatOrder + 1, updatedAt, updatedAt)
-
-          recordBudgetChange(catResult.lastInsertRowid as number, 0, 'monthly', request.user!.id)
-        }
+        recordBudgetChange(catResult.lastInsertRowid as number, 0, 'monthly', request.user!.id)
       }
+    }
+
+    // Update the Starting Balance transaction date if provided
+    if (body.data.startingBalanceDate) {
+      db.prepare(
+        `UPDATE transactions SET date = ?, updated_at = ?
+         WHERE account_id = ? AND category_id IN (
+           SELECT id FROM budget_categories WHERE name = 'Starting Balance' AND is_system = 1
+         )`,
+      ).run(body.data.startingBalanceDate, updatedAt, id)
     }
 
     logAudit({

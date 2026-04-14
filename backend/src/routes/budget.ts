@@ -110,12 +110,14 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string }
     const db = getDb()
 
-    const group = db.prepare('SELECT id, name, is_income, is_debt FROM budget_groups WHERE id = ? AND is_active = 1').get(id) as
-      | { id: number; name: string; is_income: number; is_debt: number }
+    const group = db.prepare('SELECT id, name, is_income, is_debt, is_savings, is_investments FROM budget_groups WHERE id = ? AND is_active = 1').get(id) as
+      | { id: number; name: string; is_income: number; is_debt: number; is_savings: number; is_investments: number }
       | undefined
     if (!group) return reply.code(404).send({ error: 'Group not found' })
     if (group.is_debt) return reply.code(400).send({ error: 'The Debt group cannot be deleted' })
     if (group.is_income) return reply.code(400).send({ error: 'Income groups cannot be deleted' })
+    if (group.is_savings) return reply.code(400).send({ error: 'The Savings group cannot be deleted' })
+    if (group.is_investments) return reply.code(400).send({ error: 'The Investments group cannot be deleted' })
 
     const catCount = (
       db
@@ -150,7 +152,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
     const cats = db
       .prepare(
-        `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order
+        `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, is_investment, ticker
          FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
       )
       .all()
@@ -165,6 +167,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     notes: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
     catchUp: z.boolean().optional(),
+    isInvestment: z.boolean().optional().default(false),
+    ticker: z.string().max(20).toUpperCase().optional().nullable(),
   })
 
   app.post('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
@@ -184,10 +188,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         .get(body.data.groupId) as { m: number }
     ).m
 
+    const ticker = body.data.ticker ?? null
     const result = db
       .prepare(
-        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, is_investment, ticker, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.groupId,
@@ -197,6 +202,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
         body.data.catchUp ? 1 : 0,
+        ticker !== null ? 1 : (body.data.isInvestment ? 1 : 0),
+        ticker,
         now,
         now,
       )
@@ -254,9 +261,10 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     // For debt categories, ignore any name change from the client — name is controlled by the account
     const nameToSave = existing.linked_account_id !== null ? existing.name : body.data.name
 
+    const tickerToSave = body.data.ticker ?? null
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
-       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, updated_at = ?
+       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, is_investment = ?, ticker = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.groupId,
@@ -266,6 +274,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       body.data.notes ?? null,
       body.data.sortOrder ?? null,
       body.data.catchUp ? 1 : 0,
+      tickerToSave !== null ? 1 : (body.data.isInvestment ? 1 : 0),
+      tickerToSave,
       new Date().toISOString(),
       id,
     )

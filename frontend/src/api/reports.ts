@@ -10,6 +10,8 @@ export interface SpendingRow {
   total_cents: number
 }
 
+export type IncomeRow = SpendingRow
+
 export interface OverspendRow {
   category: string
   group_name: string
@@ -50,6 +52,7 @@ export interface InVsOutRow {
   expense_cents: number
 }
 
+
 export interface AccountBalanceHistory {
   id: number
   name: string
@@ -65,9 +68,10 @@ export interface NetWorthData {
 export const reportsApi = {
   years: () => api.get<string[]>('/api/reports/years'),
   spending: (year: string) => api.get<SpendingRow[]>(`/api/reports/spending?year=${year}`),
+  income: (year: string) => api.get<IncomeRow[]>(`/api/reports/income?year=${year}`),
   overspend: (year: string) => api.get<OverspendRow[]>(`/api/reports/overspend?year=${year}`),
   payees: (year: string) => api.get<PayeeRow[]>(`/api/reports/payees?year=${year}`),
   goals: () => api.get<GoalSeries[]>('/api/reports/goals'),
-  invsout: (year: string) => api.get<InVsOutRow[]>(`/api/reports/invsout?year=${year}`),
+  invsout: (year: string, accountId?: number) => api.get<InVsOutRow[]>(`/api/reports/invsout?year=${year}${accountId ? `&accountId=${accountId}` : ''}`),
   networth: () => api.get<NetWorthData>('/api/reports/networth'),
 }

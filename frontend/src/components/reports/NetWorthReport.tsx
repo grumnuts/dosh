@@ -64,16 +64,32 @@ export function NetWorthReport({ section }: Props = {}) {
   const accountColourMap = new Map(activeAccounts.map((a, i) => [a.id, ACCOUNT_COLOURS[i % ACCOUNT_COLOURS.length]]))
 
   if (section === 'networth') {
+    const lastTwo = netWorthChartData.slice(-2)
+    const isTrendingDown = lastTwo.length === 2 && lastTwo[1]['Net Worth'] < lastTwo[0]['Net Worth']
+    const netWorthLineColour = latestNetWorth < 0 || isTrendingDown ? '#f87171' : '#4ade80'
+
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
+        <div className="card p-4">
+          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Net Worth Over Time</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={netWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={55} domain={[(v: number) => Math.min(v, 0), 'auto']} />
+              <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
+              <Line type="monotone" dataKey="Net Worth" stroke={netWorthLineColour} strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-3 md:gap-3">
           <div className="card px-3 py-3">
             <p className="text-xs text-secondary uppercase tracking-wide font-medium">Net Worth</p>
             <p className={`text-base font-bold tabular-nums mt-0.5 ${latestNetWorth >= 0 ? 'text-accent' : 'text-danger'}`}>
               {formatMoney(latestNetWorth)}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 md:contents">
             <div className="card px-3 py-3">
               <p className="text-xs text-secondary uppercase tracking-wide font-medium">Assets</p>
               <p className="text-sm font-bold text-accent tabular-nums mt-0.5">
@@ -88,18 +104,6 @@ export function NetWorthReport({ section }: Props = {}) {
             </div>
           </div>
         </div>
-        <div className="card p-4">
-          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Net Worth Over Time</p>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={netWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={55} />
-              <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
-              <Line type="monotone" dataKey="Net Worth" stroke="#4ade80" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
       </div>
     )
   }
@@ -109,13 +113,26 @@ export function NetWorthReport({ section }: Props = {}) {
       ? activeAccounts.filter((a) => a.id === selectedAccountId)
       : activeAccounts
 
-    let yDomain: [number | 'auto', number | 'auto'] = ['auto', 'auto']
+    let yDomain: [number, number] | ['auto', 'auto'] = ['auto', 'auto']
+    let yTicks: number[] | undefined
     if (selectedAccountId && chartAccounts.length > 0) {
       const values = balanceChartData.map((d) => (d[chartAccounts[0].name] as number) ?? 0)
       const min = Math.min(...values)
       const max = Math.max(...values)
       const pad = Math.max((max - min) * 0.1, 500)
-      yDomain = [Math.floor(min - pad), Math.ceil(max + pad)]
+      const domainMin = min >= 0 ? 0 : Math.floor(min - pad)
+      const domainMax = Math.ceil(max + pad)
+      yDomain = [domainMin, domainMax]
+      // Compute ticks as multiples of a nice step so $0 is always included
+      const range = domainMax - domainMin
+      const rawStep = range / 5
+      const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep || 1)))
+      const step = Math.ceil(rawStep / magnitude) * magnitude || 1000
+      const tickStart = Math.floor(domainMin / step) * step
+      yTicks = []
+      for (let t = tickStart; t <= domainMax + step / 2; t += step) {
+        yTicks.push(Math.round(t))
+      }
     }
 
     return (
@@ -144,6 +161,7 @@ export function NetWorthReport({ section }: Props = {}) {
                   tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
                   width={55}
                   domain={yDomain}
+                  ticks={yTicks}
                 />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
@@ -191,7 +209,7 @@ export function NetWorthReport({ section }: Props = {}) {
                       {a.name}
                     </span>
                   </td>
-                  <td className="py-1.5 pr-4 text-secondary capitalize">{a.type}</td>
+                  <td className="py-1.5 pr-4 text-secondary capitalize">{a.type === 'investment_portfolio' ? 'Investments' : a.type}</td>
                   <td className={`py-1.5 text-right tabular-nums font-medium ${a.currentBalance < 0 ? 'text-danger' : 'text-primary'}`}>
                     {formatMoney(a.currentBalance)}
                   </td>
@@ -257,6 +275,7 @@ export function NetWorthReport({ section }: Props = {}) {
               tickLine={false}
               tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
               width={55}
+              domain={[(v: number) => Math.min(v, 0), 'auto']}
             />
             <Tooltip
               contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
@@ -294,6 +313,7 @@ export function NetWorthReport({ section }: Props = {}) {
                 tickLine={false}
                 tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
                 width={55}
+                domain={[(v: number) => Math.min(v, 0), 'auto']}
               />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
