@@ -557,18 +557,25 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const savingsLinkedIds = [...new Set(savingsCats.map((c) => c.linked_account_id as number))]
 
   const savingsBalanceMap = new Map<number, number>()
+  const closedSavingsAccountIds = new Set<number>()
   if (savingsLinkedIds.length > 0) {
     const ph = savingsLinkedIds.map(() => '?').join(',')
     const balanceRows = db
       .prepare(
-        `SELECT a.id, a.starting_balance + COALESCE(SUM(t.amount), 0) AS balance
+        `SELECT a.id, a.closed_at, a.starting_balance + COALESCE(SUM(t.amount), 0) AS balance
          FROM accounts a
          LEFT JOIN transactions t ON t.account_id = a.id
          WHERE a.id IN (${ph})
          GROUP BY a.id`,
       )
-      .all(...savingsLinkedIds) as Array<{ id: number; balance: number }>
-    for (const r of balanceRows) savingsBalanceMap.set(r.id, r.balance)
+      .all(...savingsLinkedIds) as Array<{ id: number; closed_at: string | null; balance: number }>
+    for (const r of balanceRows) {
+      if (r.closed_at !== null) {
+        closedSavingsAccountIds.add(r.id)
+      } else {
+        savingsBalanceMap.set(r.id, r.balance)
+      }
+    }
   }
 
   const debtGroups: DebtGroup[] = debtGroupsRaw.map((group) => {
@@ -607,9 +614,9 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     }
   })
 
-  // Build savings groups — each category is linked to a savings account
+  // Build savings groups — each category is linked to a savings account (exclude closed accounts)
   const savingsGroups: SavingsGroup[] = savingsGroupsRaw.map((group) => {
-    const groupCats = categories.filter((c) => c.group_id === group.id && c.linked_account_id !== null)
+    const groupCats = categories.filter((c) => c.group_id === group.id && c.linked_account_id !== null && !closedSavingsAccountIds.has(c.linked_account_id as number))
 
     const builtCats: SavingsCategory[] = groupCats.map((cat) => {
       const { budgetedAmount, period } = effectiveBudgetMap.get(cat.id)!
