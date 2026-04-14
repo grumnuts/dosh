@@ -16,6 +16,13 @@ import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 
 const DEFAULT_COL_WIDTHS = { account: 200, type: 100, balance: 150 }
 
+function formatYAxisTick(v: number): string {
+  const abs = Math.abs(v)
+  if (abs >= 1_000_000) return `$${Math.round(v / 1_000_000)}M`
+  if (abs >= 1_000) return `$${Math.round(v / 1_000)}k`
+  return `$${Math.round(v)}`
+}
+
 const ACCOUNT_COLOURS = [
   '#60a5fa', '#a78bfa', '#fb923c', '#34d399', '#f472b6',
   '#38bdf8', '#facc15', '#4ade80', '#f87171', '#818cf8',
@@ -76,7 +83,7 @@ export function NetWorthReport({ section }: Props = {}) {
             <LineChart data={netWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={55} domain={[(v: number) => Math.min(v, 0), 'auto']} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatYAxisTick} width={55} domain={[(v: number) => Math.min(v, 0), 'auto']} />
               <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
               <Line type="monotone" dataKey="Net Worth" stroke={netWorthLineColour} strokeWidth={2} dot={false} />
             </LineChart>
@@ -123,11 +130,14 @@ export function NetWorthReport({ section }: Props = {}) {
       const domainMin = min >= 0 ? 0 : Math.floor(min - pad)
       const domainMax = Math.ceil(max + pad)
       yDomain = [domainMin, domainMax]
-      // Compute ticks as multiples of a nice step so $0 is always included
+      // Snap step to formatter resolution so labels are always distinct
+      const absMax = Math.max(Math.abs(domainMin), Math.abs(domainMax))
+      const fmtResolution = absMax >= 1_000_000 ? 1_000_000 : absMax >= 1_000 ? 1_000 : 1
       const range = domainMax - domainMin
       const rawStep = range / 5
       const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep || 1)))
-      const step = Math.ceil(rawStep / magnitude) * magnitude || 1000
+      const niceStep = Math.ceil(rawStep / magnitude) * magnitude || fmtResolution
+      const step = Math.ceil(niceStep / fmtResolution) * fmtResolution
       const tickStart = Math.floor(domainMin / step) * step
       yTicks = []
       for (let t = tickStart; t <= domainMax + step / 2; t += step) {
@@ -158,7 +168,7 @@ export function NetWorthReport({ section }: Props = {}) {
                   tick={{ fill: '#6b7280', fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={formatYAxisTick}
                   width={55}
                   domain={yDomain}
                   ticks={yTicks}
@@ -273,7 +283,7 @@ export function NetWorthReport({ section }: Props = {}) {
               tick={{ fill: '#6b7280', fontSize: 12 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+              tickFormatter={formatYAxisTick}
               width={55}
               domain={[(v: number) => Math.min(v, 0), 'auto']}
             />
@@ -311,7 +321,7 @@ export function NetWorthReport({ section }: Props = {}) {
                 tick={{ fill: '#6b7280', fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                tickFormatter={formatYAxisTick}
                 width={55}
                 domain={[(v: number) => Math.min(v, 0), 'auto']}
               />
