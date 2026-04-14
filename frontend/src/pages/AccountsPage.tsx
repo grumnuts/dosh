@@ -772,13 +772,13 @@ export function AccountsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-4 pb-6 md:py-6 space-y-3 md:px-6">
-      {/* Accounts header */}
+      {/* Ledger header */}
       <div className="flex items-center justify-between gap-2">
         <button
           className="text-xl font-bold text-primary hover:text-accent transition-colors"
           onClick={() => setAccountsCollapsed((c) => !c)}
         >
-          Accounts
+          Ledger
         </button>
         <div className="flex items-center gap-2 ml-auto">
           {!accountsCollapsed && (
