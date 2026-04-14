@@ -22,6 +22,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
+import { investmentsApi } from '../api/investments'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
 import { settingsApi } from '../api/settings'
@@ -608,6 +609,11 @@ export function AccountsPage() {
     queryFn: () => accountsApi.list(showClosed),
   })
 
+  const { data: holdingsData } = useQuery({
+    queryKey: ['investments', 'holdings'],
+    queryFn: investmentsApi.holdings,
+  })
+
   const closedAccounts = accounts?.filter((a) => !!a.closedAt) ?? []
 
   useEffect(() => {
@@ -764,7 +770,8 @@ export function AccountsPage() {
   const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly
 
   const openAccountsAll = accounts?.filter((a) => !a.closedAt) ?? []
-  const totalBalance = openAccountsAll.reduce((sum, a) => sum + a.currentBalance, 0)
+  const portfolioValueCents = holdingsData?.totalMarketValueCents ?? 0
+  const totalBalance = openAccountsAll.reduce((sum, a) => sum + a.currentBalance, 0) + portfolioValueCents
   const transactionalTotal = openAccountsAll.filter((a) => a.type === 'transactional').reduce((sum, a) => sum + a.currentBalance, 0)
   const savingsTotal = openAccountsAll.filter((a) => a.type === 'savings').reduce((sum, a) => sum + a.currentBalance, 0)
   const debtTotal = openAccountsAll.filter((a) => a.type === 'debt').reduce((sum, a) => sum + a.currentBalance, 0)
