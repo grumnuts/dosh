@@ -26,6 +26,8 @@ const schema = z.object({
   amount: z.string().refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Enter a positive amount'),
   categoryId: z.string().optional(),
   ignoreRules: z.boolean().optional().default(false),
+  investmentTicker: z.string().max(20).optional(),
+  investmentQuantity: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -172,7 +174,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   }, 0)
   const splitRemainder = totalCents - splitTotalCents
 
-  const categories = budgetWeek as Array<{ id: number; group_id: number; name: string; period: string }> | undefined
+  const categories = budgetWeek as Array<{ id: number; group_id: number; name: string; period: string; is_investment: number }> | undefined
 
   useEffect(() => {
     if (open) {
@@ -190,6 +192,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           amount: (Math.abs(transaction.amount) / 100).toFixed(2),
           categoryId: transaction.category_id ? String(transaction.category_id) : '',
           ignoreRules: transaction.ignore_rules === 1,
+          investmentTicker: transaction.investment_ticker ?? '',
+          investmentQuantity: transaction.investment_quantity != null ? String(transaction.investment_quantity) : '',
         })
         if (transaction.splits.length > 0) {
           setIsSplit(true)
@@ -213,6 +217,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           amount: '',
           categoryId: '',
           ignoreRules: false,
+          investmentTicker: '',
+          investmentQuantity: '',
         })
         setIsSplit(false)
         setSplits(blankSplits())
@@ -272,6 +278,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         })
       }
 
+      const investmentTicker = isInvestmentCategory && data.investmentTicker ? data.investmentTicker.toUpperCase() : null
+      const investmentQuantity = isInvestmentCategory && data.investmentQuantity ? parseFloat(data.investmentQuantity) : null
+
       if (isEdit) {
         await transactionsApi.update(transaction!.id, {
           date: data.date,
@@ -286,6 +295,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             : null,
           splits: [],
           ignoreRules: data.ignoreRules,
+          investmentTicker,
+          investmentQuantity,
         })
         return { id: transaction!.id }
       }
@@ -313,6 +324,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           ? parseInt(data.transferToAccountId, 10)
           : null,
         ignoreRules: data.ignoreRules,
+        investmentTicker,
+        investmentQuantity,
       })
     },
     onSuccess: () => {
@@ -320,6 +333,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
       qc.invalidateQueries({ queryKey: ['payees'] })
+      qc.invalidateQueries({ queryKey: ['investments'] })
       onClose()
     },
   })
@@ -335,6 +349,22 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   })
 
   const canSplit = txType === 'debit' || txType === 'credit'
+
+  const watchedCategoryId = watch('categoryId')
+  const selectedCategory = categories?.find((c) => String(c.id) === watchedCategoryId)
+  const isInvestmentCategory = Boolean(selectedCategory?.is_investment)
+  const watchedTicker = watch('investmentTicker') ?? ''
+  const watchedQty = watch('investmentQuantity') ?? ''
+
+  // Auto-populate description when ticker and quantity are set for a new transaction
+  useEffect(() => {
+    if (!isInvestmentCategory || !watchedTicker || !watchedQty) return
+    const currentDesc = watch('description')
+    if (currentDesc) return
+    const label = txType === 'credit' ? 'Sold' : 'Bought'
+    setValue('description', `${label} ${watchedQty} ${watchedTicker.toUpperCase()}`)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedTicker, watchedQty, isInvestmentCategory, txType])
 
   const CategorySelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <CategoryCombobox
@@ -406,6 +436,25 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           error={errors.amount?.message}
           disabled={isCover}
         />
+
+        {/* Investment fields */}
+        {isInvestmentCategory && !isCover && canSplit && (
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Ticker"
+              placeholder="e.g. VAS.AX"
+              {...register('investmentTicker')}
+            />
+            <Input
+              label="Quantity"
+              type="number"
+              step="0.0001"
+              min="0.0001"
+              placeholder="0.0000"
+              {...register('investmentQuantity')}
+            />
+          </div>
+        )}
 
         {/* Category / Split section */}
         {!isCover && canSplit && !(isEdit && !!transaction?.category_is_unlisted) && (

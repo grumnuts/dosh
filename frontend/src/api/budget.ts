@@ -14,6 +14,7 @@ export interface BudgetCategory {
   notes: string | null
   sortOrder: number
   catchUp: boolean
+  isInvestment: boolean
 }
 
 export interface BudgetGroup {
@@ -80,6 +81,7 @@ export interface CategoryInput {
   notes?: string | null
   sortOrder?: number
   catchUp?: boolean
+  isInvestment?: boolean
 }
 
 export interface GroupInput {
@@ -97,7 +99,7 @@ export const budgetApi = {
   deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/api/budget/groups/${id}`),
 
   getCategories: () =>
-    api.get<Array<CategoryInput & { id: number }>>('/api/budget/categories'),
+    api.get<Array<CategoryInput & { id: number; is_investment: number }>>('/api/budget/categories'),
   createCategory: (data: CategoryInput) => api.post<{ id: number }>('/api/budget/categories', data),
   updateCategory: (id: number, data: CategoryInput) =>
     api.put<{ ok: boolean }>(`/api/budget/categories/${id}`, data),

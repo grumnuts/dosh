@@ -4,6 +4,7 @@ import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
 import { applyRules } from '../services/rules'
+import { fetchAndCachePrice, recalculateHoldings } from '../services/investments'
 
 const splitSchema = z.object({
   categoryId: z.number().int().nullable().optional(),
@@ -22,6 +23,8 @@ const transactionSchema = z.object({
   transferToAccountId: z.number().int().optional().nullable(),
   splits: z.array(splitSchema).min(2).optional(),
   ignoreRules: z.boolean().optional().default(false),
+  investmentTicker: z.string().max(20).optional().nullable().transform((v) => v?.toUpperCase() ?? null),
+  investmentQuantity: z.number().optional().nullable(),
 })
 
 function upsertPayee(payeeName: string | null | undefined): void {
@@ -130,8 +133,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              t.payee, t.description, t.amount, t.category_id,
              bc.name as category_name, bg.name as group_name,
              bc.is_unlisted as category_is_unlisted,
+             bc.is_investment as category_is_investment,
              t.type, t.transfer_pair_id, pair_acct.id as transfer_pair_account_id,
              t.cover_week_start, t.ignore_rules, t.created_at,
+             t.investment_ticker, t.investment_quantity,
              a.starting_balance + (
                SELECT COALESCE(SUM(t2.amount), 0)
                FROM transactions t2
@@ -309,10 +314,13 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           db,
         )
 
+    const ticker = body.data.investmentTicker ?? null
+    const quantity = body.data.investmentQuantity ?? null
+
     const result = db
       .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, ignore_rules, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, ?)`,
+        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, ignore_rules, investment_ticker, investment_quantity, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         ruled.date,
@@ -322,6 +330,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         ruled.amount,
         splits ? null : (ruled.categoryId ?? null),
         body.data.ignoreRules ? 1 : 0,
+        ticker,
+        quantity,
         now,
         now,
         request.user!.id,
@@ -336,6 +346,15 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       )
       for (const s of splits) {
         insertSplit.run(id, s.categoryId ?? null, s.amount, s.note ?? null, now)
+      }
+    }
+
+    if (ticker) {
+      recalculateHoldings(ruled.accountId)
+      // Fetch price for new tickers in the background
+      const existing = db.prepare('SELECT ticker FROM share_prices WHERE ticker = ?').get(ticker)
+      if (!existing) {
+        fetchAndCachePrice(ticker).catch((err) => console.error(`[investments] Price fetch failed for ${ticker}:`, err))
       }
     }
 
@@ -369,6 +388,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         transferToAccountId: z.number().int().optional().nullable(),
         splits: z.array(splitSchema).optional(),
         ignoreRules: z.boolean().optional(),
+        investmentTicker: z.string().max(20).optional().nullable().transform((v) => v?.toUpperCase() ?? null),
+        investmentQuantity: z.number().optional().nullable(),
       })
       .safeParse(request.body)
 
@@ -378,8 +399,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, type, transfer_pair_id, account_id, amount, category_id, ignore_rules FROM transactions WHERE id = ?')
-      .get(id) as { id: number; type: string; transfer_pair_id: number | null; account_id: number; amount: number; category_id: number | null; ignore_rules: number } | undefined
+      .prepare('SELECT id, type, transfer_pair_id, account_id, amount, category_id, ignore_rules, investment_ticker FROM transactions WHERE id = ?')
+      .get(id) as { id: number; type: string; transfer_pair_id: number | null; account_id: number; amount: number; category_id: number | null; ignore_rules: number; investment_ticker: string | null } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Transaction not found' })
 
@@ -496,9 +517,12 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         ).categoryId ?? null
       }
 
+      const newTicker = body.data.investmentTicker ?? null
+      const newQuantity = body.data.investmentQuantity ?? null
+
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-         category_id = ?, ignore_rules = ?, updated_at = ? WHERE id = ?`,
+         category_id = ?, ignore_rules = ?, investment_ticker = ?, investment_quantity = ?, updated_at = ? WHERE id = ?`,
       ).run(
         body.data.date,
         body.data.accountId,
@@ -511,6 +535,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
             ? null
             : resolvedCategoryId,
         ignoreRules ? 1 : 0,
+        newTicker,
+        newQuantity,
         now,
         id,
       )
@@ -531,6 +557,18 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     }
 
     upsertPayee(body.data.payee)
+
+    // Recalculate investment holdings if ticker changed on this transaction
+    const newTicker = body.data.investmentTicker ?? null
+    if (newTicker || existing.investment_ticker) {
+      recalculateHoldings(body.data.accountId)
+      if (newTicker) {
+        const priceExists = db.prepare('SELECT ticker FROM share_prices WHERE ticker = ?').get(newTicker)
+        if (!priceExists) {
+          fetchAndCachePrice(newTicker).catch((err) => console.error(`[investments] Price fetch failed for ${newTicker}:`, err))
+        }
+      }
+    }
 
     logAudit({
       userId: request.user!.id,
@@ -586,9 +624,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
 
     const tx = db
-      .prepare('SELECT id, type, transfer_pair_id, amount, date FROM transactions WHERE id = ?')
+      .prepare('SELECT id, type, transfer_pair_id, amount, date, account_id, investment_ticker FROM transactions WHERE id = ?')
       .get(id) as
-      | { id: number; type: string; transfer_pair_id: number | null; amount: number; date: string }
+      | { id: number; type: string; transfer_pair_id: number | null; amount: number; date: string; account_id: number; investment_ticker: string | null }
       | undefined
 
     if (!tx) return reply.code(404).send({ error: 'Transaction not found' })
@@ -600,6 +638,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.transfer_pair_id)
     }
     db.prepare('DELETE FROM transactions WHERE id = ?').run(id)
+
+    if (tx.investment_ticker) {
+      recalculateHoldings(tx.account_id)
+    }
 
     logAudit({
       userId: request.user!.id,

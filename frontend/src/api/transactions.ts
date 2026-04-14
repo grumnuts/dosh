@@ -21,6 +21,9 @@ export interface Transaction {
   category_name: string | null
   group_name: string | null
   category_is_unlisted: number | null
+  category_is_investment: number | null
+  investment_ticker: string | null
+  investment_quantity: number | null
   type: 'transaction' | 'transfer' | 'cover' | 'sweep'
   transfer_pair_id: number | null
   transfer_pair_account_id: number | null
@@ -60,6 +63,8 @@ export interface TransactionInput {
   transferToAccountId?: number | null
   splits?: TransactionSplitInput[]
   ignoreRules?: boolean
+  investmentTicker?: string | null
+  investmentQuantity?: number | null
 }
 
 export const transactionsApi = {

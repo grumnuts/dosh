@@ -150,7 +150,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
     const cats = db
       .prepare(
-        `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order
+        `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, is_investment
          FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
       )
       .all()
@@ -165,6 +165,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     notes: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
     catchUp: z.boolean().optional(),
+    isInvestment: z.boolean().optional().default(false),
   })
 
   app.post('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
@@ -186,8 +187,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const result = db
       .prepare(
-        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, is_investment, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.groupId,
@@ -197,6 +198,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
         body.data.catchUp ? 1 : 0,
+        body.data.isInvestment ? 1 : 0,
         now,
         now,
       )
@@ -256,7 +258,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
-       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, updated_at = ?
+       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, is_investment = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.groupId,
@@ -266,6 +268,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       body.data.notes ?? null,
       body.data.sortOrder ?? null,
       body.data.catchUp ? 1 : 0,
+      body.data.isInvestment ? 1 : 0,
       new Date().toISOString(),
       id,
     )

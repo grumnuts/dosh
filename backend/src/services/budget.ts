@@ -117,6 +117,7 @@ interface RawCategory {
   notes: string | null
   sort_order: number
   catch_up: number
+  is_investment: number
   linked_account_id: number | null
 }
 
@@ -142,6 +143,7 @@ interface BudgetCategory {
   notes: string | null
   sortOrder: number
   catchUp: boolean
+  isInvestment: boolean
 }
 
 interface IncomeCategory {
@@ -246,7 +248,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
   const categories = db
     .prepare(
-      `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, catch_up, linked_account_id
+      `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, catch_up, is_investment, linked_account_id
        FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
     )
     .all() as unknown as RawCategory[]
@@ -425,6 +427,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
         notes: cat.notes,
         sortOrder: cat.sort_order,
         catchUp: cat.catch_up === 1,
+        isInvestment: cat.is_investment === 1,
       }
     })
 

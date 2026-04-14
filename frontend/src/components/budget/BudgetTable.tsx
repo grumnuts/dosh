@@ -454,7 +454,7 @@ function IncomeCategoryRow({
         groupId={groupId}
         groupName={groupName}
         isIncomeGroup
-        category={{ id: cat.id, name: cat.name, period: cat.period, budgetedAmount: 0, notes: cat.notes, catchUp: false }}
+        category={{ id: cat.id, name: cat.name, period: cat.period, budgetedAmount: 0, notes: cat.notes, catchUp: false, isInvestment: false }}
       />
     </>
   )
@@ -546,7 +546,7 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
           groupId={group.id}
           groupName={group.name}
           isDebtGroup
-          category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp }}
+          category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
         />
       )}
     </>

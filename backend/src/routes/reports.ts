@@ -496,6 +496,63 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       return { id: account.id, name: account.name, type: account.type, startingBalance: account.starting_balance, history }
     })
 
+    // Build investment portfolio history from price snapshots × running quantity
+    const investmentTxRows = db
+      .prepare(
+        `SELECT strftime('%Y-%m', date) AS month, investment_ticker AS ticker,
+                SUM(investment_quantity) AS qty_change
+         FROM transactions
+         WHERE investment_ticker IS NOT NULL
+         GROUP BY month, investment_ticker
+         ORDER BY month`,
+      )
+      .all() as Array<{ month: string; ticker: string; qty_change: number }>
+
+    const priceHistoryRows = db
+      .prepare(`SELECT month, ticker, price_cents FROM share_price_history ORDER BY month`)
+      .all() as Array<{ month: string; ticker: string; price_cents: number }>
+
+    if (priceHistoryRows.length > 0) {
+      // Build cumulative quantity per ticker over time
+      const runningQty = new Map<string, number>()
+      const qtyByMonth = new Map<string, Map<string, number>>()
+      for (const row of investmentTxRows) {
+        const prev = runningQty.get(row.ticker) ?? 0
+        runningQty.set(row.ticker, prev + row.qty_change)
+        if (!qtyByMonth.has(row.month)) qtyByMonth.set(row.month, new Map())
+        qtyByMonth.get(row.month)!.set(row.ticker, runningQty.get(row.ticker)!)
+      }
+
+      // Build portfolio value per price-history month
+      const portfolioByMonth = new Map<string, number>()
+      const allPriceMonths = [...new Set(priceHistoryRows.map((r) => r.month))].sort()
+      const lastQty = new Map<string, number>()
+
+      for (const month of allPriceMonths) {
+        // Advance running quantities up to this month
+        for (const [m, qtys] of qtyByMonth) {
+          if (m <= month) {
+            for (const [t, q] of qtys) lastQty.set(t, q)
+          }
+        }
+        const pricesThisMonth = priceHistoryRows.filter((r) => r.month === month)
+        let total = 0
+        for (const pr of pricesThisMonth) {
+          total += (lastQty.get(pr.ticker) ?? 0) * pr.price_cents
+        }
+        portfolioByMonth.set(month, Math.round(total))
+      }
+
+      // Inject virtual "Investment Portfolio" entry
+      accountHistories.push({
+        id: -1,
+        name: 'Investment Portfolio',
+        type: 'investment_portfolio',
+        startingBalance: 0,
+        history: [...portfolioByMonth.entries()].map(([month, balance]) => ({ month, balance })),
+      })
+    }
+
     // Collect all distinct months across all accounts
     const allMonths = Array.from(
       new Set(accountHistories.flatMap((a) => a.history.map((h) => h.month))),
