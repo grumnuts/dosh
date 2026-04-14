@@ -210,29 +210,43 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       )
       .all(year, year) as Array<{ category_id: number; month: string; spent_cents: number }>
 
-    // Budget amounts: prefer history, fall back to current
+    // Current budgets (period + current amount — used for annual budget display and as fallback)
     const currentBudgets = db
       .prepare(
         `SELECT id AS category_id, budgeted_amount, period FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0`,
       )
       .all() as Array<{ category_id: number; budgeted_amount: number; period: string }>
 
-    const historyBudgets = db
-      .prepare(
-        `SELECT bh.category_id, AVG(bh.budgeted_amount) AS budgeted_amount, bc.period
-         FROM budget_history bh
-         JOIN budget_categories bc ON bc.id = bh.category_id
-         WHERE strftime('%Y', bh.effective_from) <= ?
-         GROUP BY bh.category_id`,
-      )
-      .all(year) as Array<{ category_id: number; budgeted_amount: number; period: string }>
-
     const budgetMap = new Map<number, { amount: number; period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annual' }>()
     for (const cb of currentBudgets) {
       budgetMap.set(cb.category_id, { amount: cb.budgeted_amount, period: normalizePeriod(cb.period) })
     }
-    for (const bh of historyBudgets) {
-      budgetMap.set(bh.category_id, { amount: bh.budgeted_amount, period: normalizePeriod(bh.period) })
+
+    // Full budget history sorted ascending — used to find the amount in effect at each period start
+    const allHistoryRows = db
+      .prepare(
+        `SELECT category_id, budgeted_amount, effective_from
+         FROM budget_history
+         ORDER BY category_id, effective_from ASC`,
+      )
+      .all() as Array<{ category_id: number; budgeted_amount: number; effective_from: string }>
+
+    const historyByCat = new Map<number, Array<{ effectiveFrom: string; amount: number }>>()
+    for (const h of allHistoryRows) {
+      if (!historyByCat.has(h.category_id)) historyByCat.set(h.category_id, [])
+      historyByCat.get(h.category_id)!.push({ effectiveFrom: h.effective_from, amount: h.budgeted_amount })
+    }
+
+    // Returns the budgeted amount in effect at the start of a given period
+    function getBudgetAtDate(catId: number, periodStart: string): number {
+      const history = historyByCat.get(catId)
+      if (!history || history.length === 0) return budgetMap.get(catId)?.amount ?? 0
+      let amount = history[0].amount
+      for (const h of history) {
+        if (h.effectiveFrom <= periodStart) amount = h.amount
+        else break
+      }
+      return amount
     }
 
     // Build monthly spend lookup: `catId:month` -> cents
@@ -263,23 +277,28 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       let totalSpent = 0
 
       if (budget.period === 'annual') {
+        const periodStart = `${year}-01-01`
+        const budgetAmount = getBudgetAtDate(cat.id, periodStart)
         const spent = spendingRows
           .filter((r) => r.category_id === cat.id)
           .reduce((s, r) => s + r.spent_cents, 0)
         totalSpent = spent
-        totalOverspend = Math.max(0, spent - budget.amount)
+        totalOverspend = Math.max(0, spent - budgetAmount)
       } else if (budget.period === 'quarterly') {
-        for (const months of Object.values(QUARTER_MONTHS)) {
+        const quarterStarts: Record<string, string> = {
+          Q1: `${year}-01-01`, Q2: `${year}-04-01`, Q3: `${year}-07-01`, Q4: `${year}-10-01`,
+        }
+        for (const [q, months] of Object.entries(QUARTER_MONTHS)) {
           const spent = months.reduce((s, m) => s + (spendByMonth.get(`${cat.id}:${m}`) ?? 0), 0)
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - budget.amount)
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, quarterStarts[q]))
         }
       } else if (budget.period === 'monthly') {
         for (let m = 1; m <= 12; m++) {
           const monthStr = String(m).padStart(2, '0')
           const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - budget.amount)
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, `${year}-${monthStr}-01`))
         }
       } else if (budget.period === 'fortnightly') {
         const weeks = weeksByCat.get(cat.id) ?? []
@@ -288,7 +307,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
           const w2 = i + 1 < weeks.length ? (spendByWeek.get(`${cat.id}:${weeks[i + 1]}`) ?? 0) : 0
           const spent = w1 + w2
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - budget.amount)
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, weeks[i]))
         }
       } else {
         // weekly
@@ -296,7 +315,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         for (const weekStart of weeks) {
           const spent = spendByWeek.get(`${cat.id}:${weekStart}`) ?? 0
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - budget.amount)
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, weekStart))
         }
       }
 
