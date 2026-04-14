@@ -8,10 +8,24 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts'
 import { reportsApi, type GoalSeries } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
+
+function ChartLegend({ color }: { color: string }) {
+  return (
+    <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted">
+      <span className="flex items-center gap-1.5">
+        <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke={color} strokeWidth="2" /></svg>
+        Balance
+      </span>
+      <span className="flex items-center gap-1.5">
+        <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke={color} strokeWidth="2" strokeDasharray="4 3" /></svg>
+        Projected
+      </span>
+    </div>
+  )
+}
 
 function buildChartData(series: GoalSeries) {
   const allPoints = [
@@ -105,21 +119,23 @@ function GoalCard({ series }: { series: GoalSeries }) {
       </div>
 
       {chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={60} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
-              labelStyle={{ color: '#e5e7eb' }}
-              formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
-            />
-            <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
-            <Line type="monotone" dataKey="balance" name="Balance" stroke="#4ade80" strokeWidth={2} dot={false} connectNulls={false} />
-            <Line type="monotone" dataKey="projection" name="Projected" stroke="#4ade80" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={60} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
+                labelStyle={{ color: '#e5e7eb' }}
+                formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
+              />
+              <Line type="monotone" dataKey="balance" name="Balance" stroke="#4ade80" strokeWidth={2} dot={false} connectNulls={false} />
+              <Line type="monotone" dataKey="projection" name="Projected" stroke="#4ade80" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls={false} />
+            </LineChart>
+          </ResponsiveContainer>
+          <ChartLegend color="#4ade80" />
+        </>
       ) : (
         <p className="text-sm text-muted text-center py-4">No transaction history yet.</p>
       )}
@@ -172,21 +188,23 @@ function DebtCard({ series }: { series: GoalSeries }) {
       </div>
 
       {chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.abs(v)}`} width={60} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
-              labelStyle={{ color: '#e5e7eb' }}
-              formatter={(value) => [formatMoney(Math.abs(Math.round((value as number) * 100))), '']}
-            />
-            <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
-            <Line type="monotone" dataKey="balance" name="Balance" stroke="#f87171" strokeWidth={2} dot={false} connectNulls={false} />
-            <Line type="monotone" dataKey="projection" name="Projected" stroke="#f87171" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.abs(v)}`} width={60} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
+                labelStyle={{ color: '#e5e7eb' }}
+                formatter={(value) => [formatMoney(Math.abs(Math.round((value as number) * 100))), '']}
+              />
+              <Line type="monotone" dataKey="balance" name="Balance" stroke="#f87171" strokeWidth={2} dot={false} connectNulls={false} />
+              <Line type="monotone" dataKey="projection" name="Projected" stroke="#f87171" strokeWidth={2} strokeDasharray="5 5" dot={false} connectNulls={false} />
+            </LineChart>
+          </ResponsiveContainer>
+          <ChartLegend color="#f87171" />
+        </>
       ) : (
         <p className="text-sm text-muted text-center py-4">No transaction history yet.</p>
       )}

@@ -10,6 +10,7 @@ export interface Account {
   goalAmount: number | null
   goalTargetDate: string | null
   closedAt: string | null
+  startingBalanceDate: string | null
 }
 
 export interface AccountInput {
@@ -19,6 +20,7 @@ export interface AccountInput {
   sortOrder?: number
   goalAmount?: number | null
   goalTargetDate?: string | null
+  startingBalanceDate?: string | null
 }
 
 export interface AccountCreateInput extends AccountInput {

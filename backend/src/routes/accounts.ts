@@ -22,6 +22,7 @@ const updateAccountSchema = z.object({
   sortOrder: z.number().int().optional(),
   goalAmount: z.number().int().optional().nullable(),
   goalTargetDate: z.string().regex(/^\d{4}-\d{2}$/).optional().nullable(),
+  startingBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 })
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
@@ -32,6 +33,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT a.id, a.name, a.type, a.starting_balance, a.notes, a.sort_order, a.goal_amount, a.goal_target_date, a.closed_at,
                 COALESCE(SUM(t.amount), 0) as transaction_total,
+                (SELECT date FROM transactions WHERE account_id = a.id AND category_id IN (SELECT id FROM budget_categories WHERE name = 'Starting Balance' AND is_system = 1) ORDER BY date LIMIT 1) AS starting_balance_date,
                 CASE WHEN a.type = 'debt' THEN
                   COALESCE((
                     SELECT -SUM(pt.amount)
@@ -66,6 +68,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       goal_target_date: string | null
       closed_at: string | null
       transaction_total: number
+      starting_balance_date: string | null
       categorized_payment_total: number
     }>
 
@@ -80,6 +83,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
         goalAmount: a.goal_amount,
         goalTargetDate: a.goal_target_date,
         closedAt: a.closed_at,
+        startingBalanceDate: a.starting_balance_date,
       })),
     )
   })
@@ -259,6 +263,16 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
         recordBudgetChange(catResult.lastInsertRowid as number, 0, 'monthly', request.user!.id)
       }
+    }
+
+    // Update the Starting Balance transaction date if provided
+    if (body.data.startingBalanceDate) {
+      db.prepare(
+        `UPDATE transactions SET date = ?, updated_at = ?
+         WHERE account_id = ? AND category_id IN (
+           SELECT id FROM budget_categories WHERE name = 'Starting Balance' AND is_system = 1
+         )`,
+      ).run(body.data.startingBalanceDate, updatedAt, id)
     }
 
     logAudit({
