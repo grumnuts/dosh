@@ -2,12 +2,19 @@
 
 ## Unreleased
 
+---
+
+## v1.12.0 — 2026-04-14
+
 ### New Features
-- New **Portfolio** tab on the Reports page — groups Net Worth, Account Balances, and Goals into one place
-- New **Income by Category** report in the Cashflow tab — stacked bar chart broken down by income group, with a full 12-month category table on desktop and a month-selector breakdown on mobile
+- **Investment tracking** — mark a budget category as an investment and associate a ticker; buy and sell transactions record quantity held; a portfolio view in Reports shows holdings, current price, market value, and gain/loss
+- **Savings & Investments section on the Budget page** — investment categories appear alongside savings accounts at the bottom of the budget view, with budgeted contribution, spent, and balance columns
+- **Portfolio value chart** — historical portfolio value per ticker plotted over time, shown in the Portfolio tab of Reports
+- **New Portfolio tab on the Reports page** — groups Net Worth, Account Balances, Goals, and Investments into one place
+- **Income by Category report** in the Cashflow tab — stacked bar chart broken down by income group, with a full 12-month category table on desktop and a month-selector breakdown on mobile
 
 ### Enhancements
-- Reports page reorganised: Cashflow tab now contains Spending by Category, Overspend, Income by Category, In vs Out, and Payees; Goals moved under the Portfolio tab alongside Net Worth and Account Balances
+- Reports page reorganised: Cashflow tab now contains Spending by Category, Overspend, Income by Category, In vs Out, and Payees; Goals and Investments moved under the Portfolio tab alongside Net Worth and Account Balances
 - In vs Out account filter replaced with a left-side account list (same style as Payees) — "All accounts" selected by default
 - Cashflow section order updated: Spending by Category → Overspend → Income by Category → In vs Out → Payees
 - Net Worth chart now appears above the summary stat cards
@@ -16,11 +23,14 @@
 - Net worth, assets, and liabilities charts Y-axis domain now always extends down to $0 (or below for negative balances)
 - Goal charts now use a custom solid/dashed line legend instead of the Recharts default
 - Debt started date can now be edited from the debt account editor
+- Navigation "Accounts" renamed to "Ledger"
 
 ### Bug Fixes
 - Categorised debt payments are now correctly included in goal payoff projections
 - Debt current balance in goal projections now calculated correctly
 - In vs Out now correctly handles split transactions
+- Closed savings accounts no longer shown in the Budget page Savings & Investments section
+- Portfolio holdings correctly aggregate per ticker across all accounts
 - Modal scroll lock on mobile now preserves the page scroll position when the modal is closed
 - Modal bottom padding on mobile increased to clear the bottom navigation bar
 
