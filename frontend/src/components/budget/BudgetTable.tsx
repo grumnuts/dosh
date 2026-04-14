@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 import { useLongPress } from '../../hooks/useLongPress'
-import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, budgetApi } from '../../api/budget'
+import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, SavingsGroup, SavingsCategory, InvestmentGroup, InvestmentCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
@@ -694,18 +694,204 @@ function SortableIncomeGroupSection(props: Omit<IncomeGroupSectionProps, 'rowRef
   )
 }
 
+// ─── Savings group section ───────────────────────────────────────────────────
+
+type SavingsGroupSectionProps = {
+  group: SavingsGroup
+}
+
+function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
+  const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:savings-group:${group.id}`, false)
+  const [editCat, setEditCat] = useState<SavingsCategory | null>(null)
+
+  const groupContributed = group.categories.reduce((s, c) => s + c.contributed, 0)
+  const groupBalance = group.categories.reduce((s, c) => s + c.linkedAccountBalance, 0)
+  const groupWeekly = group.categories.reduce((s, c) => s + c.weeklyEquivalent, 0)
+  const showCategories = !collapsed
+
+  return (
+    <>
+      <tr className="bg-white/5 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+        <td className="px-2 py-2.5 hidden md:table-cell w-6" />
+        <td className="pl-2 pr-2 py-2.5">
+          <span className="text-sm font-semibold text-primary">{group.name}</span>
+        </td>
+        <td className="hidden md:table-cell" />
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-secondary tabular-nums">
+          {formatMoney(groupWeekly)}
+        </td>
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-secondary tabular-nums">
+          {formatMoney(groupContributed)}
+        </td>
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs tabular-nums hidden sm:table-cell">
+          <span className="text-accent">{formatMoney(groupBalance)}</span>
+        </td>
+        <td className="hidden sm:table-cell" />
+      </tr>
+
+      {showCategories && group.categories.map((cat) => (
+        <tr
+          key={cat.id}
+          className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
+          onClick={() => setEditCat(cat)}
+        >
+          <td className="px-2 py-2.5 hidden md:table-cell w-6" />
+          <td className="pl-2 pr-2 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+                {PERIOD_LABELS[cat.period]}
+              </span>
+              <span className="text-sm text-primary">{cat.name}</span>
+            </div>
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden md:table-cell">
+            <span className="text-secondary">{formatMoney(cat.budgetedAmount)}</span>
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
+            {formatMoney(cat.weeklyEquivalent)}
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums">
+            <span className="text-secondary">{formatMoney(cat.contributed)}</span>
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden sm:table-cell">
+            <span className="text-accent">{formatMoney(cat.linkedAccountBalance)}</span>
+          </td>
+          <td className="hidden sm:table-cell" />
+        </tr>
+      ))}
+
+      {editCat && (
+        <CategoryModal
+          open={true}
+          onClose={() => setEditCat(null)}
+          groupId={group.id}
+          groupName={group.name}
+          isDebtGroup
+          category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Investments group section ────────────────────────────────────────────────
+
+type InvestmentGroupSectionProps = {
+  group: InvestmentGroup
+  onAddInvestment: (groupId: number, groupName: string) => void
+}
+
+function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSectionProps) {
+  const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:investment-group:${group.id}`, false)
+  const [editCat, setEditCat] = useState<InvestmentCategory | null>(null)
+  const showCategories = !collapsed
+
+  const groupSpent = group.categories.reduce((s, c) => s + c.spent, 0)
+  const groupBalance = group.categories.reduce((s, c) => s + c.balance, 0)
+  const groupWeekly = group.categories.reduce((s, c) => s + c.weeklyEquivalent, 0)
+
+  return (
+    <>
+      <tr className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)}>
+        <td className="px-2 py-2.5 hidden md:table-cell w-6" />
+        <td className="pl-2 pr-2 py-2.5">
+          <span className="text-sm font-semibold text-primary">{group.name}</span>
+        </td>
+        <td className="hidden md:table-cell" />
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
+          {formatMoney(groupWeekly)}
+        </td>
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums hidden sm:table-cell">
+          {formatMoney(groupSpent)}
+        </td>
+        <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs tabular-nums">
+          <span className={groupBalance < 0 ? 'text-danger' : 'text-secondary'}>
+            {formatMoney(groupBalance)}
+          </span>
+        </td>
+        <td className="hidden sm:table-cell px-1.5 py-2.5">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
+              onClick={(e) => { e.stopPropagation(); onAddInvestment(group.id, group.name) }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+
+      {showCategories && group.categories.length === 0 && (
+        <tr>
+          <td colSpan={7} className="px-6 py-2 text-xs text-muted italic">
+            No investments yet — add one above
+          </td>
+        </tr>
+      )}
+
+      {showCategories && group.categories.map((cat) => (
+        <tr
+          key={cat.id}
+          className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
+          onClick={() => setEditCat(cat)}
+        >
+          <td className="px-2 py-2.5 hidden md:table-cell w-6" />
+          <td className="pl-2 pr-2 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
+                {PERIOD_LABELS[cat.period]}
+              </span>
+              <span className="text-sm text-primary">{cat.name}</span>
+              <span className="font-mono text-xs text-muted">{cat.ticker}</span>
+            </div>
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden md:table-cell">
+            <span className="text-secondary">{formatMoney(cat.budgetedAmount)}</span>
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
+            {formatMoney(cat.weeklyEquivalent)}
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums hidden sm:table-cell">
+            <span className="text-secondary">{formatMoney(cat.spent)}</span>
+          </td>
+          <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs sm:text-sm tabular-nums">
+            <span className={cat.isOverspent ? 'text-danger font-semibold' : 'text-primary'}>{formatMoney(cat.balance)}</span>
+          </td>
+          <td className="hidden sm:table-cell" />
+        </tr>
+      ))}
+
+      {editCat && (
+        <CategoryModal
+          open={true}
+          onClose={() => setEditCat(null)}
+          groupId={group.id}
+          groupName={group.name}
+          isInvestmentGroup
+          category={{ id: editCat.id, name: editCat.name, ticker: editCat.ticker, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: true }}
+        />
+      )}
+    </>
+  )
+}
+
 // ─── Main table ──────────────────────────────────────────────────────────────
 
 const BUDGET_DEFAULT_COL_WIDTHS = { category: 220, budgeted: 110, weekly: 78, spent: 100, balance: 100 }
 
 export function BudgetTable({ data, accounts }: BudgetTableProps) {
   const { widths, onResizeStart } = useResizableCols(BUDGET_DEFAULT_COL_WIDTHS, 'dosh:budget-col-widths-v2')
-  const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string; isIncome: boolean } | null>(null)
+  const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string; isIncome: boolean; isInvestment: boolean } | null>(null)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
   const [addIncomeGroupOpen, setAddIncomeGroupOpen] = useState(false)
   const [orderedGroups, setOrderedGroups] = useState<BudgetGroup[]>(data.groups)
   const [orderedIncomeGroups, setOrderedIncomeGroups] = useState<IncomeGroup[]>(data.incomeGroups ?? [])
   const debtGroups = data.debtGroups ?? []
+  const savingsGroups = data.savingsGroups ?? []
+  const investmentGroups = data.investmentGroups ?? []
+  const hasSavingsOrInvestments = savingsGroups.length > 0 || investmentGroups.length > 0
   const queryClient = useQueryClient()
 
   useEffect(() => { setOrderedGroups(data.groups) }, [data.groups])
@@ -775,7 +961,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                       weekStart={data.weekStart}
                       accounts={accounts}
                       onAddCategory={(groupId, groupName) =>
-                        setAddCatState({ groupId, groupName, isIncome: false })
+                        setAddCatState({ groupId, groupName, isIncome: false, isInvestment: false })
                       }
                     />
                   ))}
@@ -819,6 +1005,41 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
         </div>
       )}
 
+      {/* Savings & Investments table */}
+      {hasSavingsOrInvestments && (
+        <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm table-auto md:table-fixed">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
+                  <th className="px-2 py-3 hidden md:table-cell w-6" />
+                  <th className="px-2 py-3 text-left font-medium relative" style={{ width: widths.category }}>Savings &amp; Investments<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.spent }}>Contributed<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
+                  <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16" />
+                </tr>
+              </thead>
+              <tbody>
+                {savingsGroups.map((group) => (
+                  <SavingsGroupSection key={group.id} group={group} />
+                ))}
+                {investmentGroups.map((group) => (
+                  <InvestmentGroupSection
+                    key={group.id}
+                    group={group}
+                    onAddInvestment={(groupId, groupName) =>
+                      setAddCatState({ groupId, groupName, isIncome: false, isInvestment: true })
+                    }
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Income table */}
       <div className="card overflow-hidden -mx-4 rounded-none md:rounded-t-lg border-x-0 border-t-0 bg-transparent md:mx-0">
         <div className="overflow-x-auto">
@@ -851,7 +1072,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                       key={group.id}
                       group={group}
                       onAddCategory={(groupId, groupName) =>
-                        setAddCatState({ groupId, groupName, isIncome: true })
+                        setAddCatState({ groupId, groupName, isIncome: true, isInvestment: false })
                       }
                     />
                   ))}
@@ -885,6 +1106,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
           groupName={addCatState.groupName}
           weekStart={data.weekStart}
           isIncomeGroup={addCatState.isIncome}
+          isInvestmentGroup={addCatState.isInvestment}
         />
       )}
     </div>

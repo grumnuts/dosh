@@ -174,7 +174,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   }, 0)
   const splitRemainder = totalCents - splitTotalCents
 
-  const categories = budgetWeek as Array<{ id: number; group_id: number; name: string; period: string; is_investment: number }> | undefined
+  const categories = budgetWeek as Array<{ id: number; group_id: number; name: string; period: string; is_investment: number; ticker: string | null }> | undefined
 
   useEffect(() => {
     if (open) {
@@ -278,7 +278,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         })
       }
 
-      const investmentTicker = isInvestmentCategory && data.investmentTicker ? data.investmentTicker.toUpperCase() : null
+      // For category-ticker investments, the ticker is set by the backend from the category
+      const investmentTicker = isInvestmentCategory && !categoryTicker && data.investmentTicker ? data.investmentTicker.toUpperCase() : null
       const investmentQuantity = isInvestmentCategory && data.investmentQuantity ? parseFloat(data.investmentQuantity) : null
 
       if (isEdit) {
@@ -352,8 +353,10 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
 
   const watchedCategoryId = watch('categoryId')
   const selectedCategory = categories?.find((c) => String(c.id) === watchedCategoryId)
-  const isInvestmentCategory = Boolean(selectedCategory?.is_investment)
-  const watchedTicker = watch('investmentTicker') ?? ''
+  const isInvestmentCategory = Boolean(selectedCategory?.ticker || selectedCategory?.is_investment)
+  // If the category has a ticker, it comes from the category — user only enters quantity
+  const categoryTicker = selectedCategory?.ticker ?? null
+  const watchedTicker = categoryTicker ?? (watch('investmentTicker') ?? '')
   const watchedQty = watch('investmentQuantity') ?? ''
 
   // Auto-populate description when ticker and quantity are set for a new transaction
@@ -439,12 +442,18 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
 
         {/* Investment fields */}
         {isInvestmentCategory && !isCover && canSplit && (
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Ticker"
-              placeholder="e.g. VAS.AX"
-              {...register('investmentTicker')}
-            />
+          <div className={`grid gap-3 ${categoryTicker ? '' : 'grid-cols-2'}`}>
+            {categoryTicker ? (
+              <div className="text-xs text-muted">
+                Ticker: <span className="font-mono text-primary">{categoryTicker}</span>
+              </div>
+            ) : (
+              <Input
+                label="Ticker"
+                placeholder="e.g. VAS.AX"
+                {...register('investmentTicker')}
+              />
+            )}
             <Input
               label="Quantity"
               type="number"

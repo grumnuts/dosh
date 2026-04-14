@@ -314,7 +314,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
           db,
         )
 
-    const ticker = body.data.investmentTicker ?? null
+    // Resolve ticker: category-level ticker takes priority over transaction-level ticker
+    const catTickerRow = ruled.categoryId
+      ? db.prepare('SELECT ticker FROM budget_categories WHERE id = ?').get(ruled.categoryId) as { ticker: string | null } | undefined
+      : undefined
+    const ticker = catTickerRow?.ticker ?? body.data.investmentTicker ?? null
     const quantity = body.data.investmentQuantity ?? null
 
     const result = db
@@ -517,7 +521,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         ).categoryId ?? null
       }
 
-      const newTicker = body.data.investmentTicker ?? null
+      // Resolve ticker: category-level ticker takes priority
+      const updCatTickerRow = body.data.categoryId
+        ? db.prepare('SELECT ticker FROM budget_categories WHERE id = ?').get(body.data.categoryId) as { ticker: string | null } | undefined
+        : undefined
+      const newTicker = updCatTickerRow?.ticker ?? body.data.investmentTicker ?? null
       const newQuantity = body.data.investmentQuantity ?? null
 
       db.prepare(
@@ -558,14 +566,17 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     upsertPayee(body.data.payee)
 
-    // Recalculate investment holdings if ticker changed on this transaction
-    const newTicker = body.data.investmentTicker ?? null
-    if (newTicker || existing.investment_ticker) {
+    // Recalculate investment holdings if this transaction has or had a ticker
+    const resolvedCatTickerRow = body.data.categoryId
+      ? db.prepare('SELECT ticker FROM budget_categories WHERE id = ?').get(body.data.categoryId) as { ticker: string | null } | undefined
+      : undefined
+    const resolvedNewTicker = resolvedCatTickerRow?.ticker ?? body.data.investmentTicker ?? null
+    if (resolvedNewTicker || existing.investment_ticker) {
       recalculateHoldings(body.data.accountId)
-      if (newTicker) {
-        const priceExists = db.prepare('SELECT ticker FROM share_prices WHERE ticker = ?').get(newTicker)
+      if (resolvedNewTicker) {
+        const priceExists = db.prepare('SELECT ticker FROM share_prices WHERE ticker = ?').get(resolvedNewTicker)
         if (!priceExists) {
-          fetchAndCachePrice(newTicker).catch((err) => console.error(`[investments] Price fetch failed for ${newTicker}:`, err))
+          fetchAndCachePrice(resolvedNewTicker).catch((err) => console.error(`[investments] Price fetch failed for ${resolvedNewTicker}:`, err))
         }
       }
     }

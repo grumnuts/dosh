@@ -14,6 +14,7 @@ import { Account } from '../../api/accounts'
 
 const schema = z.object({
   name: z.string().min(1, 'Required'),
+  ticker: z.string().optional(),
   budgetedAmount: z.string().refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) >= 0, 'Must be a positive number'),
   period: z.enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'annually']),
   notes: z.string().optional(),
@@ -24,6 +25,7 @@ type FormData = z.infer<typeof schema>
 interface CategoryProp {
   id: number
   name: string
+  ticker?: string | null
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   budgetedAmount: number
   notes: string | null
@@ -40,6 +42,7 @@ interface Props {
   weekStart?: string
   isIncomeGroup?: boolean
   isDebtGroup?: boolean
+  isInvestmentGroup?: boolean
   category?: CategoryProp | null
   fullCategory?: BudgetCategory
   transactionalAccounts?: Account[]
@@ -61,7 +64,7 @@ function getPeriodStart(weekStart: string, period: string): string {
   }
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, category, fullCategory, transactionalAccounts }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
 
@@ -69,6 +72,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      ticker: '',
       budgetedAmount: '0.00',
       period: 'weekly',
       notes: '',
@@ -95,6 +99,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
         setIsInvestment(category.isInvestment)
         reset({
           name: category.name,
+          ticker: category.ticker ?? '',
           budgetedAmount: (category.budgetedAmount / 100).toFixed(2),
           period: category.period,
           notes: category.notes ?? '',
@@ -102,7 +107,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       } else {
         setCatchUp(false)
         setIsInvestment(false)
-        reset({ name: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
+        reset({ name: '', ticker: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
       }
     }
   }, [open, category, reset])
@@ -137,12 +142,13 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       period: data.period,
       notes: data.notes || null,
       catchUp,
-      isInvestment,
+      isInvestment: isInvestmentGroup ? true : isInvestment,
+      ticker: isInvestmentGroup ? (data.ticker?.toUpperCase().trim() || null) : null,
     })
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Category' : 'Add Category'}>
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Category' : (isInvestmentGroup ? 'Add Investment' : 'Add Category')}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <p className="text-xs text-muted">Group: {groupName}</p>
 
@@ -154,6 +160,15 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           </div>
         ) : (
           <Input label="Name" {...register('name')} error={errors.name?.message} />
+        )}
+
+        {isInvestmentGroup && (
+          <Input
+            label="Ticker"
+            placeholder="e.g. VAS.AX"
+            {...register('ticker')}
+            className="uppercase"
+          />
         )}
 
         <div className={`grid gap-3 ${isIncomeGroup ? '' : 'grid-cols-2'}`}>
@@ -196,7 +211,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           </div>
         )}
 
-        {!isDebtGroup && !isIncomeGroup && (
+        {!isDebtGroup && !isIncomeGroup && !isInvestmentGroup && (
           <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
             <div>
               <div className="text-sm font-medium text-primary">Investment Category</div>
