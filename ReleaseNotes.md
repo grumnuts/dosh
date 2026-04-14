@@ -4,7 +4,7 @@
 
 ---
 
-## v1.12.0 — 2026-04-14
+## v1.12.0 — 2026-04-15
 
 ### New Features
 - **Investment tracking** — mark a budget category as an investment and associate a ticker; buy and sell transactions record quantity held; a portfolio view in Reports shows holdings, current price, market value, and gain/loss
@@ -33,6 +33,7 @@
 - Portfolio holdings correctly aggregate per ticker across all accounts
 - Modal scroll lock on mobile now preserves the page scroll position when the modal is closed
 - Modal bottom padding on mobile increased to clear the bottom navigation bar
+- Investment quantity field now supports up to 10 decimal places
 
 ---
 

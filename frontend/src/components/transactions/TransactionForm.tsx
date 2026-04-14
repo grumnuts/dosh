@@ -457,9 +457,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
             <Input
               label="Quantity"
               type="number"
-              step="0.0001"
-              min="0.0001"
-              placeholder="0.0000"
+              step="0.0000000001"
+              min="0.0000000001"
+              placeholder="0.0000000000"
               {...register('investmentQuantity')}
             />
           </div>
