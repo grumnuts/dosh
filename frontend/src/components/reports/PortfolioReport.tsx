@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { NetWorthReport } from './NetWorthReport'
 import { GoalReport } from './GoalReport'
 import { InvestmentsReport } from './InvestmentsReport'
+import { investmentsApi } from '../../api/investments'
 
 function CollapsibleSection({ title, storageKey, children }: { title: string; storageKey: string; children: React.ReactNode }) {
   const [open, setOpen] = useLocalStorageBool(storageKey, true)
@@ -22,12 +24,15 @@ function CollapsibleSection({ title, storageKey, children }: { title: string; st
 }
 
 export function PortfolioReport() {
+  const { data } = useQuery({
+    queryKey: ['investments', 'holdings'],
+    queryFn: investmentsApi.holdings,
+  })
+
+  const hasHoldings = (data?.holdings.length ?? 0) > 0
+
   return (
     <div className="space-y-2">
-      <CollapsibleSection title="Investments" storageKey="dosh:report-open:portfolio-investments">
-        <InvestmentsReport />
-      </CollapsibleSection>
-
       <CollapsibleSection title="Net Worth" storageKey="dosh:report-open:portfolio-networth">
         <NetWorthReport section="networth" />
       </CollapsibleSection>
@@ -39,6 +44,12 @@ export function PortfolioReport() {
       <CollapsibleSection title="Goals" storageKey="dosh:report-open:portfolio-goals">
         <GoalReport />
       </CollapsibleSection>
+
+      {hasHoldings && (
+        <CollapsibleSection title="Investments" storageKey="dosh:report-open:portfolio-investments">
+          <InvestmentsReport />
+        </CollapsibleSection>
+      )}
     </div>
   )
 }
