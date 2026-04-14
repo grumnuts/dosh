@@ -66,6 +66,54 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(rows)
   })
 
+  // GET /api/reports/income?year=YYYY — income category totals by month
+  app.get('/api/reports/income', { preHandler: authenticate }, async (request, reply) => {
+    const query = yearSchema.safeParse(request.query)
+    if (!query.success) return reply.code(400).send({ error: 'Invalid year' })
+    const { year } = query.data
+    const db = getDb()
+
+    const rows = db
+      .prepare(
+        `SELECT bc.name AS category, bg.name AS group_name,
+                bc.id AS category_id, bg.sort_order AS group_sort, bc.sort_order AS cat_sort,
+                strftime('%m', combined.date) AS month,
+                SUM(combined.amount) AS total_cents
+         FROM (
+           SELECT ts.amount, ts.category_id, t.date
+           FROM transaction_splits ts
+           JOIN transactions t ON t.id = ts.transaction_id
+           WHERE t.type NOT IN ('transfer','cover','sweep')
+             AND strftime('%Y', t.date) = ?
+             AND ts.category_id IS NOT NULL
+           UNION ALL
+           SELECT t.amount, t.category_id, t.date
+           FROM transactions t
+           WHERE t.type NOT IN ('transfer','cover','sweep')
+             AND strftime('%Y', t.date) = ?
+             AND t.category_id IS NOT NULL
+             AND t.id NOT IN (SELECT DISTINCT transaction_id FROM transaction_splits)
+         ) AS combined
+         JOIN budget_categories bc ON bc.id = combined.category_id
+         JOIN budget_groups bg ON bg.id = bc.group_id
+         WHERE bg.is_income = 1
+         GROUP BY combined.category_id, month
+         HAVING SUM(combined.amount) > 0
+         ORDER BY bg.sort_order, bc.sort_order, month`,
+      )
+      .all(year, year) as Array<{
+      category: string
+      group_name: string
+      category_id: number
+      group_sort: number
+      cat_sort: number
+      month: string
+      total_cents: number
+    }>
+
+    return reply.send(rows)
+  })
+
   // GET /api/reports/overspend?year=YYYY — overspend per category, period-aware
   app.get('/api/reports/overspend', { preHandler: authenticate }, async (request, reply) => {
     const query = yearSchema.safeParse(request.query)
@@ -458,7 +506,23 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const debtAccounts = db
       .prepare(
         `SELECT id, name, starting_balance,
-                starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
+                starting_balance
+                + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0)
+                + COALESCE((
+                    SELECT -SUM(pt.amount)
+                    FROM transactions pt
+                    JOIN budget_categories bc ON pt.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND pt.amount < 0
+                  ), 0)
+                + COALESCE((
+                    SELECT -SUM(ts.amount)
+                    FROM transaction_splits ts
+                    JOIN transactions pt ON ts.transaction_id = pt.id
+                    JOIN budget_categories bc ON ts.category_id = bc.id
+                    WHERE bc.linked_account_id = a.id AND pt.account_id != a.id
+                      AND pt.type = 'transaction' AND ts.amount < 0
+                  ), 0) AS current_balance
          FROM accounts a
          WHERE type = 'debt' AND is_active = 1`,
       )

@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format, parseISO, startOfWeek } from 'date-fns'
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
@@ -124,6 +124,7 @@ const baseAccountSchema = z.object({
   notes: z.string().optional(),
   goalAmount: z.string().optional(),
   goalTargetDate: z.string().optional(),
+  startingBalanceDate: z.string().optional(),
 })
 
 const createAccountSchema = baseAccountSchema.extend({
@@ -201,7 +202,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       goalAmount: account?.goalAmount ? (account.goalAmount / 100).toFixed(2) : '',
       goalTargetDate: account?.goalTargetDate ?? '',
       startingBalance: '0.00',
-      startingBalanceDate: today,
+      startingBalanceDate: isEdit ? (account?.startingBalanceDate ?? today) : today,
     },
   })
 
@@ -219,6 +220,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports', 'goals'] })
       onClose()
     },
   })
@@ -272,7 +274,8 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       : null
     const goalTargetDate = data.type === 'savings' && data.goalTargetDate ? data.goalTargetDate : null
     if (isEdit) {
-      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents, goalTargetDate })
+      const startingBalanceDate = data.type === 'debt' && data.startingBalanceDate ? data.startingBalanceDate : undefined
+      mutation.mutate({ name: data.name, type: data.type, notes: data.notes || null, goalAmount: goalCents, goalTargetDate, startingBalanceDate })
     } else {
       const balanceCents = Math.round(parseFloat(data.startingBalance || '0') * 100)
       mutation.mutate({
@@ -397,6 +400,14 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
             {...register('startingBalanceDate')}
           />
         </div>
+      )}
+      {isEdit && watchedType === 'debt' && !isClosed && (
+        <Input
+          label="Debt started"
+          type="date"
+          {...register('startingBalanceDate')}
+          hint="Date of the starting balance transaction"
+        />
       )}
       <Textarea label="Notes (optional)" {...register('notes')} rows={2} disabled={isClosed} />
       {mutation.isError && (
@@ -620,6 +631,40 @@ export function AccountsPage() {
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
   const currentWeekStart = format(startOfWeek(new Date(), { weekStartsOn }), 'yyyy-MM-dd')
+
+  const quickDateRanges = {
+    'This week': {
+      start: format(startOfWeek(new Date(), { weekStartsOn }), 'yyyy-MM-dd'),
+      end: format(endOfWeek(new Date(), { weekStartsOn }), 'yyyy-MM-dd'),
+    },
+    'Last week': {
+      start: format(startOfWeek(subWeeks(new Date(), 1), { weekStartsOn }), 'yyyy-MM-dd'),
+      end: format(endOfWeek(subWeeks(new Date(), 1), { weekStartsOn }), 'yyyy-MM-dd'),
+    },
+    'This month': {
+      start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+      end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+    },
+    'Last month': {
+      start: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+      end: format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+    },
+  } as const
+
+  type QuickLabel = keyof typeof quickDateRanges
+  const activeQuickFilter = (Object.keys(quickDateRanges) as QuickLabel[]).find(
+    (label) => filters.startDate === quickDateRanges[label].start && filters.endDate === quickDateRanges[label].end
+  ) ?? null
+
+  const applyQuickFilter = (label: QuickLabel) => {
+    if (activeQuickFilter === label) {
+      setFilters((prev) => ({ ...prev, startDate: '', endDate: '' }))
+    } else {
+      const { start, end } = quickDateRanges[label]
+      setFilters((prev) => ({ ...prev, startDate: start, endDate: end }))
+    }
+    setPage(0)
+  }
   const { data: currentBudget } = useQuery({
     queryKey: ['budget', currentWeekStart],
     queryFn: () => budgetApi.getWeek(currentWeekStart),
@@ -976,7 +1021,22 @@ export function AccountsPage() {
               showClear
             />
           </div>
-          <div className="flex gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
+              <button
+                key={label}
+                onClick={() => applyQuickFilter(label)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  activeQuickFilter === label
+                    ? 'bg-accent text-black border-accent'
+                    : 'border-border text-secondary hover:text-primary hover:border-primary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3 pt-1">
             <Button variant="danger" className="flex-1" onClick={() => { clearFilters(); setFiltersOpen(false) }}>Clear</Button>
             <Button className="flex-1" onClick={() => setFiltersOpen(false)}>Show Results</Button>
           </div>
@@ -1021,6 +1081,21 @@ export function AccountsPage() {
                 showClear
               />
             </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
+              <button
+                key={label}
+                onClick={() => applyQuickFilter(label)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  activeQuickFilter === label
+                    ? 'bg-accent text-black border-accent'
+                    : 'border-border text-secondary hover:text-primary hover:border-primary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">Clear filters</button>
