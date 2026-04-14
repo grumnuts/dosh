@@ -24,7 +24,7 @@ export function BottomNav() {
         <NavLink to="/budget" className={tabClass}>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm0 5h18M10 3v16" />
+              d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm2 3h10v4H7V6zm0 7h.01M12 13h.01M17 13h.01M7 17h.01M12 17h.01M17 17h.01" />
           </svg>
           <span>Budget</span>
         </NavLink>
