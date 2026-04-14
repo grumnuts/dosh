@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### New Features
+- New **Portfolio** tab on the Reports page — groups Net Worth, Account Balances, and Goals into one place
+- New **Income by Category** report in the Cashflow tab — stacked bar chart broken down by income group, with a full 12-month category table on desktop and a month-selector breakdown on mobile
+
+### Enhancements
+- Reports page reorganised: Cashflow tab now contains Spending by Category, Overspend, Income by Category, In vs Out, and Payees; Goals moved under the Portfolio tab alongside Net Worth and Account Balances
+- In vs Out account filter replaced with a left-side account list (same style as Payees) — "All accounts" selected by default
+- Cashflow section order updated: Spending by Category → Overspend → Income by Category → In vs Out → Payees
+- Net Worth chart now appears above the summary stat cards
+- Net Worth line colour turns red when net worth is negative or trending down month-over-month
+- Account balances chart Y-axis now always includes $0 when an individual account is selected, with clean tick intervals
+- Net worth, assets, and liabilities charts Y-axis domain now always extends down to $0 (or below for negative balances)
+- Goal charts now use a custom solid/dashed line legend instead of the Recharts default
+- Debt started date can now be edited from the debt account editor
+
+### Bug Fixes
+- Categorised debt payments are now correctly included in goal payoff projections
+- Debt current balance in goal projections now calculated correctly
+- In vs Out now correctly handles split transactions
+- Modal scroll lock on mobile now preserves the page scroll position when the modal is closed
+- Modal bottom padding on mobile increased to clear the bottom navigation bar
+
 ---
 
 ## v1.11.1 — 2026-04-12
