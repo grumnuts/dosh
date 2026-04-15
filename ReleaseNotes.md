@@ -4,6 +4,19 @@
 
 ---
 
+## v1.12.1 — 2026-04-15
+
+### Enhancements
+- In vs Out report now includes all cash flows — transfers, covers, and sweeps are counted alongside income and expenses
+
+### Bug Fixes
+- Ledger net worth now includes current investment portfolio value
+- Account balances chart Y-axis no longer shows duplicate tick labels; values ≥ $1M now display as `$1M` instead of `$1000k`
+- Overspend report now uses the budget amount in effect at the time of each period rather than an averaged historical amount — fixes false overspend on categories whose budget was ever changed
+- Budget page modals now appear correctly on mobile when the week navigation bar is visible
+
+---
+
 ## v1.12.0 — 2026-04-15
 
 ### New Features
