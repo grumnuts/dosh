@@ -66,6 +66,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         categoryId: z.string().optional(),
         payee: z.string().optional(),
         uncategorised: z.string().optional(),
+        hasReceipts: z.string().optional(),
         search: z.string().optional(),
         limit: z.string().optional(),
         offset: z.string().optional(),
@@ -102,6 +103,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     if (query.uncategorised === 'true') {
       where += ` AND t.category_id IS NULL AND t.type = 'transaction'`
       where += ` AND NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)`
+    }
+    if (query.hasReceipts === 'true') {
+      where += ` AND EXISTS (SELECT 1 FROM transaction_receipts WHERE transaction_id = t.id)`
     }
     if (query.search) {
       where += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`

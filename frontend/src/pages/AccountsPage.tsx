@@ -592,6 +592,7 @@ export function AccountsPage() {
   const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [uncategorisedOnly, setUncategorisedOnly] = useState(false)
+  const [hasReceiptsOnly, setHasReceiptsOnly] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [addTxOpen, setAddTxOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -681,7 +682,7 @@ export function AccountsPage() {
   }
   const { data: payees } = useQuery({ queryKey: ['transactions', 'payees'], queryFn: transactionsApi.payees })
   const { data: txData, isLoading: txLoading } = useQuery({
-    queryKey: ['transactions', filters, uncategorisedOnly, page],
+    queryKey: ['transactions', filters, uncategorisedOnly, hasReceiptsOnly, page],
     queryFn: () =>
       transactionsApi.list({
         startDate: filters.startDate || undefined,
@@ -690,6 +691,7 @@ export function AccountsPage() {
         categoryId: filters.categoryId ? parseInt(filters.categoryId, 10) : undefined,
         payee: filters.payee || undefined,
         uncategorised: uncategorisedOnly || undefined,
+        hasReceipts: hasReceiptsOnly || undefined,
         search: filters.search || undefined,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
@@ -765,9 +767,10 @@ export function AccountsPage() {
   const clearFilters = () => {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
     setUncategorisedOnly(false)
+    setHasReceiptsOnly(false)
     setPage(0)
   }
-  const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly
+  const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly || hasReceiptsOnly
 
   const openAccountsAll = accounts?.filter((a) => !a.closedAt) ?? []
   const portfolioValueCents = holdingsData?.totalMarketValueCents ?? 0
@@ -1028,6 +1031,15 @@ export function AccountsPage() {
               showClear
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasReceiptsOnly}
+              onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm text-secondary">Has receipts</span>
+          </label>
           <div className="grid grid-cols-2 gap-2 pt-1">
             {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
               <button
@@ -1089,20 +1101,31 @@ export function AccountsPage() {
               />
             </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
-              <button
-                key={label}
-                onClick={() => applyQuickFilter(label)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  activeQuickFilter === label
-                    ? 'bg-accent text-black border-accent'
-                    : 'border-border text-secondary hover:text-primary hover:border-primary'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hasReceiptsOnly}
+                onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
+                className="w-4 h-4 accent-accent"
+              />
+              <span className="text-sm text-secondary">Has receipts</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
+                <button
+                  key={label}
+                  onClick={() => applyQuickFilter(label)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    activeQuickFilter === label
+                      ? 'bg-accent text-black border-accent'
+                      : 'border-border text-secondary hover:text-primary hover:border-primary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">Clear filters</button>
