@@ -591,6 +591,13 @@ export function AccountsPage() {
   // Transaction state
   const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
   const [uncategorisedOnly, setUncategorisedOnly] = useState(false)
   const [hasReceiptsOnly, setHasReceiptsOnly] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
@@ -996,7 +1003,7 @@ export function AccountsPage() {
 
       {/* Filter modal — mobile */}
       <div className="md:hidden">
-      <Modal open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+      <Modal open={filtersOpen && isMobile} onClose={() => setFiltersOpen(false)} title="Filters">
         <div className="space-y-4 py-1">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted uppercase tracking-wide">From</label>
