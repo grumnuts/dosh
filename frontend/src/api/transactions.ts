@@ -30,6 +30,7 @@ export interface Transaction {
   cover_week_start: string | null
   ignore_rules: number
   running_balance: number
+  receipt_count: number
   created_at: string
   splits: TransactionSplit[]
 }

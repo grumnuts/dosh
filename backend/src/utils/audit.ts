@@ -34,6 +34,8 @@ export type AuditEventType =
   | 'rule.updated'
   | 'rule.deleted'
   | 'rules.run'
+  | 'receipt.uploaded'
+  | 'receipt.deleted'
 
 export interface AuditDetails {
   [key: string]: unknown

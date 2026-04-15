@@ -11,6 +11,7 @@ import { formatMoney } from '../ui/AmountDisplay'
 import { CategoryCombobox } from '../ui/CategoryCombobox'
 import { ConfirmModal } from '../ui/ConfirmModal'
 import { transactionsApi, Transaction } from '../../api/transactions'
+import { ReceiptsSection } from './ReceiptsSection'
 import { accountsApi } from '../../api/accounts'
 import { budgetApi } from '../../api/budget'
 import { payeesApi } from '../../api/payees'
@@ -561,6 +562,10 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
               {transaction.category_name ?? 'Uncategorised'}
             </div>
           </div>
+        )}
+
+        {isEdit && transaction && (
+          <ReceiptsSection transactionId={transaction.id} />
         )}
 
         {!isCover && (

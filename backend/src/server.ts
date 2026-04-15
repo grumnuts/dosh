@@ -17,6 +17,7 @@ import { ruleRoutes } from './routes/rules'
 import { settingsRoutes } from './routes/settings'
 import { reportRoutes } from './routes/reports'
 import { investmentRoutes } from './routes/investments'
+import { receiptRoutes } from './routes/receipts'
 import { refreshAllPrices } from './services/investments'
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10)
@@ -62,6 +63,7 @@ async function start(): Promise<void> {
   await app.register(settingsRoutes)
   await app.register(reportRoutes)
   await app.register(investmentRoutes)
+  await app.register(receiptRoutes)
 
   // Hourly price refresh for investment holdings
   refreshAllPrices().catch((err) => console.error('[investments] Initial price refresh failed:', err))

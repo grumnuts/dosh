@@ -137,6 +137,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              t.type, t.transfer_pair_id, pair_acct.id as transfer_pair_account_id,
              t.cover_week_start, t.ignore_rules, t.created_at,
              t.investment_ticker, t.investment_quantity,
+             (SELECT COUNT(*) FROM transaction_receipts WHERE transaction_id = t.id) as receipt_count,
              a.starting_balance + (
                SELECT COALESCE(SUM(t2.amount), 0)
                FROM transactions t2

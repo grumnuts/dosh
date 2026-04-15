@@ -1186,7 +1186,14 @@ export function AccountsPage() {
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
                     <td className="pl-5 pr-2 py-2.5 sm:px-3 overflow-hidden">
-                      <div className="text-sm text-primary truncate">{tx.account_name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-primary truncate">{tx.account_name}</span>
+                        {tx.receipt_count > 0 && (
+                          <svg className="w-3 h-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-label="Has receipts">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                          </svg>
+                        )}
+                      </div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
                         {tx.splits.length > 0
                           ? <span className="text-muted italic">Split</span>
