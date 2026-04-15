@@ -1101,31 +1101,29 @@ export function AccountsPage() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={hasReceiptsOnly}
-                onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
-                className="w-4 h-4 accent-accent"
-              />
-              <span className="text-sm text-secondary">Has receipts</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
-                <button
-                  key={label}
-                  onClick={() => applyQuickFilter(label)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    activeQuickFilter === label
-                      ? 'bg-accent text-black border-accent'
-                      : 'border-border text-secondary hover:text-primary hover:border-primary'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasReceiptsOnly}
+              onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm text-secondary">Has receipts</span>
+          </label>
+          <div className="flex flex-wrap justify-center gap-2">
+            {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
+              <button
+                key={label}
+                onClick={() => applyQuickFilter(label)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  activeQuickFilter === label
+                    ? 'bg-accent text-black border-accent'
+                    : 'border-border text-secondary hover:text-primary hover:border-primary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">Clear filters</button>
