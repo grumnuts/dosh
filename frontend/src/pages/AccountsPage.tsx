@@ -1108,16 +1108,7 @@ export function AccountsPage() {
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={hasReceiptsOnly}
-              onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
-              className="w-4 h-4 accent-accent"
-            />
-            <span className="text-sm text-secondary">Has receipts</span>
-          </label>
-          <div className="flex flex-wrap justify-center gap-2">
+          <div className="flex flex-wrap justify-center items-center gap-2">
             {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
               <button
                 key={label}
@@ -1131,6 +1122,15 @@ export function AccountsPage() {
                 {label}
               </button>
             ))}
+            <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-1.5">
+              <input
+                type="checkbox"
+                checked={hasReceiptsOnly}
+                onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
+                className="w-3.5 h-3.5 accent-accent"
+              />
+              <span className="text-xs font-medium text-secondary">Has receipts</span>
+            </label>
           </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">Clear filters</button>
