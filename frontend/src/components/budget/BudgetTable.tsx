@@ -1016,7 +1016,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                   <th className="px-2 py-3 text-left font-medium relative" style={{ width: widths.category }}>Savings &amp; Investments<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
                   <th className="px-1.5 sm:px-2 py-3 text-right font-medium hidden md:table-cell relative" style={{ width: widths.budgeted }}>Budgeted<ResizeHandle onMouseDown={(e) => onResizeStart('budgeted', e)} /></th>
                   <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.weekly }}>Weekly<ResizeHandle onMouseDown={(e) => onResizeStart('weekly', e)} /></th>
-                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.spent }}>Contributed<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
+                  <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.spent }}>Contributed<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
                   <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
                   <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16" />
                 </tr>
