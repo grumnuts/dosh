@@ -8,6 +8,7 @@
 
 ### Bug Fixes
 - In vs Out report query simplified to correctly capture all cash flows; excludes system-category entries (starting balance, reconciliation) rather than filtering by category type
+- Fixed Rules page group edit modal pre-populating with the wrong group name
 
 ---
 

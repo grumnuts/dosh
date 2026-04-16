@@ -78,7 +78,6 @@ function GroupModal({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Categorisation"
           autoFocus
-          key={String(open)}
         />
         {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex items-center justify-between pb-safe">
@@ -294,6 +293,7 @@ export function RulesPage() {
 
       {/* Group modal */}
       <GroupModal
+        key={groupModal.group?.id ?? 'new'}
         open={groupModal.open}
         onClose={() => setGroupModal({ open: false })}
         initial={groupModal.group?.name ?? ''}
