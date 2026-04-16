@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { investmentsApi } from '../../api/investments'
 import {
   LineChart,
   Line,
@@ -132,35 +133,52 @@ export function NetWorthReport({ section }: Props = {}) {
   }
 
   if (section === 'breakdown') {
-    const assetList = assets.sort((a, b) => b.currentBalance - a.currentBalance)
-    const percentages = distributePercentages(assetList.map((a) => a.currentBalance))
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { data: holdingsData } = useQuery({
+      queryKey: ['investments', 'holdings'],
+      queryFn: investmentsApi.holdings,
+    })
 
-    if (assetList.length === 0) {
+    // Build the flat asset list: non-investment accounts + one row per investment ticker
+    const rows: Array<{ key: string; name: string; balanceCents: number }> = []
+
+    for (const a of assets) {
+      if (a.type === 'investment_portfolio') {
+        // Explode into individual tickers
+        for (const h of holdingsData?.holdings ?? []) {
+          if (h.marketValueCents > 0) {
+            rows.push({ key: `ticker:${h.ticker}`, name: h.ticker, balanceCents: h.marketValueCents })
+          }
+        }
+      } else {
+        rows.push({ key: `account:${a.id}`, name: a.name, balanceCents: a.currentBalance })
+      }
+    }
+
+    rows.sort((a, b) => b.balanceCents - a.balanceCents)
+    const percentages = distributePercentages(rows.map((r) => r.balanceCents))
+
+    if (rows.length === 0) {
       return <div className="py-6 text-center text-sm text-secondary">No assets to display.</div>
     }
 
     return (
-      <div className="space-y-2">
-        {assetList.map((a, i) => {
-          const pct = parseFloat(percentages[i])
-          return (
-            <div key={a.id} className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-sm text-primary truncate">{a.name}</span>
-                  <span className="text-sm font-mono tabular-nums text-secondary shrink-0">{percentages[i]}%</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-surface-3">
-                  <div
-                    className="h-1.5 rounded-full bg-accent"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
+            <th className="text-left py-2 font-medium">Asset</th>
+            <th className="text-right py-2 font-medium">% of Assets</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/50">
+          {rows.map((row, i) => (
+            <tr key={row.key}>
+              <td className="py-2 text-primary">{row.name}</td>
+              <td className="py-2 text-right font-mono tabular-nums text-secondary">{percentages[i]}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     )
   }
 
