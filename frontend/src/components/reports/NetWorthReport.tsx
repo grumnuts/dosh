@@ -57,6 +57,13 @@ export function NetWorthReport({ section }: Props = {}) {
     queryFn: reportsApi.networth,
   })
 
+  // Must be called unconditionally — used only when section === 'breakdown'
+  const { data: holdingsData } = useQuery({
+    queryKey: ['investments', 'holdings'],
+    queryFn: investmentsApi.holdings,
+    enabled: section === 'breakdown',
+  })
+
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.netWorth.length === 0) return <div className="py-12 text-center text-secondary">No account data available.</div>
 
@@ -133,12 +140,6 @@ export function NetWorthReport({ section }: Props = {}) {
   }
 
   if (section === 'breakdown') {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { data: holdingsData } = useQuery({
-      queryKey: ['investments', 'holdings'],
-      queryFn: investmentsApi.holdings,
-    })
-
     // Build the flat asset list: non-investment accounts + one row per investment ticker
     const rows: Array<{ key: string; name: string; balanceCents: number }> = []
 
