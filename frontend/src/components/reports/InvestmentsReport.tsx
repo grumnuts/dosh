@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   LineChart,
@@ -50,6 +50,7 @@ function GainLossPct({ holding }: { holding: HoldingRow }) {
 
 export function InvestmentsReport() {
   const qc = useQueryClient()
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['investments', 'holdings'],
@@ -94,6 +95,18 @@ export function InvestmentsReport() {
     (historyData?.tickers ?? data.holdings.map((h) => h.ticker)).map((t, i) => [t, TICKER_COLOURS[i % TICKER_COLOURS.length]])
   )
 
+  // Derive chart display data based on selection
+  const displayChartData = historyData?.chartData.map((row) => {
+    if (selectedTicker) {
+      return { month: row.month, [selectedTicker]: row[selectedTicker] ?? 0 }
+    }
+    const total = historyData.tickers.reduce((sum, t) => sum + ((row[t] as number) ?? 0), 0)
+    return { month: row.month, total }
+  }) ?? []
+  const displayKey = selectedTicker ?? 'total'
+  const displayColour = selectedTicker ? (tickerColourMap.get(selectedTicker) ?? '#60a5fa') : '#4ade80'
+  const displayLabel = selectedTicker ?? 'Portfolio'
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -134,11 +147,13 @@ export function InvestmentsReport() {
       </div>
 
       {/* Portfolio value chart */}
-      {historyData && historyData.chartData.length > 1 && (
+      {historyData && displayChartData.length > 1 && (
         <div className="card p-4">
-          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Portfolio Value Over Time</p>
+          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">
+            {selectedTicker ? `${selectedTicker} Value Over Time` : 'Portfolio Value Over Time'}
+          </p>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={historyData.chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+            <LineChart data={displayChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
               <YAxis
@@ -151,19 +166,16 @@ export function InvestmentsReport() {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
-                formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
+                formatter={(value) => [formatMoney(Math.round((value as number) * 100)), displayLabel]}
               />
-              {historyData.tickers.map((ticker) => (
-                <Line
-                  key={ticker}
-                  type="monotone"
-                  dataKey={ticker}
-                  stroke={tickerColourMap.get(ticker) ?? '#60a5fa'}
-                  strokeWidth={2}
-                  dot={false}
-                  name={ticker}
-                />
-              ))}
+              <Line
+                type="monotone"
+                dataKey={displayKey}
+                stroke={displayColour}
+                strokeWidth={2}
+                dot={false}
+                name={displayLabel}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -186,8 +198,13 @@ export function InvestmentsReport() {
             {data.holdings.map((h) => {
               const avgCostCents = h.quantity > 0 ? Math.round(h.costBasisCents / h.quantity) : 0
               const colour = tickerColourMap.get(h.ticker)
+              const isSelected = selectedTicker === h.ticker
               return (
-                <tr key={h.ticker} className="hover:bg-surface-2/50 transition-colors">
+                <tr
+                  key={h.ticker}
+                  className={`cursor-pointer transition-colors ${isSelected ? 'bg-surface-2' : 'hover:bg-surface-2/50'}`}
+                  onClick={() => setSelectedTicker(isSelected ? null : h.ticker)}
+                >
                   <td className="py-2.5 pr-3">
                     <div className="flex items-center gap-2">
                       {colour && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colour }} />}

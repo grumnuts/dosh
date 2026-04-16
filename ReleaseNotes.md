@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### New Features
+- Investments report now shows a portfolio value-over-time chart; clicking a holding focuses the chart on that ticker
+
 ---
 
 ## v1.12.1 — 2026-04-15
