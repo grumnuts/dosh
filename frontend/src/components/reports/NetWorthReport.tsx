@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { investmentsApi } from '../../api/investments'
 import {
   LineChart,
   Line,
@@ -28,8 +29,24 @@ const ACCOUNT_COLOURS = [
   '#38bdf8', '#facc15', '#4ade80', '#f87171', '#818cf8',
 ]
 
+// Distribute percentages across items so they sum to exactly 100.00%
+// Uses the largest-remainder method (units of 0.01%).
+function distributePercentages(values: number[]): string[] {
+  const total = values.reduce((s, v) => s + v, 0)
+  if (total === 0) return values.map(() => '0.00')
+  const raw = values.map((v) => (v / total) * 10000)
+  const floored = raw.map((r) => Math.floor(r))
+  const slots = 10000 - floored.reduce((s, v) => s + v, 0)
+  const order = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac)
+  const result = [...floored]
+  for (let k = 0; k < slots; k++) result[order[k % order.length].i] += 1
+  return result.map((v) => (v / 100).toFixed(2))
+}
+
 interface Props {
-  section?: 'networth' | 'balances'
+  section?: 'networth' | 'balances' | 'breakdown'
 }
 
 export function NetWorthReport({ section }: Props = {}) {
@@ -112,6 +129,56 @@ export function NetWorthReport({ section }: Props = {}) {
           </div>
         </div>
       </div>
+    )
+  }
+
+  if (section === 'breakdown') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { data: holdingsData } = useQuery({
+      queryKey: ['investments', 'holdings'],
+      queryFn: investmentsApi.holdings,
+    })
+
+    // Build the flat asset list: non-investment accounts + one row per investment ticker
+    const rows: Array<{ key: string; name: string; balanceCents: number }> = []
+
+    for (const a of assets) {
+      if (a.type === 'investment_portfolio') {
+        // Explode into individual tickers
+        for (const h of holdingsData?.holdings ?? []) {
+          if (h.marketValueCents > 0) {
+            rows.push({ key: `ticker:${h.ticker}`, name: h.ticker, balanceCents: h.marketValueCents })
+          }
+        }
+      } else {
+        rows.push({ key: `account:${a.id}`, name: a.name, balanceCents: a.currentBalance })
+      }
+    }
+
+    rows.sort((a, b) => b.balanceCents - a.balanceCents)
+    const percentages = distributePercentages(rows.map((r) => r.balanceCents))
+
+    if (rows.length === 0) {
+      return <div className="py-6 text-center text-sm text-secondary">No assets to display.</div>
+    }
+
+    return (
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
+            <th className="text-left py-2 font-medium">Asset</th>
+            <th className="text-right py-2 font-medium">% of Assets</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/50">
+          {rows.map((row, i) => (
+            <tr key={row.key}>
+              <td className="py-2 text-primary">{row.name}</td>
+              <td className="py-2 text-right font-mono tabular-nums text-secondary">{percentages[i]}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     )
   }
 

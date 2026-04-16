@@ -37,6 +37,10 @@ export function PortfolioReport() {
         <NetWorthReport section="networth" />
       </CollapsibleSection>
 
+      <CollapsibleSection title="Portfolio Breakdown" storageKey="dosh:report-open:portfolio-breakdown">
+        <NetWorthReport section="breakdown" />
+      </CollapsibleSection>
+
       <CollapsibleSection title="Account Balances" storageKey="dosh:report-open:portfolio-balances">
         <NetWorthReport section="balances" />
       </CollapsibleSection>
