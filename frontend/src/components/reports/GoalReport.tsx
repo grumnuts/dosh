@@ -54,6 +54,11 @@ function buildChartData(series: GoalSeries) {
   return chartData
 }
 
+function formatYearMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-')
+  return `${month}/${year.slice(2)}`
+}
+
 function weeksUntilEndOfMonth(yearMonth: string): number {
   const [year, month] = yearMonth.split('-').map(Number)
   const endOfMonth = new Date(year, month, 0) // last day of that month
@@ -92,7 +97,7 @@ function GoalCard({ series }: { series: GoalSeries }) {
         </>
       )
     } else if (projectionHitsGoal) {
-      statusLabel = <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
+      statusLabel = <p className="text-sm text-muted">Projected: {formatYearMonth(projectedEnd!.month)}</p>
     } else if (projectedEnd) {
       statusLabel = <p className="text-sm text-muted">Projected: 20+ years</p>
     }
@@ -161,7 +166,7 @@ function DebtCard({ series }: { series: GoalSeries }) {
   let statusLabel: React.ReactNode = null
   if (!paidOff) {
     if (projectionPayedOff) {
-      statusLabel = <p className="text-sm text-muted">Projected: {projectedEnd!.month}</p>
+      statusLabel = <p className="text-sm text-muted">Projected: {formatYearMonth(projectedEnd!.month)}</p>
     } else if (projectedEnd) {
       statusLabel = <p className="text-sm text-muted">Projected: 20+ years</p>
     }

@@ -11,6 +11,7 @@
 - Fixed Rules page group edit modal pre-populating with the wrong group name
 - Fixed false positive conflict detection for OR-logic rules whose conditions are on different fields than the existing rule
 - Fixed reconciliation with a past date incorrectly including post-date transactions in the balance calculation, causing the adjustment to offset the current balance
+- Fixed predicted payoff/goal date displaying as YYYY-MM; now shown as MM/YY
 - Rule conflict detection now shows a warning instead of a hard block, with a "Save anyway" option for false positives
 
 ---
