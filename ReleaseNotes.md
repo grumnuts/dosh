@@ -16,6 +16,8 @@
 ### New Features
 - Investments report now shows a portfolio value-over-time chart; clicking a holding focuses the chart on that ticker
 - New Portfolio Breakdown section shows each asset as a percentage of total assets; investment tickers are listed individually
+- Receipt attachments for transactions — attach JPEG, PNG, WebP, GIF, or PDF files (up to 10 MB) to any transaction; receipts are stored on the server and viewable inline; a paperclip icon appears on transaction rows that have attachments
+- "Has receipts" filter on the transaction list — show only transactions with attachments
 
 ### Bug Fixes
 - In vs Out report query simplified to correctly capture all cash flows; excludes system-category entries (starting balance, reconciliation) rather than filtering by category type
@@ -26,6 +28,7 @@
 - Fixed investment cost basis showing $0 when a purchase was entered as a credit transaction; cost basis now uses ABS(amount) weighted by quantity sign, correct regardless of debit or credit entry
 - Fixed sell transactions not reducing holdings quantity; credit (sell) transactions now correctly negate the quantity
 - Refreshing prices now also recalculates all holdings cost basis, fixing any stale data
+- Fixed Contributed column header not shown on mobile in the Savings & Investments section
 
 ---
 
