@@ -4,6 +4,13 @@
 
 ---
 
+## v1.13.1 — 2026-04-16
+
+### Bug Fixes
+- Fixed Reports page rendering a black screen after navigating to it — caused by a React hooks violation introduced in v1.13.0
+
+---
+
 ## v1.13.0 — 2026-04-16
 
 ### New Features
