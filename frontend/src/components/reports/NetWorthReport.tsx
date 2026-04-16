@@ -28,8 +28,24 @@ const ACCOUNT_COLOURS = [
   '#38bdf8', '#facc15', '#4ade80', '#f87171', '#818cf8',
 ]
 
+// Distribute percentages across items so they sum to exactly 100.00%
+// Uses the largest-remainder method (units of 0.01%).
+function distributePercentages(values: number[]): string[] {
+  const total = values.reduce((s, v) => s + v, 0)
+  if (total === 0) return values.map(() => '0.00')
+  const raw = values.map((v) => (v / total) * 10000)
+  const floored = raw.map((r) => Math.floor(r))
+  const slots = 10000 - floored.reduce((s, v) => s + v, 0)
+  const order = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac)
+  const result = [...floored]
+  for (let k = 0; k < slots; k++) result[order[k % order.length].i] += 1
+  return result.map((v) => (v / 100).toFixed(2))
+}
+
 interface Props {
-  section?: 'networth' | 'balances'
+  section?: 'networth' | 'balances' | 'breakdown'
 }
 
 export function NetWorthReport({ section }: Props = {}) {
@@ -111,6 +127,39 @@ export function NetWorthReport({ section }: Props = {}) {
             </div>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (section === 'breakdown') {
+    const assetList = assets.sort((a, b) => b.currentBalance - a.currentBalance)
+    const percentages = distributePercentages(assetList.map((a) => a.currentBalance))
+
+    if (assetList.length === 0) {
+      return <div className="py-6 text-center text-sm text-secondary">No assets to display.</div>
+    }
+
+    return (
+      <div className="space-y-2">
+        {assetList.map((a, i) => {
+          const pct = parseFloat(percentages[i])
+          return (
+            <div key={a.id} className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm text-primary truncate">{a.name}</span>
+                  <span className="text-sm font-mono tabular-nums text-secondary shrink-0">{percentages[i]}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-surface-3">
+                  <div
+                    className="h-1.5 rounded-full bg-accent"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     )
   }
