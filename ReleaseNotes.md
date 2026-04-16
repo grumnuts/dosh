@@ -4,6 +4,7 @@
 
 ### New Features
 - Investments report now shows a portfolio value-over-time chart; clicking a holding focuses the chart on that ticker
+- New Portfolio Breakdown section shows each asset as a percentage of total assets; investment tickers are listed individually
 
 ### Bug Fixes
 - In vs Out report query simplified to correctly capture all cash flows; excludes system-category entries (starting balance, reconciliation) rather than filtering by category type
