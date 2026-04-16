@@ -286,39 +286,49 @@ export function runRulesOnAllTransactions(db: DatabaseSync, rules?: LoadedRule[]
 
 // ─── Conflict detection ───────────────────────────────────────────────────────
 
+function isMutuallyExclusive(c1: RuleCondition, c2: RuleCondition): boolean {
+  if (c1.field !== c2.field) return false
+  const v1 = c1.value.toLowerCase()
+  const v2 = c2.value.toLowerCase()
+  if (c1.operator === 'is' && c2.operator === 'is' && v1 !== v2) return true
+  if (c1.operator === 'contains' && c2.operator === 'contains' && v1 !== v2 && !v1.includes(v2) && !v2.includes(v1)) return true
+  if (c1.operator === 'starts_with' && c2.operator === 'starts_with' && v1 !== v2 && !v1.startsWith(v2) && !v2.startsWith(v1)) return true
+  if (c1.operator === 'ends_with' && c2.operator === 'ends_with' && v1 !== v2 && !v1.endsWith(v2) && !v2.endsWith(v1)) return true
+  return false
+}
+
 function conditionsCouldOverlap(
   conds1: RuleCondition[],
   logic1: ConditionLogic,
   conds2: RuleCondition[],
   logic2: ConditionLogic,
 ): boolean {
-  // Rules are mutually exclusive (can never match the same transaction) when both
-  // use AND logic and share a pair of conditions on the same field that cannot
-  // both be satisfied simultaneously.
   if (logic1 === 'AND' && logic2 === 'AND') {
+    // Any single pair of same-field mutually exclusive conditions means the rules
+    // can never both match the same transaction.
     for (const c1 of conds1) {
       for (const c2 of conds2) {
-        if (c1.field !== c2.field) continue
-        const v1 = c1.value.toLowerCase()
-        const v2 = c2.value.toLowerCase()
-
-        // field is X vs field is Y (different exact values)
-        if (c1.operator === 'is' && c2.operator === 'is' && v1 !== v2) return false
-
-        // field contains X vs field contains Y — mutually exclusive when neither
-        // value is a substring of the other (no real string can contain both)
-        if (c1.operator === 'contains' && c2.operator === 'contains' && v1 !== v2 && !v1.includes(v2) && !v2.includes(v1)) return false
-
-        // field starts_with X vs field starts_with Y — mutually exclusive when
-        // neither prefix starts with the other
-        if (c1.operator === 'starts_with' && c2.operator === 'starts_with' && v1 !== v2 && !v1.startsWith(v2) && !v2.startsWith(v1)) return false
-
-        // field ends_with X vs field ends_with Y — mutually exclusive when
-        // neither suffix ends with the other
-        if (c1.operator === 'ends_with' && c2.operator === 'ends_with' && v1 !== v2 && !v1.endsWith(v2) && !v2.endsWith(v1)) return false
+        if (isMutuallyExclusive(c1, c2)) return false
       }
     }
+    return true
   }
+
+  if (logic1 === 'OR' || logic2 === 'OR') {
+    // For an OR rule, each condition is an independent match path. We check each
+    // OR condition against the other rule's conditions on the same field. If an
+    // OR condition has no same-field counterpart in the other rule we skip it —
+    // there's no basis for conflict detection across unrelated fields. A conflict
+    // is only flagged when a same-field pair is found that is NOT mutually exclusive.
+    const [orConds, andConds] = logic1 === 'OR' ? [conds1, conds2] : [conds2, conds1]
+    for (const c1 of orConds) {
+      const sameField = andConds.filter((c2) => c2.field === c1.field)
+      if (sameField.length === 0) continue // no same-field assertion in the other rule — skip
+      if (sameField.some((c2) => !isMutuallyExclusive(c1, c2))) return true
+    }
+    return false
+  }
+
   return true
 }
 
