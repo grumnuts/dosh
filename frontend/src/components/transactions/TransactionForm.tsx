@@ -279,9 +279,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         })
       }
 
-      // For category-ticker investments, the ticker is set by the backend from the category
+      // For category-ticker investments, the ticker is set by the backend from the category.
+      // Quantity is negated for sells (credit) so holdings decrease correctly.
       const investmentTicker = isInvestmentCategory && !categoryTicker && data.investmentTicker ? data.investmentTicker.toUpperCase() : null
-      const investmentQuantity = isInvestmentCategory && data.investmentQuantity ? parseFloat(data.investmentQuantity) : null
+      const investmentQuantity = isInvestmentCategory && data.investmentQuantity
+        ? parseFloat(data.investmentQuantity) * (data.type === 'credit' ? -1 : 1)
+        : null
 
       if (isEdit) {
         await transactionsApi.update(transaction!.id, {

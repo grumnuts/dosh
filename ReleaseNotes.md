@@ -10,7 +10,11 @@
 - In vs Out report query simplified to correctly capture all cash flows; excludes system-category entries (starting balance, reconciliation) rather than filtering by category type
 - Fixed Rules page group edit modal pre-populating with the wrong group name
 - Fixed false positive conflict detection for OR-logic rules whose conditions are on different fields than the existing rule
-- Rule conflict detection now shows a warning instead of a hard block, with a "Save anyway" option for false positives
+- Fixed reconciliation with a past date incorrectly including post-date transactions in the balance calculation, causing the adjustment to offset the current balance
+- Fixed predicted payoff/goal date displaying as YYYY-MM; now shown as MM/YY
+- Fixed investment cost basis showing $0 when a purchase was entered as a credit transaction; cost basis now uses ABS(amount) weighted by quantity sign, correct regardless of debit or credit entry
+- Fixed sell transactions not reducing holdings quantity; credit (sell) transactions now correctly negate the quantity
+- Refreshing prices now also recalculates all holdings cost basis, fixing any stale data
 
 ---
 

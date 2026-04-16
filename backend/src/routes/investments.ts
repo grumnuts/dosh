@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { getDb } from '../db/client'
 import { authenticate } from '../middleware/auth'
-import { refreshAllPrices } from '../services/investments'
+import { refreshAllPrices, recalculateAllHoldings } from '../services/investments'
 
 export async function investmentRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/investments/holdings — holdings aggregated per ticker across all accounts
@@ -119,8 +119,9 @@ export async function investmentRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ chartData, tickers })
   })
 
-  // POST /api/investments/prices/refresh — fetch latest prices for all held tickers
+  // POST /api/investments/prices/refresh — recalculate holdings then fetch latest prices
   app.post('/api/investments/prices/refresh', { preHandler: authenticate }, async (_req, reply) => {
+    recalculateAllHoldings()
     await refreshAllPrices()
     return reply.send({ ok: true })
   })
