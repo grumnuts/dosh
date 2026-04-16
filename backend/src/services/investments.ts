@@ -79,12 +79,16 @@ export function recalculateHoldings(accountId: number): void {
   db.exec('BEGIN TRANSACTION')
   try {
     db.prepare('DELETE FROM investment_holdings WHERE account_id = ?').run(accountId)
+    // Cost basis uses ABS(amount) weighted by quantity sign so it is correct regardless of
+    // whether the transaction is a debit (negative amount) or credit (positive amount):
+    //   buy  (quantity > 0): cost increases by ABS(amount)
+    //   sell (quantity < 0): cost decreases by ABS(amount)
     db.prepare(`
       INSERT INTO investment_holdings (account_id, ticker, quantity, cost_basis_cents)
         SELECT account_id,
                investment_ticker,
                SUM(investment_quantity),
-               -SUM(amount)
+               SUM(CASE WHEN investment_quantity >= 0 THEN ABS(amount) ELSE -ABS(amount) END)
         FROM transactions
         WHERE account_id = ? AND investment_ticker IS NOT NULL
         GROUP BY investment_ticker
@@ -94,5 +98,15 @@ export function recalculateHoldings(accountId: number): void {
   } catch (err) {
     db.exec('ROLLBACK')
     throw err
+  }
+}
+
+export function recalculateAllHoldings(): void {
+  const db = getDb()
+  const accounts = db
+    .prepare(`SELECT DISTINCT account_id FROM transactions WHERE investment_ticker IS NOT NULL`)
+    .all() as Array<{ account_id: number }>
+  for (const { account_id } of accounts) {
+    recalculateHoldings(account_id)
   }
 }
