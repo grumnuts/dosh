@@ -591,7 +591,15 @@ export function AccountsPage() {
   // Transaction state
   const [filters, setFilters] = useState({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
   const [uncategorisedOnly, setUncategorisedOnly] = useState(false)
+  const [hasReceiptsOnly, setHasReceiptsOnly] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [addTxOpen, setAddTxOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -681,7 +689,7 @@ export function AccountsPage() {
   }
   const { data: payees } = useQuery({ queryKey: ['transactions', 'payees'], queryFn: transactionsApi.payees })
   const { data: txData, isLoading: txLoading } = useQuery({
-    queryKey: ['transactions', filters, uncategorisedOnly, page],
+    queryKey: ['transactions', filters, uncategorisedOnly, hasReceiptsOnly, page],
     queryFn: () =>
       transactionsApi.list({
         startDate: filters.startDate || undefined,
@@ -690,6 +698,7 @@ export function AccountsPage() {
         categoryId: filters.categoryId ? parseInt(filters.categoryId, 10) : undefined,
         payee: filters.payee || undefined,
         uncategorised: uncategorisedOnly || undefined,
+        hasReceipts: hasReceiptsOnly || undefined,
         search: filters.search || undefined,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
@@ -765,9 +774,10 @@ export function AccountsPage() {
   const clearFilters = () => {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
     setUncategorisedOnly(false)
+    setHasReceiptsOnly(false)
     setPage(0)
   }
-  const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly
+  const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly || hasReceiptsOnly
 
   const openAccountsAll = accounts?.filter((a) => !a.closedAt) ?? []
   const portfolioValueCents = holdingsData?.totalMarketValueCents ?? 0
@@ -993,7 +1003,7 @@ export function AccountsPage() {
 
       {/* Filter modal — mobile */}
       <div className="md:hidden">
-      <Modal open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+      <Modal open={filtersOpen && isMobile} onClose={() => setFiltersOpen(false)} title="Filters">
         <div className="space-y-4 py-1">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted uppercase tracking-wide">From</label>
@@ -1028,6 +1038,15 @@ export function AccountsPage() {
               showClear
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasReceiptsOnly}
+              onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm text-secondary">Has receipts</span>
+          </label>
           <div className="grid grid-cols-2 gap-2 pt-1">
             {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
               <button
@@ -1089,7 +1108,7 @@ export function AccountsPage() {
               />
             </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-2">
+          <div className="flex flex-wrap justify-center items-center gap-2">
             {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
               <button
                 key={label}
@@ -1103,6 +1122,15 @@ export function AccountsPage() {
                 {label}
               </button>
             ))}
+            <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-1.5">
+              <input
+                type="checkbox"
+                checked={hasReceiptsOnly}
+                onChange={(e) => { setHasReceiptsOnly(e.target.checked); setPage(0) }}
+                className="w-3.5 h-3.5 accent-accent"
+              />
+              <span className="text-xs font-medium text-secondary">Has receipts</span>
+            </label>
           </div>
           {hasFilters && (
             <button onClick={clearFilters} className="text-xs text-muted hover:text-primary">Clear filters</button>
@@ -1186,7 +1214,14 @@ export function AccountsPage() {
                       {format(parseISO(tx.date), 'dd/MM/yy')}
                     </td>
                     <td className="pl-5 pr-2 py-2.5 sm:px-3 overflow-hidden">
-                      <div className="text-sm text-primary truncate">{tx.account_name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-primary truncate">{tx.account_name}</span>
+                        {tx.receipt_count > 0 && (
+                          <svg className="w-3 h-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-label="Has receipts">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                          </svg>
+                        )}
+                      </div>
                       <div className="text-xs mt-0.5 truncate sm:hidden">
                         {tx.splits.length > 0
                           ? <span className="text-muted italic">Split</span>

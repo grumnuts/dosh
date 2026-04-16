@@ -66,6 +66,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         categoryId: z.string().optional(),
         payee: z.string().optional(),
         uncategorised: z.string().optional(),
+        hasReceipts: z.string().optional(),
         search: z.string().optional(),
         limit: z.string().optional(),
         offset: z.string().optional(),
@@ -103,6 +104,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       where += ` AND t.category_id IS NULL AND t.type = 'transaction'`
       where += ` AND NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)`
     }
+    if (query.hasReceipts === 'true') {
+      where += ` AND EXISTS (SELECT 1 FROM transaction_receipts WHERE transaction_id = t.id)`
+    }
     if (query.search) {
       where += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`
       const term = `%${query.search}%`
@@ -137,6 +141,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              t.type, t.transfer_pair_id, pair_acct.id as transfer_pair_account_id,
              t.cover_week_start, t.ignore_rules, t.created_at,
              t.investment_ticker, t.investment_quantity,
+             (SELECT COUNT(*) FROM transaction_receipts WHERE transaction_id = t.id) as receipt_count,
              a.starting_balance + (
                SELECT COALESCE(SUM(t2.amount), 0)
                FROM transactions t2

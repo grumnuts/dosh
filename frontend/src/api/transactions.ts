@@ -30,6 +30,7 @@ export interface Transaction {
   cover_week_start: string | null
   ignore_rules: number
   running_balance: number
+  receipt_count: number
   created_at: string
   splits: TransactionSplit[]
 }
@@ -41,6 +42,7 @@ export interface TransactionFilters {
   categoryId?: number
   payee?: string
   uncategorised?: boolean
+  hasReceipts?: boolean
   search?: string
   limit?: number
   offset?: number
@@ -78,6 +80,7 @@ export const transactionsApi = {
     if (filters.categoryId) params.set('categoryId', String(filters.categoryId))
     if (filters.payee) params.set('payee', filters.payee)
     if (filters.uncategorised) params.set('uncategorised', 'true')
+    if (filters.hasReceipts) params.set('hasReceipts', 'true')
     if (filters.search) params.set('search', filters.search)
     if (filters.limit) params.set('limit', String(filters.limit))
     if (filters.offset) params.set('offset', String(filters.offset))
