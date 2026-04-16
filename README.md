@@ -42,7 +42,7 @@ A self-hosted, zero-based envelope budgeting app. Set a budget per category with
 - **Cover overspend** — transfer from a savings account to cover an overspent category, tagged back to the budget
 - **Sweep to savings** — move unspent budget balance to a savings account at the end of a period; the reverse of cover
 - **Debt tracking** — debt accounts auto-create a budget category; payments reduce the outstanding balance and appear in a dedicated Debt Payments section
-- **Investment tracking** — tag budget categories with a ticker symbol; buy and sell transactions record quantity held; portfolio view shows holdings, market value, and gain/loss with live prices
+- **Investment tracking** — tag budget categories with a ticker symbol; buy and sell transactions record quantity held; portfolio view shows holdings, market value, and gain/loss with live prices; portfolio value-over-time chart with per-ticker drill-down; asset breakdown shows each holding as a percentage of total assets
 - **Reports** — cashflow, spending by category, overspend, income by category, payee breakdown, savings goals, debt payoff projections, net worth, and investment portfolio
 - **Ledger** — track checking, savings, and debt accounts; starting balances, reconciliation, and net worth calculated automatically
 - **Catch Up** — weekly amounts are increased to cover the full budgeted amount by the end of the period, useful when adding new categories mid-period or when a bill increases

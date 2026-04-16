@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+---
+
+## v1.13.0 — 2026-04-16
+
 ### New Features
 - Investments report now shows a portfolio value-over-time chart; clicking a holding focuses the chart on that ticker
 - New Portfolio Breakdown section shows each asset as a percentage of total assets; investment tickers are listed individually
