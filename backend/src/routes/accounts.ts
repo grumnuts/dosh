@@ -304,15 +304,20 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
 
+    const now = new Date().toISOString()
+    const txDate = body.data.date ?? todayString()
+
+    // Compute balance as of the reconciliation date so that transactions after
+    // that date (e.g. a starting balance set today) don't affect the adjustment.
     const account = db
       .prepare(
         `SELECT a.id, a.name, a.starting_balance + COALESCE(SUM(t.amount), 0) as current_balance
          FROM accounts a
-         LEFT JOIN transactions t ON t.account_id = a.id
+         LEFT JOIN transactions t ON t.account_id = a.id AND t.date <= ?
          WHERE a.id = ? AND a.is_active = 1
          GROUP BY a.id`,
       )
-      .get(id) as { id: number; name: string; current_balance: number } | undefined
+      .get(txDate, id) as { id: number; name: string; current_balance: number } | undefined
 
     if (!account) return reply.code(404).send({ error: 'Account not found' })
 
@@ -326,9 +331,6 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       .get() as { id: number } | undefined
 
     if (!reconCat) return reply.code(500).send({ error: 'Reconciliation category not found' })
-
-    const now = new Date().toISOString()
-    const txDate = body.data.date ?? todayString()
 
     const result = db
       .prepare(

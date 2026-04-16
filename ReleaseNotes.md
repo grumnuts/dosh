@@ -10,6 +10,7 @@
 - In vs Out report query simplified to correctly capture all cash flows; excludes system-category entries (starting balance, reconciliation) rather than filtering by category type
 - Fixed Rules page group edit modal pre-populating with the wrong group name
 - Fixed false positive conflict detection for OR-logic rules whose conditions are on different fields than the existing rule
+- Fixed reconciliation with a past date incorrectly including post-date transactions in the balance calculation, causing the adjustment to offset the current balance
 - Rule conflict detection now shows a warning instead of a hard block, with a "Save anyway" option for false positives
 
 ---
