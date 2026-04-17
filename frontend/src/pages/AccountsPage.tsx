@@ -969,7 +969,10 @@ export function AccountsPage() {
           </button>
           <button
             className={`p-1.5 rounded transition-colors ${filtersOpen || hasFilters ? 'text-accent bg-accent/10' : 'text-muted hover:text-primary'}`}
-            onClick={() => setFiltersOpen((o) => !o)}
+            onClick={() => {
+              if (filtersOpen && !isMobile) clearFilters()
+              setFiltersOpen((o) => !o)
+            }}
             aria-label="Toggle filters"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
