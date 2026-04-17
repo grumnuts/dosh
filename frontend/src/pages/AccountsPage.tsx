@@ -696,7 +696,8 @@ export function AccountsPage() {
         endDate: filters.endDate || undefined,
         accountId: filters.accountId ? parseInt(filters.accountId, 10) : undefined,
         categoryId: filters.categoryId ? parseInt(filters.categoryId, 10) : undefined,
-        payee: filters.payee || undefined,
+        payee: filters.payee && filters.payee !== '__none__' ? filters.payee : undefined,
+        noPayee: filters.payee === '__none__' || undefined,
         uncategorised: uncategorisedOnly || undefined,
         hasReceipts: hasReceiptsOnly || undefined,
         search: filters.search || undefined,
@@ -1024,7 +1025,7 @@ export function AccountsPage() {
             label="Payee"
             value={filters.payee}
             onChange={(v) => setFilter('payee', v)}
-            items={(payees ?? []).map((p) => ({ id: p, label: p }))}
+            items={[{ id: '__none__', label: 'No payee' }, ...(payees ?? []).map((p) => ({ id: p, label: p }))]}
             allLabel="All payees"
           />
           <div className="flex flex-col gap-1">
@@ -1093,7 +1094,7 @@ export function AccountsPage() {
               label="Payee"
               value={filters.payee}
               onChange={(v) => setFilter('payee', v)}
-              items={(payees ?? []).map((p) => ({ id: p, label: p }))}
+              items={[{ id: '__none__', label: 'No payee' }, ...(payees ?? []).map((p) => ({ id: p, label: p }))]}
               allLabel="All payees"
             />
             <div className="flex flex-col gap-1">

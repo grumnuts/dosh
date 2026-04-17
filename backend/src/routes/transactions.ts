@@ -65,6 +65,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         accountId: z.string().optional(),
         categoryId: z.string().optional(),
         payee: z.string().optional(),
+        noPayee: z.string().optional(),
         uncategorised: z.string().optional(),
         hasReceipts: z.string().optional(),
         search: z.string().optional(),
@@ -99,6 +100,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     if (query.payee) {
       where += ' AND t.payee = ?'
       whereParams.push(query.payee)
+    }
+    if (query.noPayee === 'true') {
+      where += ` AND (t.payee IS NULL OR t.payee = '')`
     }
     if (query.uncategorised === 'true') {
       where += ` AND t.category_id IS NULL AND t.type = 'transaction'`
