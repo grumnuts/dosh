@@ -41,6 +41,7 @@ export interface TransactionFilters {
   accountId?: number
   categoryId?: number
   payee?: string
+  noPayee?: boolean
   uncategorised?: boolean
   hasReceipts?: boolean
   search?: string
@@ -79,6 +80,7 @@ export const transactionsApi = {
     if (filters.accountId) params.set('accountId', String(filters.accountId))
     if (filters.categoryId) params.set('categoryId', String(filters.categoryId))
     if (filters.payee) params.set('payee', filters.payee)
+    if (filters.noPayee) params.set('noPayee', 'true')
     if (filters.uncategorised) params.set('uncategorised', 'true')
     if (filters.hasReceipts) params.set('hasReceipts', 'true')
     if (filters.search) params.set('search', filters.search)
