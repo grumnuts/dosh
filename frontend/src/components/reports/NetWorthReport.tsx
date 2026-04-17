@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { investmentsApi } from '../../api/investments'
 import {
   LineChart,
@@ -52,6 +53,32 @@ interface Props {
 export function NetWorthReport({ section }: Props = {}) {
   const { widths, onResizeStart } = useResizableCols(DEFAULT_COL_WIDTHS, 'dosh:networth-col-widths')
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+
+  // Breakdown exclusions — must be unconditional
+  const [excludedKeys, setExcludedKeys] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('dosh:excluded-breakdown-assets')
+      return stored ? (JSON.parse(stored) as string[]) : []
+    } catch {
+      return []
+    }
+  })
+  const [showExcluded, setShowExcluded] = useLocalStorageBool('dosh:show-excluded-breakdown', false)
+
+  const excludeAsset = (key: string) => {
+    setExcludedKeys((prev) => {
+      const next = [...prev, key]
+      try { localStorage.setItem('dosh:excluded-breakdown-assets', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+  const includeAsset = (key: string) => {
+    setExcludedKeys((prev) => {
+      const next = prev.filter((k) => k !== key)
+      try { localStorage.setItem('dosh:excluded-breakdown-assets', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'networth'],
     queryFn: reportsApi.networth,
@@ -157,11 +184,14 @@ export function NetWorthReport({ section }: Props = {}) {
     }
 
     rows.sort((a, b) => b.balanceCents - a.balanceCents)
-    const percentages = distributePercentages(rows.map((r) => r.balanceCents))
 
     if (rows.length === 0) {
       return <div className="py-6 text-center text-sm text-secondary">No assets to display.</div>
     }
+
+    const visibleRows = rows.filter((r) => !excludedKeys.includes(r.key))
+    const hiddenRows = rows.filter((r) => excludedKeys.includes(r.key))
+    const percentages = distributePercentages(visibleRows.map((r) => r.balanceCents))
 
     return (
       <table className="w-full text-sm">
@@ -172,12 +202,60 @@ export function NetWorthReport({ section }: Props = {}) {
           </tr>
         </thead>
         <tbody className="divide-y divide-border/50">
-          {rows.map((row, i) => (
-            <tr key={row.key}>
+          {visibleRows.map((row, i) => (
+            <tr key={row.key} className="group">
               <td className="py-2 text-primary">{row.name}</td>
-              <td className="py-2 text-right font-mono tabular-nums text-secondary">{percentages[i]}%</td>
+              <td className="py-2 text-right font-mono tabular-nums text-secondary">
+                <span className="inline-flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => excludeAsset(row.key)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-muted hover:text-danger"
+                    title="Exclude from breakdown"
+                  >
+                    Exclude
+                  </button>
+                  {percentages[i]}%
+                </span>
+              </td>
             </tr>
           ))}
+          {hiddenRows.length > 0 && !showExcluded && (
+            <tr>
+              <td colSpan={2} className="pt-3 pb-1">
+                <button
+                  onClick={() => setShowExcluded(true)}
+                  className="text-xs text-muted hover:text-secondary"
+                >
+                  {hiddenRows.length} excluded {hiddenRows.length === 1 ? 'asset' : 'assets'} — show
+                </button>
+              </td>
+            </tr>
+          )}
+          {showExcluded && hiddenRows.map((row) => (
+            <tr key={row.key} className="opacity-40">
+              <td className="py-2 text-secondary italic">{row.name}</td>
+              <td className="py-2 text-right">
+                <button
+                  onClick={() => includeAsset(row.key)}
+                  className="text-xs text-muted hover:text-accent"
+                >
+                  Re-add
+                </button>
+              </td>
+            </tr>
+          ))}
+          {showExcluded && hiddenRows.length > 0 && (
+            <tr>
+              <td colSpan={2} className="pt-1 pb-2">
+                <button
+                  onClick={() => setShowExcluded(false)}
+                  className="text-xs text-muted hover:text-secondary"
+                >
+                  Hide excluded
+                </button>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     )
