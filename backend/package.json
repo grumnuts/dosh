@@ -1,6 +1,6 @@
 {
   "name": "dosh-backend",
-  "version": "1.13.1",
+  "version": "1.13.2",
   "type": "commonjs",
   "scripts": {
     "dev": "tsx src/server.ts",

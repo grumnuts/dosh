@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+---
+
+## v1.13.2 — 2026-04-17
+
 ### New Features
 - Portfolio Breakdown: assets can now be excluded from the breakdown; excluded assets are hidden by default with a toggle to show/re-add them; exclusions persist across sessions
 - Ledger filter: added a "No payee" option to the payee filter to show only transactions with no payee set
