@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### New Features
+- Portfolio Breakdown: assets can now be excluded from the breakdown; excluded assets are hidden by default with a toggle to show/re-add them; exclusions persist across sessions
+- Ledger filter: added a "No payee" option to the payee filter to show only transactions with no payee set
+
+### Enhancements
+- Ledger mobile view: payee is now the primary field on each transaction row, with account name shown below; falls back to description if no payee is set, or "Transfer" for transfer transactions
+- Ledger desktop: closing the filter panel now clears all active filters
+
+### Bug Fixes
+- Ledger mobile view: transfer transactions no longer show "Uncategorised" as a category label
+
 ---
 
 ## v1.13.1 — 2026-04-16
