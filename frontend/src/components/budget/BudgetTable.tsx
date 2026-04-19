@@ -15,7 +15,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 import { useLongPress } from '../../hooks/useLongPress'
@@ -25,6 +25,7 @@ import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
 import { CoverModal } from './CoverModal'
 import { SweepModal } from './SweepModal'
+import { RollForwardModal } from './RollForwardModal'
 import { CategoryModal } from './CategoryModal'
 import { GroupModal } from './GroupModal'
 
@@ -104,12 +105,21 @@ function CategoryRow({
   dragListeners,
   dragAttributes,
 }: CategoryRowProps) {
+  const qc = useQueryClient()
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
+  const [rollForwardOpen, setRollForwardOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
   const isCovered = cat.covers > 0 && !cat.isOverspent
   const isSwept = cat.sweeps > 0 && !cat.isOverspent
+  const isRolledOut = cat.rolledOut > 0
+  const isRolledIn = cat.rolledIn > 0
+
+  const undoRollover = useMutation({
+    mutationFn: () => budgetApi.undoRollover(cat.rolloverIdOut!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget'] }),
+  })
 
   return (
     <>
@@ -133,6 +143,12 @@ function CategoryRow({
             )}
             {isSwept && (
               <span className="text-xs text-transfer hidden sm:inline">swept</span>
+            )}
+            {isRolledOut && (
+              <span className="text-xs text-muted hidden sm:inline">rolled forward</span>
+            )}
+            {isRolledIn && (
+              <span className="text-xs text-accent-dim hidden sm:inline">+rollover</span>
             )}
           </div>
         </td>
@@ -173,6 +189,33 @@ function CategoryRow({
                 Cover
               </Button>
             )}
+            {!cat.isOverspent && cat.balance > 0 && !isRolledOut && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setRollForwardOpen(true)
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                Roll forward
+              </Button>
+            )}
+            {isRolledOut && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  undoRollover.mutate()
+                }}
+                loading={undoRollover.isPending}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted"
+              >
+                Undo roll
+              </Button>
+            )}
             {!cat.isOverspent && cat.balance > 0 && (
               <Button
                 size="sm"
@@ -206,6 +249,14 @@ function CategoryRow({
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
+        />
+      )}
+      {rollForwardOpen && (
+        <RollForwardModal
+          open={rollForwardOpen}
+          onClose={() => setRollForwardOpen(false)}
+          category={cat}
+          weekStart={weekStart}
         />
       )}
 

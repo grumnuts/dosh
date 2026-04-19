@@ -27,6 +27,8 @@ export type AuditEventType =
   | 'budget.amount_changed'
   | 'budget.overspend_covered'
   | 'budget.unspent_swept'
+  | 'budget.balance_rolled_forward'
+  | 'budget.rollover_undone'
   | 'rule_group.created'
   | 'rule_group.updated'
   | 'rule_group.deleted'
