@@ -10,6 +10,7 @@ import { Input, Select, Textarea } from '../ui/Input'
 import { budgetApi, BudgetCategory, CategoryInput } from '../../api/budget'
 import { CoverModal } from './CoverModal'
 import { SweepModal } from './SweepModal'
+import { RollForwardModal } from './RollForwardModal'
 import { Account } from '../../api/accounts'
 
 const schema = z.object({
@@ -88,9 +89,18 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
+  const [rollForwardOpen, setRollForwardOpen] = useState(false)
+
+  const undoRollover = useMutation({
+    mutationFn: () => budgetApi.undoRollover(fullCategory!.rolloverIdOut!),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['budget'] }); onClose() },
+  })
 
   const showCoverButton = isEdit && category?.isOverspent && !!fullCategory && !!transactionalAccounts?.length
   const showSweepButton = isEdit && !category?.isOverspent && !!fullCategory && (fullCategory.balance > 0) && !!transactionalAccounts?.length
+  const isRolledOut = !!(fullCategory?.rolledOut && fullCategory.rolledOut > 0)
+  const showRollForwardButton = isEdit && !category?.isOverspent && !!fullCategory && fullCategory.balance > 0 && !isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
+  const showUndoRollButton = isEdit && isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
 
   useEffect(() => {
     if (open) {
@@ -237,43 +247,42 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
         )}
 
-        <div className="flex items-center gap-3 pt-2">
-          {isEdit && !isDebtGroup && (
-            <Button
-              type="button"
-              variant="danger"
-              onClick={() => setConfirmDelete(true)}
-            >
-              Delete
+        <div className="flex flex-col sm:flex-row sm:items-center gap-8 sm:gap-2 pt-2">
+          <div className="flex gap-2 justify-center sm:justify-start">
+            {isEdit && !isDebtGroup && (
+              <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)}>
+                Delete
+              </Button>
+            )}
+            {showCoverButton && (
+              <Button type="button" variant="outline" className="sm:hidden" onClick={() => setCoverOpen(true)}>
+                Cover
+              </Button>
+            )}
+            {showSweepButton && (
+              <Button type="button" variant="outline" className="sm:hidden" onClick={() => setSweepOpen(true)}>
+                Sweep
+              </Button>
+            )}
+            {showRollForwardButton && (
+              <Button type="button" variant="outline" className="sm:hidden" onClick={() => setRollForwardOpen(true)}>
+                Roll Forward
+              </Button>
+            )}
+            {showUndoRollButton && (
+              <Button type="button" variant="outline" className="sm:hidden" onClick={() => undoRollover.mutate()} loading={undoRollover.isPending}>
+                Undo Roll
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3 justify-center sm:justify-start sm:ml-auto">
+            <Button variant="ghost" type="button" onClick={onClose}>
+              Cancel
             </Button>
-          )}
-          {showCoverButton && (
-            <Button
-              type="button"
-              variant="outline"
-              className="md:hidden"
-              onClick={() => setCoverOpen(true)}
-            >
-              Cover
+            <Button type="submit" loading={mutation.isPending}>
+              {isEdit ? 'Save' : 'Add Category'}
             </Button>
-          )}
-          {showSweepButton && (
-            <Button
-              type="button"
-              variant="outline"
-              className="md:hidden"
-              onClick={() => setSweepOpen(true)}
-            >
-              Sweep
-            </Button>
-          )}
-          <div className="flex-1" />
-          <Button variant="ghost" type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" loading={mutation.isPending}>
-            {isEdit ? 'Save' : 'Add Category'}
-          </Button>
+          </div>
         </div>
         {showCoverButton && fullCategory && transactionalAccounts && (
           <CoverModal
@@ -291,6 +300,14 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
+          />
+        )}
+        {showRollForwardButton && fullCategory && (
+          <RollForwardModal
+            open={rollForwardOpen}
+            onClose={() => setRollForwardOpen(false)}
+            category={fullCategory}
+            weekStart={weekStart}
           />
         )}
         <ConfirmModal

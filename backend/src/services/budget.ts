@@ -141,6 +141,9 @@ interface BudgetCategory {
   spent: number
   covers: number
   sweeps: number
+  rolledIn: number
+  rolledOut: number
+  rolloverIdOut: number | null
   balance: number
   isOverspent: boolean
   notes: string | null
@@ -394,6 +397,36 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     for (const r of rows) sweepsMap.set(r.category_id, r.total)
   }
 
+  // --- Batch: fetch rollovers (balance rolled forward from/to this period) ---
+  const rolledInMap = new Map<number, number>()
+  const rolledOutMap = new Map<number, number>()
+  const rolloverIdOutMap = new Map<number, number>()
+  for (const { start, end, ids } of spentByPeriodKey.values()) {
+    const ph = ids.map(() => '?').join(',')
+    const inRows = db
+      .prepare(
+        `SELECT category_id, COALESCE(SUM(amount), 0) AS total
+         FROM budget_rollovers
+         WHERE category_id IN (${ph}) AND dest_period_start >= ? AND dest_period_start <= ?
+         GROUP BY category_id`,
+      )
+      .all(...ids, start, end) as Array<{ category_id: number; total: number }>
+    for (const r of inRows) rolledInMap.set(r.category_id, r.total)
+
+    const outRows = db
+      .prepare(
+        `SELECT category_id, COALESCE(SUM(amount), 0) AS total, MIN(id) AS rollover_id
+         FROM budget_rollovers
+         WHERE category_id IN (${ph}) AND source_week_start >= ? AND source_week_start <= ?
+         GROUP BY category_id`,
+      )
+      .all(...ids, start, end) as Array<{ category_id: number; total: number; rollover_id: number }>
+    for (const r of outRows) {
+      rolledOutMap.set(r.category_id, r.total)
+      rolloverIdOutMap.set(r.category_id, r.rollover_id)
+    }
+  }
+
   const spentMap = new Map<number, number>()
   for (const { start, end, ids } of spentByPeriodKey.values()) {
     const ph = ids.map(() => '?').join(',')
@@ -458,7 +491,10 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
       const spent = spentMap.get(cat.id) ?? 0
       const covers = coversMap.get(cat.id) ?? 0
       const sweeps = sweepsMap.get(cat.id) ?? 0
-      const balance = budgetedAmount - spent + covers - sweeps
+      const rolledIn = rolledInMap.get(cat.id) ?? 0
+      const rolledOut = rolledOutMap.get(cat.id) ?? 0
+      const rolloverIdOut = rolloverIdOutMap.get(cat.id) ?? null
+      const balance = budgetedAmount - spent + covers - sweeps + rolledIn - rolledOut
       const weekly = cat.catch_up
         ? catchUpWeeklyEquivalent(cat.id, budgetedAmount, period, weekStart)
         : weeklyEquivalent(budgetedAmount, period)
@@ -473,6 +509,9 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
         spent,
         covers,
         sweeps,
+        rolledIn,
+        rolledOut,
+        rolloverIdOut,
         balance,
         isOverspent: balance < 0,
         notes: cat.notes,
@@ -750,7 +789,23 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
 
-  return budgetedAmount - spentRow.spent + coversRow.total - sweepsRow.total
+  const rolledInRow = db
+    .prepare(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM budget_rollovers
+       WHERE category_id = ? AND dest_period_start >= ? AND dest_period_start <= ?`,
+    )
+    .get(categoryId, bounds.start, bounds.end) as { total: number }
+
+  const rolledOutRow = db
+    .prepare(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM budget_rollovers
+       WHERE category_id = ? AND source_week_start >= ? AND source_week_start <= ?`,
+    )
+    .get(categoryId, bounds.start, bounds.end) as { total: number }
+
+  return budgetedAmount - spentRow.spent + coversRow.total - sweepsRow.total + rolledInRow.total - rolledOutRow.total
 }
 
 /**
@@ -759,6 +814,19 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
 export function getCategoryOverspendAmount(categoryId: number, weekStart: string): number {
   const balance = getCategoryBalance(categoryId, weekStart)
   return balance < 0 ? Math.abs(balance) : 0
+}
+
+/**
+ * Returns the first calendar day of the period that immediately follows the given week's period.
+ * This is stored as dest_period_start in budget_rollovers.
+ */
+export function getNextPeriodStart(weekStart: string, period: string): string {
+  const weekStartsOn = getWeekStartsOn()
+  const bounds = getPeriodBoundaries(weekStart, period, weekStartsOn)
+  // Day after the current period ends = first day of next period
+  const endDate = parseDate(bounds.end)
+  const nextDay = new Date(endDate.getTime() + 86400000)
+  return toDateString(nextDay)
 }
 
 /**

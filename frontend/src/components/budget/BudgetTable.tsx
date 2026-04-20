@@ -15,16 +15,17 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 import { useLongPress } from '../../hooks/useLongPress'
 import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, SavingsGroup, SavingsCategory, InvestmentGroup, InvestmentCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
-import { Button } from '../ui/Button'
+
 import { CoverModal } from './CoverModal'
 import { SweepModal } from './SweepModal'
+import { RollForwardModal } from './RollForwardModal'
 import { CategoryModal } from './CategoryModal'
 import { GroupModal } from './GroupModal'
 
@@ -47,6 +48,47 @@ const PERIOD_COLOURS: Record<string, string> = {
   monthly:     'bg-amber-500/15 text-amber-100',
   quarterly:   'bg-rose-500/15 text-rose-100',
   annually:    'bg-teal-500/15 text-teal-100',
+}
+
+// ─── Action icons ────────────────────────────────────────────────────────────
+
+
+function CoverIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2v11" />
+      <path d="M12 22l-6-9h12z" fill="currentColor" />
+      <path d="M5 22h14" />
+    </svg>
+  )
+}
+
+function SweepIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 2h14" />
+      <path d="M12 2l-6 9h12z" fill="currentColor" />
+      <path d="M12 11v11" />
+    </svg>
+  )
+}
+
+function RollForwardIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+    </svg>
+  )
+}
+
+function UndoRollIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10H11" />
+    </svg>
+  )
 }
 
 // ─── Grip handle ─────────────────────────────────────────────────────────────
@@ -104,12 +146,21 @@ function CategoryRow({
   dragListeners,
   dragAttributes,
 }: CategoryRowProps) {
+  const qc = useQueryClient()
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
+  const [rollForwardOpen, setRollForwardOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
   const isCovered = cat.covers > 0 && !cat.isOverspent
   const isSwept = cat.sweeps > 0 && !cat.isOverspent
+  const isRolledOut = cat.rolledOut > 0
+  const isRolledIn = cat.rolledIn > 0
+
+  const undoRollover = useMutation({
+    mutationFn: () => budgetApi.undoRollover(cat.rolloverIdOut!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget'] }),
+  })
 
   return (
     <>
@@ -133,6 +184,12 @@ function CategoryRow({
             )}
             {isSwept && (
               <span className="text-xs text-transfer hidden sm:inline">swept</span>
+            )}
+            {isRolledOut && (
+              <span className="text-xs text-muted hidden sm:inline">rolled forward</span>
+            )}
+            {isRolledIn && (
+              <span className="text-xs text-accent-dim hidden sm:inline">+rollover</span>
             )}
           </div>
         </td>
@@ -158,33 +215,44 @@ function CategoryRow({
             {formatMoney(cat.balance)}
           </span>
         </td>
-        <td className="hidden sm:table-cell text-right relative">
-          <div className="absolute inset-0 flex items-center justify-end px-3 gap-2">
+        <td className="hidden sm:table-cell px-1.5 py-2.5">
+          <div className="flex items-center justify-end gap-3">
             {cat.isOverspent && (
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setCoverOpen(true)
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              <button
+                title="Cover overspend"
+                onClick={(e) => { e.stopPropagation(); setCoverOpen(true) }}
+                className="text-danger hover:text-danger/70 transition-colors"
               >
-                Cover
-              </Button>
+                <CoverIcon />
+              </button>
             )}
             {!cat.isOverspent && cat.balance > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setSweepOpen(true)
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                Sweep
-              </Button>
+              <>
+                {isRolledOut ? (
+                  <button
+                    title="Undo roll forward"
+                    onClick={(e) => { e.stopPropagation(); undoRollover.mutate() }}
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <UndoRollIcon />
+                  </button>
+                ) : (
+                  <button
+                    title="Roll balance forward to next period"
+                    onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <RollForwardIcon />
+                  </button>
+                )}
+                <button
+                  title="Sweep to savings"
+                  onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
+                  className="text-accent hover:text-accent/70 transition-colors"
+                >
+                  <SweepIcon />
+                </button>
+              </>
             )}
           </div>
         </td>
@@ -206,6 +274,14 @@ function CategoryRow({
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
+        />
+      )}
+      {rollForwardOpen && (
+        <RollForwardModal
+          open={rollForwardOpen}
+          onClose={() => setRollForwardOpen(false)}
+          category={cat}
+          weekStart={weekStart}
         />
       )}
 

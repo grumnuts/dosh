@@ -9,6 +9,9 @@ export interface BudgetCategory {
   spent: number
   covers: number
   sweeps: number
+  rolledIn: number
+  rolledOut: number
+  rolloverIdOut: number | null
   balance: number
   isOverspent: boolean
   notes: string | null
@@ -171,4 +174,10 @@ export const budgetApi = {
     sourceAccountId: number
     destinationAccountId: number
   }) => api.post<{ ok: boolean; amount: number }>('/api/budget/sweep', data),
+
+  rollForward: (data: { categoryId: number; weekStart: string; amount: number }) =>
+    api.post<{ ok: boolean; id: number; amount: number; destPeriodStart: string }>('/api/budget/rollover', data),
+
+  undoRollover: (id: number) =>
+    api.delete<{ ok: boolean }>(`/api/budget/rollover/${id}`),
 }

@@ -8,6 +8,7 @@ import {
   getBudgetWeek,
   getCategoryBalance,
   getCategoryOverspendAmount,
+  getNextPeriodStart,
   recordBudgetChange,
 } from '../services/budget'
 
@@ -532,5 +533,95 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       creditTransactionId: creditId,
       amount: sweepAmount,
     })
+  })
+
+  // --- Roll Forward Balance ---
+
+  app.post('/api/budget/rollover', { preHandler: authenticate }, async (request, reply) => {
+    const body = z
+      .object({
+        categoryId: z.number().int(),
+        weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        amount: z.number().int().positive(),
+      })
+      .safeParse(request.body)
+
+    if (!body.success) {
+      return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
+    }
+
+    const { categoryId, weekStart, amount: rollAmount } = body.data
+    const db = getDb()
+
+    const cat = db
+      .prepare('SELECT id, name, period FROM budget_categories WHERE id = ? AND is_active = 1')
+      .get(categoryId) as { id: number; name: string; period: string } | undefined
+    if (!cat) return reply.code(404).send({ error: 'Category not found' })
+
+    const balance = getCategoryBalance(categoryId, weekStart)
+    if (balance <= 0) {
+      return reply.code(400).send({ error: 'Category has no positive balance to roll forward' })
+    }
+    if (rollAmount > balance) {
+      return reply.code(400).send({ error: 'Roll amount exceeds available balance' })
+    }
+
+    const destPeriodStart = getNextPeriodStart(weekStart, cat.period)
+    const now = new Date().toISOString()
+
+    let result
+    try {
+      result = db
+        .prepare(
+          `INSERT INTO budget_rollovers (category_id, source_week_start, dest_period_start, amount, created_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run(categoryId, weekStart, destPeriodStart, rollAmount, now, request.user!.id)
+    } catch {
+      return reply.code(409).send({ error: 'A rollover already exists for this category and period' })
+    }
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'budget.balance_rolled_forward',
+      entityType: 'budget_category',
+      entityId: categoryId,
+      details: { categoryName: cat.name, weekStart, destPeriodStart, amount: rollAmount },
+      ipAddress: request.ip,
+    })
+
+    return reply.send({ ok: true, id: result.lastInsertRowid, amount: rollAmount, destPeriodStart })
+  })
+
+  app.delete('/api/budget/rollover/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const rolloverId = parseInt(id, 10)
+    if (isNaN(rolloverId)) return reply.code(400).send({ error: 'Invalid rollover id' })
+
+    const db = getDb()
+    const rollover = db
+      .prepare(
+        `SELECT br.id, br.category_id, br.amount, br.source_week_start, bc.name
+         FROM budget_rollovers br JOIN budget_categories bc ON bc.id = br.category_id
+         WHERE br.id = ?`,
+      )
+      .get(rolloverId) as { id: number; category_id: number; amount: number; source_week_start: string; name: string } | undefined
+
+    if (!rollover) return reply.code(404).send({ error: 'Rollover not found' })
+
+    db.prepare('DELETE FROM budget_rollovers WHERE id = ?').run(rolloverId)
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'budget.rollover_undone',
+      entityType: 'budget_category',
+      entityId: rollover.category_id,
+      details: { categoryName: rollover.name, weekStart: rollover.source_week_start, amount: rollover.amount },
+      ipAddress: request.ip,
+    })
+
+    return reply.send({ ok: true })
   })
 }
