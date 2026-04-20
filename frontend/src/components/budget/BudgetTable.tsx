@@ -52,27 +52,6 @@ const PERIOD_COLOURS: Record<string, string> = {
 
 // ─── Action icons ────────────────────────────────────────────────────────────
 
-function IconBtn({
-  title,
-  onClick,
-  className,
-  children,
-}: {
-  title: string
-  onClick: (e: React.MouseEvent) => void
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      className={`p-1.5 rounded transition-colors ${className ?? ''}`}
-    >
-      {children}
-    </button>
-  )
-}
 
 function CoverIcon() {
   return (
@@ -236,43 +215,43 @@ function CategoryRow({
             {formatMoney(cat.balance)}
           </span>
         </td>
-        <td className="hidden sm:table-cell pl-1.5 py-2.5">
-          <div className="flex items-center justify-end gap-1">
+        <td className="hidden sm:table-cell px-1.5 py-2.5">
+          <div className="flex items-center justify-end gap-3">
             {cat.isOverspent && (
-              <IconBtn
+              <button
                 title="Cover overspend"
                 onClick={(e) => { e.stopPropagation(); setCoverOpen(true) }}
-                className="text-danger hover:bg-danger/20"
+                className="text-danger hover:text-danger/70 transition-colors"
               >
                 <CoverIcon />
-              </IconBtn>
+              </button>
             )}
             {!cat.isOverspent && cat.balance > 0 && (
               <>
                 {isRolledOut ? (
-                  <IconBtn
+                  <button
                     title="Undo roll forward"
                     onClick={(e) => { e.stopPropagation(); undoRollover.mutate() }}
-                    className="text-blue-400 hover:bg-blue-400/10"
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
                   >
                     <UndoRollIcon />
-                  </IconBtn>
+                  </button>
                 ) : (
-                  <IconBtn
+                  <button
                     title="Roll balance forward to next period"
                     onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
-                    className="text-blue-400 hover:bg-blue-400/10"
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
                   >
                     <RollForwardIcon />
-                  </IconBtn>
+                  </button>
                 )}
-                <IconBtn
+                <button
                   title="Sweep to savings"
                   onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
-                  className="text-accent hover:bg-accent/10"
+                  className="text-accent hover:text-accent/70 transition-colors"
                 >
                   <SweepIcon />
-                </IconBtn>
+                </button>
               </>
             )}
           </div>
