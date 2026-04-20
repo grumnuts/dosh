@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Bug Fixes
+- Budget: removed the "Investment Category" toggle from the category modal — investment categories are determined by the group, not a per-category flag
+
 ### New Features
 - Budget: roll forward a category's remaining balance to the next period; supports partial amounts and is fully undoable
 - Budget: cover, sweep, and roll forward actions are now always-visible icon buttons on desktop (replacing context menus); roll forward and undo roll are accessible via the category modal on mobile
