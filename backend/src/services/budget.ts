@@ -117,6 +117,7 @@ interface RawCategory {
   notes: string | null
   sort_order: number
   catch_up: number
+  catch_up_period_start: string | null
   is_investment: number
   linked_account_id: number | null
   ticker: string | null
@@ -285,6 +286,10 @@ export function getEffectiveBudget(
   }
 }
 
+export function computePeriodStart(weekStart: string, period: string): string {
+  return getPeriodBoundaries(weekStart, period, getWeekStartsOn()).start
+}
+
 /**
  * Calculate the full budget for a given week (Sunday YYYY-MM-DD).
  */
@@ -300,10 +305,25 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
   const categories = db
     .prepare(
-      `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, catch_up, is_investment, linked_account_id, ticker
+      `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, catch_up, catch_up_period_start, is_investment, linked_account_id, ticker
        FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
     )
     .all() as unknown as RawCategory[]
+
+  // Auto-reset catch_up when the period has rolled over since it was enabled
+  const resetStmt = db.prepare(
+    `UPDATE budget_categories SET catch_up = 0, catch_up_period_start = NULL WHERE id = ?`,
+  )
+  for (const cat of categories) {
+    if (cat.catch_up === 1 && cat.catch_up_period_start !== null) {
+      const currentPeriodStart = getPeriodBoundaries(weekStart, cat.period, weekStartsOn).start
+      if (cat.catch_up_period_start < currentPeriodStart) {
+        resetStmt.run(cat.id)
+        cat.catch_up = 0
+        cat.catch_up_period_start = null
+      }
+    }
+  }
 
   const regularGroups = allGroups.filter((g) => g.is_income === 0 && g.is_debt === 0 && g.is_savings === 0 && g.is_investments === 0)
   const incomeGroupsRaw = allGroups.filter((g) => g.is_income === 1)

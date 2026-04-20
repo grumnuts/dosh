@@ -130,6 +130,7 @@ export interface CategoryInput {
   notes?: string | null
   sortOrder?: number
   catchUp?: boolean
+  catchUpWeekStart?: string
   isInvestment?: boolean
   ticker?: string | null
 }

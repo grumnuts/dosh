@@ -149,6 +149,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       period: data.period,
       notes: data.notes || null,
       catchUp,
+      catchUpWeekStart: catchUp ? weekStart : undefined,
       isInvestment: !!isInvestmentGroup,
       ticker: isInvestmentGroup ? (data.ticker?.toUpperCase().trim() || null) : null,
     })
