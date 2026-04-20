@@ -77,8 +77,8 @@ function IconBtn({
 function CoverIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2l9 4v6c0 5.55-3.84 10.74-9 12C3.84 22.74 3 17.55 3 12V6l9-4z" />
-      <path d="M9 12l2 2 4-4" />
+      <path d="M12 4v16" />
+      <path d="M5 11l7 7 7-7" />
     </svg>
   )
 }
@@ -86,9 +86,9 @@ function CoverIcon() {
 function SweepIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 19V5" />
-      <path d="M5 12l7-7 7 7" />
-      <path d="M5 19h14" />
+      <path d="M17 3L8 17" />
+      <path d="M5 21l3-4 5 2-3 3-5-1z" />
+      <path d="M15 7l2-1 2 3-2 1" />
     </svg>
   )
 }
@@ -96,9 +96,8 @@ function SweepIcon() {
 function RollForwardIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14" />
-      <path d="M15 5l7 7-7 7" />
-      <path d="M21 5v14" />
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>
   )
 }
@@ -253,7 +252,7 @@ function CategoryRow({
                   <IconBtn
                     title="Undo roll forward"
                     onClick={(e) => { e.stopPropagation(); undoRollover.mutate() }}
-                    className="text-muted hover:text-primary hover:bg-surface-3"
+                    className="text-blue-400 hover:bg-blue-400/10"
                   >
                     <UndoRollIcon />
                   </IconBtn>
@@ -261,7 +260,7 @@ function CategoryRow({
                   <IconBtn
                     title="Roll balance forward to next period"
                     onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
-                    className="text-muted hover:text-primary hover:bg-surface-2"
+                    className="text-blue-400 hover:bg-blue-400/10"
                   >
                     <RollForwardIcon />
                   </IconBtn>
@@ -269,7 +268,7 @@ function CategoryRow({
                 <IconBtn
                   title="Sweep to savings"
                   onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
-                  className="text-muted hover:text-primary hover:bg-surface-2"
+                  className="text-accent hover:bg-accent/10"
                 >
                   <SweepIcon />
                 </IconBtn>
