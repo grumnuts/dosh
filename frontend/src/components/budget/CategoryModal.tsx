@@ -85,7 +85,6 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const showCatchupToggle = isMidPeriod && !isIncomeGroup
 
   const [catchUp, setCatchUp] = useState(false)
-  const [isInvestment, setIsInvestment] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
@@ -106,7 +105,6 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
     if (open) {
       if (category) {
         setCatchUp(category.catchUp)
-        setIsInvestment(category.isInvestment)
         reset({
           name: category.name,
           ticker: category.ticker ?? '',
@@ -116,7 +114,6 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
         })
       } else {
         setCatchUp(false)
-        setIsInvestment(false)
         reset({ name: '', ticker: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
       }
     }
@@ -152,7 +149,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       period: data.period,
       notes: data.notes || null,
       catchUp,
-      isInvestment: isInvestmentGroup ? true : isInvestment,
+      isInvestment: !!isInvestmentGroup,
       ticker: isInvestmentGroup ? (data.ticker?.toUpperCase().trim() || null) : null,
     })
   }
@@ -221,25 +218,6 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           </div>
         )}
 
-        {!isDebtGroup && !isIncomeGroup && !isInvestmentGroup && (
-          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
-            <div>
-              <div className="text-sm font-medium text-primary">Investment Category</div>
-              <p className="text-xs text-muted mt-0.5 leading-relaxed">
-                Enables Ticker &amp; Quantity fields on transactions so share purchases are tracked in your portfolio.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isInvestment}
-              onClick={() => setIsInvestment((v) => !v)}
-              className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${isInvestment ? 'bg-accent' : 'bg-surface-3'}`}
-            >
-              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isInvestment ? 'translate-x-4' : 'translate-x-0'}`} />
-            </button>
-          </div>
-        )}
 
         <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
 
