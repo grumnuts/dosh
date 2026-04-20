@@ -236,7 +236,7 @@ function CategoryRow({
             {formatMoney(cat.balance)}
           </span>
         </td>
-        <td className="hidden sm:table-cell px-1.5 py-2.5">
+        <td className="hidden sm:table-cell pl-1.5 py-2.5">
           <div className="flex items-center justify-end gap-1">
             {cat.isOverspent && (
               <IconBtn
