@@ -77,8 +77,9 @@ function IconBtn({
 function CoverIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 4v16" />
+      <path d="M12 4v14" />
       <path d="M5 11l7 7 7-7" />
+      <path d="M5 20h14" />
     </svg>
   )
 }
@@ -86,9 +87,9 @@ function CoverIcon() {
 function SweepIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 3L8 17" />
-      <path d="M5 21l3-4 5 2-3 3-5-1z" />
-      <path d="M15 7l2-1 2 3-2 1" />
+      <path d="M5 4h14" />
+      <path d="M12 20V6" />
+      <path d="M5 13l7-7 7 7" />
     </svg>
   )
 }
