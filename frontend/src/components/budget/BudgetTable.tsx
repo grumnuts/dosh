@@ -22,7 +22,7 @@ import { useLongPress } from '../../hooks/useLongPress'
 import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, SavingsGroup, SavingsCategory, InvestmentGroup, InvestmentCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
-import { Button } from '../ui/Button'
+
 import { CoverModal } from './CoverModal'
 import { SweepModal } from './SweepModal'
 import { RollForwardModal } from './RollForwardModal'
@@ -48,6 +48,68 @@ const PERIOD_COLOURS: Record<string, string> = {
   monthly:     'bg-amber-500/15 text-amber-100',
   quarterly:   'bg-rose-500/15 text-rose-100',
   annually:    'bg-teal-500/15 text-teal-100',
+}
+
+// ─── Action icons ────────────────────────────────────────────────────────────
+
+function IconBtn({
+  title,
+  onClick,
+  className,
+  children,
+}: {
+  title: string
+  onClick: (e: React.MouseEvent) => void
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className={`p-1.5 rounded transition-colors ${className ?? ''}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CoverIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l9 4v6c0 5.55-3.84 10.74-9 12C3.84 22.74 3 17.55 3 12V6l9-4z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  )
+}
+
+function SweepIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+      <path d="M5 19h14" />
+    </svg>
+  )
+}
+
+function RollForwardIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" />
+      <path d="M15 5l7 7-7 7" />
+      <path d="M21 5v14" />
+    </svg>
+  )
+}
+
+function UndoRollIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10H11" />
+    </svg>
+  )
 }
 
 // ─── Grip handle ─────────────────────────────────────────────────────────────
@@ -174,60 +236,44 @@ function CategoryRow({
             {formatMoney(cat.balance)}
           </span>
         </td>
-        <td className="hidden sm:table-cell text-right relative">
-          <div className="absolute inset-0 flex items-center justify-end px-3 gap-2">
+        <td className="hidden sm:table-cell w-16 relative">
+          <div className="absolute inset-0 flex items-center justify-end pr-2 gap-0.5">
             {cat.isOverspent && (
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setCoverOpen(true)
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              <IconBtn
+                title="Cover overspend"
+                onClick={(e) => { e.stopPropagation(); setCoverOpen(true) }}
+                className="text-danger hover:bg-danger/20"
               >
-                Cover
-              </Button>
-            )}
-            {!cat.isOverspent && cat.balance > 0 && !isRolledOut && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setRollForwardOpen(true)
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                Roll forward
-              </Button>
-            )}
-            {isRolledOut && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  undoRollover.mutate()
-                }}
-                loading={undoRollover.isPending}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted"
-              >
-                Undo roll
-              </Button>
+                <CoverIcon />
+              </IconBtn>
             )}
             {!cat.isOverspent && cat.balance > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setSweepOpen(true)
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                Sweep
-              </Button>
+              <>
+                {isRolledOut ? (
+                  <IconBtn
+                    title="Undo roll forward"
+                    onClick={(e) => { e.stopPropagation(); undoRollover.mutate() }}
+                    className="text-muted hover:text-primary hover:bg-surface-3"
+                  >
+                    <UndoRollIcon />
+                  </IconBtn>
+                ) : (
+                  <IconBtn
+                    title="Roll balance forward to next period"
+                    onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
+                    className="text-muted hover:text-primary hover:bg-surface-2"
+                  >
+                    <RollForwardIcon />
+                  </IconBtn>
+                )}
+                <IconBtn
+                  title="Sweep to savings"
+                  onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
+                  className="text-muted hover:text-primary hover:bg-surface-2"
+                >
+                  <SweepIcon />
+                </IconBtn>
+              </>
             )}
           </div>
         </td>
