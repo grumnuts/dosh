@@ -175,7 +175,7 @@ export const budgetApi = {
     destinationAccountId: number
   }) => api.post<{ ok: boolean; amount: number }>('/api/budget/sweep', data),
 
-  rollForward: (data: { categoryId: number; weekStart: string }) =>
+  rollForward: (data: { categoryId: number; weekStart: string; amount: number }) =>
     api.post<{ ok: boolean; id: number; amount: number; destPeriodStart: string }>('/api/budget/rollover', data),
 
   undoRollover: (id: number) =>

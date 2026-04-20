@@ -542,6 +542,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       .object({
         categoryId: z.number().int(),
         weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        amount: z.number().int().positive(),
       })
       .safeParse(request.body)
 
@@ -549,7 +550,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
     }
 
-    const { categoryId, weekStart } = body.data
+    const { categoryId, weekStart, amount: rollAmount } = body.data
     const db = getDb()
 
     const cat = db
@@ -560,6 +561,9 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const balance = getCategoryBalance(categoryId, weekStart)
     if (balance <= 0) {
       return reply.code(400).send({ error: 'Category has no positive balance to roll forward' })
+    }
+    if (rollAmount > balance) {
+      return reply.code(400).send({ error: 'Roll amount exceeds available balance' })
     }
 
     const destPeriodStart = getNextPeriodStart(weekStart, cat.period)
@@ -572,7 +576,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
           `INSERT INTO budget_rollovers (category_id, source_week_start, dest_period_start, amount, created_at, created_by)
            VALUES (?, ?, ?, ?, ?, ?)`,
         )
-        .run(categoryId, weekStart, destPeriodStart, balance, now, request.user!.id)
+        .run(categoryId, weekStart, destPeriodStart, rollAmount, now, request.user!.id)
     } catch {
       return reply.code(409).send({ error: 'A rollover already exists for this category and period' })
     }
@@ -583,11 +587,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'budget.balance_rolled_forward',
       entityType: 'budget_category',
       entityId: categoryId,
-      details: { categoryName: cat.name, weekStart, destPeriodStart, amount: balance },
+      details: { categoryName: cat.name, weekStart, destPeriodStart, amount: rollAmount },
       ipAddress: request.ip,
     })
 
-    return reply.send({ ok: true, id: result.lastInsertRowid, amount: balance, destPeriodStart })
+    return reply.send({ ok: true, id: result.lastInsertRowid, amount: rollAmount, destPeriodStart })
   })
 
   app.delete('/api/budget/rollover/:id', { preHandler: authenticate }, async (request, reply) => {
