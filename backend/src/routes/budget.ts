@@ -9,6 +9,7 @@ import {
   getCategoryBalance,
   getCategoryOverspendAmount,
   getNextPeriodStart,
+  computePeriodStart,
   recordBudgetChange,
 } from '../services/budget'
 
@@ -168,6 +169,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     notes: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
     catchUp: z.boolean().optional(),
+    catchUpWeekStart: z.string().optional(),
     isInvestment: z.boolean().optional().default(false),
     ticker: z.string().max(20).toUpperCase().optional().nullable(),
   })
@@ -190,10 +192,13 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     ).m
 
     const ticker = body.data.ticker ?? null
+    const catchUpPeriodStart = body.data.catchUp && body.data.catchUpWeekStart
+      ? computePeriodStart(body.data.catchUpWeekStart, body.data.period)
+      : null
     const result = db
       .prepare(
-        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, is_investment, ticker, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, catch_up_period_start, is_investment, ticker, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.groupId,
@@ -203,6 +208,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
         body.data.catchUp ? 1 : 0,
+        catchUpPeriodStart,
         ticker !== null ? 1 : (body.data.isInvestment ? 1 : 0),
         ticker,
         now,
@@ -263,9 +269,13 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const nameToSave = existing.linked_account_id !== null ? existing.name : body.data.name
 
     const tickerToSave = body.data.ticker ?? null
+    const catchUpPeriodStartUpdate = body.data.catchUp && body.data.catchUpWeekStart
+      ? computePeriodStart(body.data.catchUpWeekStart, body.data.period)
+      : null
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
-       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, is_investment = ?, ticker = ?, updated_at = ?
+       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, catch_up_period_start = ?,
+       is_investment = ?, ticker = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.groupId,
@@ -275,6 +285,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       body.data.notes ?? null,
       body.data.sortOrder ?? null,
       body.data.catchUp ? 1 : 0,
+      catchUpPeriodStartUpdate,
       tickerToSave !== null ? 1 : (body.data.isInvestment ? 1 : 0),
       tickerToSave,
       new Date().toISOString(),
