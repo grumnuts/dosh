@@ -10,6 +10,7 @@ import { accountsApi, Account } from '../../api/accounts'
 interface SweepModalProps {
   open: boolean
   onClose: () => void
+  onSuccess?: () => void
   category: BudgetCategory
   weekStart: string
   transactionalAccounts: Account[]
@@ -18,6 +19,7 @@ interface SweepModalProps {
 export function SweepModal({
   open,
   onClose,
+  onSuccess,
   category,
   weekStart,
   transactionalAccounts,
@@ -55,6 +57,7 @@ export function SweepModal({
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
       onClose()
+      onSuccess?.()
     },
   })
 

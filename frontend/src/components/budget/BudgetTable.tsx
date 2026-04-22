@@ -28,6 +28,7 @@ import { SweepModal } from './SweepModal'
 import { RollForwardModal } from './RollForwardModal'
 import { CategoryModal } from './CategoryModal'
 import { GroupModal } from './GroupModal'
+import { ConfirmModal } from '../ui/ConfirmModal'
 
 interface BudgetTableProps {
   data: BudgetWeek
@@ -85,8 +86,8 @@ function RollForwardIcon() {
 function UndoRollIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 14L4 9l5-5" />
-      <path d="M4 9h11a5 5 0 0 1 0 10H11" />
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
     </svg>
   )
 }
@@ -150,6 +151,7 @@ function CategoryRow({
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
   const [rollForwardOpen, setRollForwardOpen] = useState(false)
+  const [undoRolloverOpen, setUndoRolloverOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
   const isCovered = cat.covers > 0 && !cat.isOverspent
@@ -180,16 +182,16 @@ function CategoryRow({
             </span>
             <span className="text-sm text-primary">{cat.name}</span>
             {isCovered && (
-              <span className="text-xs text-accent-dim hidden sm:inline">covered</span>
+              <span className="text-xs text-accent-dim">covered</span>
             )}
             {isSwept && (
-              <span className="text-xs text-transfer hidden sm:inline">swept</span>
+              <span className="text-xs text-transfer">swept</span>
             )}
             {isRolledOut && (
-              <span className="text-xs text-muted hidden sm:inline">rolled forward</span>
+              <span className="text-xs text-muted">rolled forward</span>
             )}
             {isRolledIn && (
-              <span className="text-xs text-accent-dim hidden sm:inline">+rollover</span>
+              <span className="text-xs text-accent-dim">+rollover</span>
             )}
           </div>
         </td>
@@ -226,25 +228,23 @@ function CategoryRow({
                 <CoverIcon />
               </button>
             )}
-            {!cat.isOverspent && cat.balance > 0 && (
+            {isRolledOut ? (
+              <button
+                title="Undo roll forward"
+                onClick={(e) => { e.stopPropagation(); setUndoRolloverOpen(true) }}
+                className="text-orange-400 hover:text-orange-300 transition-colors"
+              >
+                <UndoRollIcon />
+              </button>
+            ) : (!cat.isOverspent && cat.balance > 0 && (
               <>
-                {isRolledOut ? (
-                  <button
-                    title="Undo roll forward"
-                    onClick={(e) => { e.stopPropagation(); undoRollover.mutate() }}
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    <UndoRollIcon />
-                  </button>
-                ) : (
-                  <button
-                    title="Roll balance forward to next period"
-                    onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    <RollForwardIcon />
-                  </button>
-                )}
+                <button
+                  title="Roll balance forward to next period"
+                  onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
+                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <RollForwardIcon />
+                </button>
                 <button
                   title="Sweep to savings"
                   onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
@@ -253,7 +253,7 @@ function CategoryRow({
                   <SweepIcon />
                 </button>
               </>
-            )}
+            ))}
           </div>
         </td>
       </tr>
@@ -284,6 +284,14 @@ function CategoryRow({
           weekStart={weekStart}
         />
       )}
+      <ConfirmModal
+        open={undoRolloverOpen}
+        onClose={() => setUndoRolloverOpen(false)}
+        onConfirm={() => { undoRollover.mutate(); setUndoRolloverOpen(false) }}
+        title="Undo Roll Forward"
+        message="Are you sure you want to undo the rolled-forward balance?"
+        loading={undoRollover.isPending}
+      />
 
       <CategoryModal
         open={editOpen}
