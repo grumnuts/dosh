@@ -73,11 +73,6 @@ export function SweepModal({
           </div>
         </div>
 
-        <p className="text-sm text-secondary">
-          This will transfer unspent money from your spending account to savings.
-          The transfer will appear in your transaction list for matching when you import your next CSV.
-        </p>
-
         <Input
           label="Amount to sweep ($)"
           type="number"
@@ -87,6 +82,11 @@ export function SweepModal({
           value={amountStr}
           onChange={(e) => setAmountStr(e.target.value)}
         />
+
+        <p className="text-sm text-secondary">
+          This will transfer unspent money from your spending account to savings.
+          The transfer will appear in your transaction list for matching when you import your next CSV.
+        </p>
 
         {transactionalAccounts.length > 1 && (
           <Select

@@ -362,6 +362,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         sourceAccountId: z.number().int(),
         destinationAccountId: z.number().int(),
+        amount: z.number().int().positive().optional(),
       })
       .safeParse(request.body)
 
@@ -376,6 +377,10 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     if (overspendAmount <= 0) {
       return reply.code(400).send({ error: 'Category is not overspent' })
     }
+
+    const coverAmount = body.data.amount && body.data.amount <= overspendAmount
+      ? body.data.amount
+      : overspendAmount
 
     const sourceAccount = db
       .prepare("SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND type = 'savings'")
@@ -407,7 +412,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, created_at, updated_at, created_by)
          VALUES (?, ?, ?, ?, ?, ?, 'cover', ?, ?, ?, ?)`,
       )
-      .run(today, sourceAccountId, payee, description, -overspendAmount, categoryId, weekStart, now, now, request.user!.id)
+      .run(today, sourceAccountId, payee, description, -coverAmount, categoryId, weekStart, now, now, request.user!.id)
 
     const debitId = debitResult.lastInsertRowid as number
 
@@ -417,7 +422,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, transfer_pair_id, created_at, updated_at, created_by)
          VALUES (?, ?, ?, ?, ?, ?, 'cover', ?, ?, ?, ?, ?)`,
       )
-      .run(today, destinationAccountId, payee, description, overspendAmount, categoryId, weekStart, debitId, now, now, request.user!.id)
+      .run(today, destinationAccountId, payee, description, coverAmount, categoryId, weekStart, debitId, now, now, request.user!.id)
 
     const creditId = creditResult.lastInsertRowid as number
 

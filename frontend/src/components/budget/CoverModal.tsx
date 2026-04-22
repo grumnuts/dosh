@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { Select } from '../ui/Input'
+import { Input, Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
 import { budgetApi, BudgetCategory } from '../../api/budget'
 import { accountsApi, Account } from '../../api/accounts'
@@ -37,6 +37,10 @@ export function CoverModal({
 
   const savingsAccounts = accounts?.filter((a) => a.type === 'savings') ?? []
   const overspendAmount = Math.abs(category.balance)
+  const [amountStr, setAmountStr] = useState((overspendAmount / 100).toFixed(2))
+
+  const parsedAmount = Math.round(parseFloat(amountStr) * 100)
+  const amountValid = !isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= overspendAmount
 
   const cover = useMutation({
     mutationFn: () =>
@@ -45,6 +49,7 @@ export function CoverModal({
         weekStart,
         sourceAccountId: sourceAccountId as number,
         destinationAccountId: destAccountId as number,
+        amount: parsedAmount,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budget'] })
@@ -61,7 +66,7 @@ export function CoverModal({
         <div className="bg-surface-2 rounded-lg p-4">
           <div className="text-sm text-secondary mb-1">Category</div>
           <div className="font-semibold text-primary">{category.name}</div>
-          <div className="mt-2 text-sm text-secondary">Overspend amount</div>
+          <div className="mt-2 text-sm text-secondary">Total overspend</div>
           <div className="text-xl font-bold text-danger font-mono">
             {formatMoney(overspendAmount)}
           </div>
@@ -71,6 +76,16 @@ export function CoverModal({
           This will create a transfer from your selected savings account to cover the overspend.
           The transfer will appear in your transaction list for matching when you import your next CSV.
         </p>
+
+        <Input
+          label="Amount to cover ($)"
+          type="number"
+          step="0.01"
+          min="0.01"
+          max={(overspendAmount / 100).toFixed(2)}
+          value={amountStr}
+          onChange={(e) => setAmountStr(e.target.value)}
+        />
 
         <Select
           label="Transfer from (savings)"
@@ -109,10 +124,10 @@ export function CoverModal({
           </Button>
           <Button
             onClick={() => cover.mutate()}
-            disabled={!sourceAccountId || !destAccountId}
+            disabled={!sourceAccountId || !destAccountId || !amountValid}
             loading={cover.isPending}
           >
-            Cover {formatMoney(overspendAmount)}
+            Cover {amountValid ? formatMoney(parsedAmount) : '…'}
           </Button>
         </div>
       </div>

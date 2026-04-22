@@ -166,6 +166,7 @@ export const budgetApi = {
     weekStart: string
     sourceAccountId: number
     destinationAccountId: number
+    amount?: number
   }) => api.post<{ ok: boolean; amount: number }>('/api/budget/cover', data),
 
   sweepUnspent: (data: {
