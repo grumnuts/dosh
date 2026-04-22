@@ -10,6 +10,7 @@ import { accountsApi, Account } from '../../api/accounts'
 interface CoverModalProps {
   open: boolean
   onClose: () => void
+  onSuccess?: () => void
   category: BudgetCategory
   weekStart: string
   transactionalAccounts: Account[]
@@ -18,6 +19,7 @@ interface CoverModalProps {
 export function CoverModal({
   open,
   onClose,
+  onSuccess,
   category,
   weekStart,
   transactionalAccounts,
@@ -49,6 +51,7 @@ export function CoverModal({
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
       onClose()
+      onSuccess?.()
     },
   })
 

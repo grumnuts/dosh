@@ -9,6 +9,7 @@ import { budgetApi, BudgetCategory } from '../../api/budget'
 interface RollForwardModalProps {
   open: boolean
   onClose: () => void
+  onSuccess?: () => void
   category: BudgetCategory
   weekStart: string
 }
@@ -21,7 +22,7 @@ const PERIOD_NEXT: Record<string, string> = {
   annually: 'next year',
 }
 
-export function RollForwardModal({ open, onClose, category, weekStart }: RollForwardModalProps) {
+export function RollForwardModal({ open, onClose, onSuccess, category, weekStart }: RollForwardModalProps) {
   const qc = useQueryClient()
   const availableBalance = category.balance
   const [amountStr, setAmountStr] = useState((availableBalance / 100).toFixed(2))
@@ -34,6 +35,7 @@ export function RollForwardModal({ open, onClose, category, weekStart }: RollFor
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budget'] })
       onClose()
+      onSuccess?.()
     },
   })
 

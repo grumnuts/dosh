@@ -96,6 +96,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
   const [catchUp, setCatchUp] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmUndoRoll, setConfirmUndoRoll] = useState(false)
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
   const [rollForwardOpen, setRollForwardOpen] = useState(false)
@@ -249,47 +250,64 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
         )}
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-8 sm:gap-2 pt-2">
-          <div className="flex gap-2 justify-center sm:justify-start">
+        <div className="flex flex-col gap-3 pt-2">
+          {(showCoverButton || showSweepButton || showRollForwardButton || showUndoRollButton) && (
+            <div className="flex justify-center gap-2 sm:hidden">
+              {showCoverButton && (
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setCoverOpen(true)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-danger"><path d="M12 2v11" /><path d="M12 22l-6-9h12z" fill="currentColor" /><path d="M5 22h14" /></svg>
+                  Cover
+                </Button>
+              )}
+              {showSweepButton && (
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setSweepOpen(true)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent"><path d="M5 2h14" /><path d="M12 2l-6 9h12z" fill="currentColor" /><path d="M12 11v11" /></svg>
+                  Sweep
+                </Button>
+              )}
+              {showRollForwardButton && (
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setRollForwardOpen(true)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+                  Roll Forward
+                </Button>
+              )}
+              {showUndoRollButton && (
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setConfirmUndoRoll(true)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+                  Undo Roll
+                </Button>
+              )}
+            </div>
+          )}
+          <ConfirmModal
+            open={confirmUndoRoll}
+            onClose={() => setConfirmUndoRoll(false)}
+            onConfirm={() => { undoRollover.mutate(); setConfirmUndoRoll(false) }}
+            title="Undo Roll Forward"
+            message="Are you sure you want to undo the rolled-forward balance?"
+            loading={undoRollover.isPending}
+          />
+          <div className="flex items-center gap-3 pt-2">
             {isEdit && !isDebtGroup && (
               <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)}>
                 Delete
               </Button>
             )}
-            {showCoverButton && (
-              <Button type="button" variant="outline" className="sm:hidden" onClick={() => setCoverOpen(true)}>
-                Cover
+            <div className="flex gap-3 ml-auto">
+              <Button variant="ghost" type="button" onClick={onClose}>
+                Cancel
               </Button>
-            )}
-            {showSweepButton && (
-              <Button type="button" variant="outline" className="sm:hidden" onClick={() => setSweepOpen(true)}>
-                Sweep
+              <Button type="submit" loading={mutation.isPending}>
+                {isEdit ? 'Save' : 'Add Category'}
               </Button>
-            )}
-            {showRollForwardButton && (
-              <Button type="button" variant="outline" className="sm:hidden" onClick={() => setRollForwardOpen(true)}>
-                Roll Forward
-              </Button>
-            )}
-            {showUndoRollButton && (
-              <Button type="button" variant="outline" className="sm:hidden" onClick={() => undoRollover.mutate()} loading={undoRollover.isPending}>
-                Undo Roll
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-3 justify-center sm:justify-start sm:ml-auto">
-            <Button variant="ghost" type="button" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={mutation.isPending}>
-              {isEdit ? 'Save' : 'Add Category'}
-            </Button>
+            </div>
           </div>
         </div>
         {showCoverButton && fullCategory && transactionalAccounts && (
           <CoverModal
             open={coverOpen}
             onClose={() => setCoverOpen(false)}
+            onSuccess={onClose}
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
@@ -299,6 +317,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           <SweepModal
             open={sweepOpen}
             onClose={() => setSweepOpen(false)}
+            onSuccess={onClose}
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
@@ -308,6 +327,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           <RollForwardModal
             open={rollForwardOpen}
             onClose={() => setRollForwardOpen(false)}
+            onSuccess={onClose}
             category={fullCategory}
             weekStart={weekStart}
           />
