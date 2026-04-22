@@ -28,7 +28,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/budget/groups', { preHandler: authenticate }, async (_req, reply) => {
     const db = getDb()
     const groups = db
-      .prepare('SELECT id, name, sort_order FROM budget_groups WHERE is_active = 1 ORDER BY sort_order, name')
+      .prepare('SELECT id, name, sort_order, is_income, is_debt, is_savings, is_investments FROM budget_groups WHERE is_active = 1 ORDER BY sort_order, name')
       .all()
     return reply.send(groups)
   })

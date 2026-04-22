@@ -3,7 +3,7 @@ import { ConfirmModal } from '../ui/ConfirmModal'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
@@ -68,6 +68,16 @@ function getPeriodStart(weekStart: string, period: string): string {
 export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
+  const [selectedGroupId, setSelectedGroupId] = useState(groupId)
+
+  const { data: allGroups } = useQuery({
+    queryKey: ['budget-groups'],
+    queryFn: budgetApi.getGroups,
+    enabled: isEdit && !isDebtGroup && !isInvestmentGroup,
+  })
+  const moveableGroups = allGroups?.filter((g) =>
+    isIncomeGroup ? g.is_income === 1 : (g.is_income === 0 && g.is_debt === 0 && g.is_savings === 0 && g.is_investments === 0)
+  ) ?? []
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -103,6 +113,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
   useEffect(() => {
     if (open) {
+      setSelectedGroupId(groupId)
       if (category) {
         setCatchUp(category.catchUp)
         reset({
@@ -117,7 +128,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
         reset({ name: '', ticker: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
       }
     }
-  }, [open, category, reset])
+  }, [open, category, groupId, reset])
 
   const mutation = useMutation({
     mutationFn: async (data: CategoryInput): Promise<{ id: number }> => {
@@ -143,7 +154,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
   const onSubmit = (data: FormData) => {
     mutation.mutate({
-      groupId,
+      groupId: selectedGroupId,
       name: data.name,
       budgetedAmount: Math.round(parseFloat(data.budgetedAmount) * 100),
       period: data.period,
@@ -168,6 +179,18 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           </div>
         ) : (
           <Input label="Name" {...register('name')} error={errors.name?.message} />
+        )}
+
+        {isEdit && !isDebtGroup && !isInvestmentGroup && moveableGroups.length > 1 && (
+          <Select
+            label="Group"
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(Number(e.target.value))}
+          >
+            {moveableGroups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </Select>
         )}
 
         {isInvestmentGroup && (
