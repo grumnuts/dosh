@@ -600,6 +600,7 @@ export function AccountsPage() {
   }, [])
   const [uncategorisedOnly, setUncategorisedOnly] = useState(false)
   const [hasReceiptsOnly, setHasReceiptsOnly] = useState(false)
+  const [duplicatesOnly, setDuplicatesOnly] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [addTxOpen, setAddTxOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -608,6 +609,7 @@ export function AccountsPage() {
   const [fabOpen, setFabOpen] = useState(false)
   const [reconcilePickerOpen, setReconcilePickerOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [page, setPage] = useState(0)
 
   const PAGE_SIZE = 100
@@ -689,7 +691,7 @@ export function AccountsPage() {
   }
   const { data: payees } = useQuery({ queryKey: ['transactions', 'payees'], queryFn: transactionsApi.payees })
   const { data: txData, isLoading: txLoading } = useQuery({
-    queryKey: ['transactions', filters, uncategorisedOnly, hasReceiptsOnly, page],
+    queryKey: ['transactions', filters, uncategorisedOnly, hasReceiptsOnly, duplicatesOnly, page],
     queryFn: () =>
       transactionsApi.list({
         startDate: filters.startDate || undefined,
@@ -700,6 +702,7 @@ export function AccountsPage() {
         noPayee: filters.payee === '__none__' || undefined,
         uncategorised: uncategorisedOnly || undefined,
         hasReceipts: hasReceiptsOnly || undefined,
+        duplicates: duplicatesOnly || undefined,
         search: filters.search || undefined,
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
@@ -776,9 +779,10 @@ export function AccountsPage() {
     setFilters({ startDate: '', endDate: '', accountId: '', categoryId: '', payee: '', search: '' })
     setUncategorisedOnly(false)
     setHasReceiptsOnly(false)
+    setDuplicatesOnly(false)
     setPage(0)
   }
-  const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly || hasReceiptsOnly
+  const hasFilters = Object.values(filters).some(Boolean) || uncategorisedOnly || hasReceiptsOnly || duplicatesOnly
 
   const openAccountsAll = accounts?.filter((a) => !a.closedAt) ?? []
   const portfolioValueCents = holdingsData?.totalMarketValueCents ?? 0
@@ -914,11 +918,7 @@ export function AccountsPage() {
                 size="sm"
                 variant="danger"
                 loading={bulkDelete.isPending}
-                onClick={() => {
-                  if (confirm(`Delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`)) {
-                    bulkDelete.mutate([...selectedIds])
-                  }
-                }}
+                onClick={() => setBulkDeleteOpen(true)}
               >
                 Delete
               </Button>
@@ -1051,6 +1051,15 @@ export function AccountsPage() {
             />
             <span className="text-sm text-secondary">Has receipts</span>
           </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={duplicatesOnly}
+              onChange={(e) => { setDuplicatesOnly(e.target.checked); setPage(0) }}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm text-secondary">Possible duplicates</span>
+          </label>
           <div className="grid grid-cols-2 gap-2 pt-1">
             {(Object.keys(quickDateRanges) as QuickLabel[]).map((label) => (
               <button
@@ -1134,6 +1143,15 @@ export function AccountsPage() {
                 className="w-3.5 h-3.5 accent-accent"
               />
               <span className="text-xs font-medium text-secondary">Has receipts</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-1.5">
+              <input
+                type="checkbox"
+                checked={duplicatesOnly}
+                onChange={(e) => { setDuplicatesOnly(e.target.checked); setPage(0) }}
+                className="w-3.5 h-3.5 accent-accent"
+              />
+              <span className="text-xs font-medium text-secondary">Possible duplicates</span>
             </label>
           </div>
           {hasFilters && (
@@ -1436,6 +1454,14 @@ export function AccountsPage() {
         accounts={accounts ?? []}
         groups={groups ?? []}
         categories={(categories as unknown as Array<{ id: number; group_id: number; name: string }>) ?? []}
+      />
+      <ConfirmModal
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={() => { bulkDelete.mutate([...selectedIds]); setBulkDeleteOpen(false) }}
+        title="Delete Transactions"
+        message={`Are you sure you want to delete ${selectedIds.size} transaction${selectedIds.size !== 1 ? 's' : ''}?`}
+        loading={bulkDelete.isPending}
       />
     </div>
   )

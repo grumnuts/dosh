@@ -68,6 +68,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         noPayee: z.string().optional(),
         uncategorised: z.string().optional(),
         hasReceipts: z.string().optional(),
+        duplicates: z.string().optional(),
         search: z.string().optional(),
         limit: z.string().optional(),
         offset: z.string().optional(),
@@ -110,6 +111,16 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     }
     if (query.hasReceipts === 'true') {
       where += ` AND EXISTS (SELECT 1 FROM transaction_receipts WHERE transaction_id = t.id)`
+    }
+    if (query.duplicates === 'true') {
+      where += ` AND EXISTS (
+        SELECT 1 FROM transactions t2
+        WHERE t2.id != t.id
+        AND t2.date = t.date
+        AND t2.amount = t.amount
+        AND t2.account_id = t.account_id
+        AND ((t2.payee IS NULL AND t.payee IS NULL) OR t2.payee = t.payee)
+      )`
     }
     if (query.search) {
       where += ` AND (t.payee LIKE ? OR t.description LIKE ? OR a.name LIKE ? OR bc.name LIKE ?`
