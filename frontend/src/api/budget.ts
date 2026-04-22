@@ -144,7 +144,7 @@ export interface GroupInput {
 export const budgetApi = {
   getWeek: (weekStart: string) => api.get<BudgetWeek>(`/api/budget/week/${weekStart}`),
 
-  getGroups: () => api.get<Array<{ id: number; name: string; sort_order: number; is_income: number }>>('/api/budget/groups'),
+  getGroups: () => api.get<Array<{ id: number; name: string; sort_order: number; is_income: number; is_debt: number; is_savings: number; is_investments: number }>>('/api/budget/groups'),
   createGroup: (data: GroupInput) => api.post<{ id: number }>('/api/budget/groups', data),
   updateGroup: (id: number, data: GroupInput) => api.put<{ ok: boolean }>(`/api/budget/groups/${id}`, data),
   deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/api/budget/groups/${id}`),
