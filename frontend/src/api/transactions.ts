@@ -44,6 +44,7 @@ export interface TransactionFilters {
   noPayee?: boolean
   uncategorised?: boolean
   hasReceipts?: boolean
+  duplicates?: boolean
   search?: string
   limit?: number
   offset?: number
@@ -83,6 +84,7 @@ export const transactionsApi = {
     if (filters.noPayee) params.set('noPayee', 'true')
     if (filters.uncategorised) params.set('uncategorised', 'true')
     if (filters.hasReceipts) params.set('hasReceipts', 'true')
+    if (filters.duplicates) params.set('duplicates', 'true')
     if (filters.search) params.set('search', filters.search)
     if (filters.limit) params.set('limit', String(filters.limit))
     if (filters.offset) params.set('offset', String(filters.offset))
