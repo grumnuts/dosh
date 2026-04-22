@@ -169,19 +169,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Category' : (isInvestmentGroup ? 'Add Investment' : 'Add Category')}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {isEdit && !isDebtGroup && !isInvestmentGroup && moveableGroups.length > 1 ? (
-          <Select
-            label="Group"
-            value={selectedGroupId}
-            onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-          >
-            {moveableGroups.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </Select>
-        ) : (
-          <p className="text-xs text-muted">Group: {groupName}</p>
-        )}
+        <p className="text-xs text-muted">Group: {groupName}</p>
 
         {isDebtGroup ? (
           <div>
@@ -191,6 +179,18 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           </div>
         ) : (
           <Input label="Name" {...register('name')} error={errors.name?.message} />
+        )}
+
+        {isEdit && !isDebtGroup && !isInvestmentGroup && moveableGroups.length > 1 && (
+          <Select
+            label="Group"
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(Number(e.target.value))}
+          >
+            {moveableGroups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </Select>
         )}
 
         {isInvestmentGroup && (
