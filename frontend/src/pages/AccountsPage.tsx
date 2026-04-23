@@ -797,10 +797,13 @@ export function AccountsPage() {
       {/* Ledger header */}
       <div className="flex items-center justify-between gap-2">
         <button
-          className="text-xl font-bold text-primary hover:text-accent transition-colors"
+          className="flex items-center gap-1.5 text-xl font-bold text-primary hover:text-accent transition-colors"
           onClick={() => setAccountsCollapsed((c) => !c)}
         >
-          Ledger
+          <svg className={`w-4 h-4 transition-transform duration-150 ${accountsCollapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          Accounts
         </button>
         <div className="flex items-center gap-2 ml-auto">
           {!accountsCollapsed && (
@@ -904,9 +907,12 @@ export function AccountsPage() {
       {/* Transactions header */}
       <div className="flex items-center justify-between gap-2">
         <button
-          className="text-lg font-semibold text-primary hover:text-accent transition-colors shrink-0"
+          className="flex items-center gap-1.5 text-lg font-semibold text-primary hover:text-accent transition-colors shrink-0"
           onClick={() => setTransactionsCollapsed((c) => !c)}
         >
+          <svg className={`w-4 h-4 transition-transform duration-150 ${transactionsCollapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
           Transactions
         </button>
         <div className="flex items-center gap-2">

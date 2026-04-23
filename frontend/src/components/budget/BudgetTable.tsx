@@ -390,7 +390,12 @@ function GroupSection({
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
         <td className="pl-2 pr-2 py-2.5">
-          <span className="text-sm font-semibold text-primary">{group.name}</span>
+          <div className="flex items-center gap-1.5">
+            <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span className="text-sm font-semibold text-primary">{group.name}</span>
+          </div>
         </td>
         <td className="hidden md:table-cell" />
         <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
@@ -577,7 +582,12 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
       <tr className="bg-white/5 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6" />
         <td className="pl-2 pr-2 py-2.5">
-          <span className="text-sm font-semibold text-primary">{group.name}</span>
+          <div className="flex items-center gap-1.5">
+            <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span className="text-sm font-semibold text-primary">{group.name}</span>
+          </div>
         </td>
         <td className="hidden md:table-cell" />
         <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-secondary tabular-nums">
@@ -694,7 +704,12 @@ function IncomeGroupSection({
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
         <td className="pl-2 pr-2 py-2.5">
-          <span className="text-sm font-semibold text-primary">{group.name}</span>
+          <div className="flex items-center gap-1.5">
+            <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span className="text-sm font-semibold text-primary">{group.name}</span>
+          </div>
         </td>
         <td className="hidden md:table-cell" />
         <td className="hidden lg:table-cell" />
@@ -798,7 +813,12 @@ function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
       <tr className="bg-white/5 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6" />
         <td className="pl-2 pr-2 py-2.5">
-          <span className="text-sm font-semibold text-primary">{group.name}</span>
+          <div className="flex items-center gap-1.5">
+            <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span className="text-sm font-semibold text-primary">{group.name}</span>
+          </div>
         </td>
         <td className="hidden md:table-cell" />
         <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-secondary tabular-nums">
@@ -879,7 +899,12 @@ function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSecti
       <tr className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6" />
         <td className="pl-2 pr-2 py-2.5">
-          <span className="text-sm font-semibold text-primary">{group.name}</span>
+          <div className="flex items-center gap-1.5">
+            <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span className="text-sm font-semibold text-primary">{group.name}</span>
+          </div>
         </td>
         <td className="hidden md:table-cell" />
         <td className="px-1.5 sm:px-2 py-2.5 text-right font-mono text-xs text-muted tabular-nums">
