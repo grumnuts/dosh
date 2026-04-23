@@ -385,11 +385,11 @@ function GroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+      <tr ref={rowRef} style={{ ...rowStyle, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} className="group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-2 pr-2 py-2.5">
+        <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
             <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -579,9 +579,9 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
 
   return (
     <>
-      <tr className="bg-white/5 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+      <tr className="cursor-pointer" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} onClick={() => setCollapsed((c) => !c)}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6" />
-        <td className="pl-2 pr-2 py-2.5">
+        <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
             <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -699,11 +699,11 @@ function IncomeGroupSection({
 
   return (
     <>
-      <tr ref={rowRef} style={rowStyle} className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+      <tr ref={rowRef} style={{ ...rowStyle, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} className="group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
           <GripHandle listeners={dragListeners} attributes={dragAttributes} />
         </td>
-        <td className="pl-2 pr-2 py-2.5">
+        <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
             <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -810,9 +810,9 @@ function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
 
   return (
     <>
-      <tr className="bg-white/5 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+      <tr className="cursor-pointer" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} onClick={() => setCollapsed((c) => !c)}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6" />
-        <td className="pl-2 pr-2 py-2.5">
+        <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
             <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -896,9 +896,9 @@ function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSecti
 
   return (
     <>
-      <tr className="bg-white/5 group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)}>
+      <tr className="group cursor-pointer select-none" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} onClick={() => setCollapsed((c) => !c)}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6" />
-        <td className="pl-2 pr-2 py-2.5">
+        <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
             <svg className={`w-3.5 h-3.5 text-muted transition-transform duration-150 shrink-0 ${collapsed ? '-rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

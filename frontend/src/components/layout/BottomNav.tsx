@@ -7,8 +7,8 @@ export function BottomNav() {
   const [open, setOpen] = useState(false)
 
   const tabClass = ({ isActive }: { isActive: boolean }) =>
-    `flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors ${
-      isActive ? 'text-accent' : 'text-muted'
+    `flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors relative ${
+      isActive ? 'text-accent' : 'text-muted hover:text-secondary'
     }`
 
   const drawerLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -18,42 +18,58 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40 flex h-20" style={{ transform: 'translateZ(0)' }}>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex h-20" style={{ transform: 'translateZ(0)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', background: 'linear-gradient(180deg, rgba(28,28,28,0.85) 0%, rgba(17,17,17,0.95) 100%)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
 
         {/* Budget */}
         <NavLink to="/budget" className={tabClass}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm2 3h10v4H7V6zm0 7h.01M12 13h.01M17 13h.01M7 17h.01M12 17h.01M17 17h.01" />
-          </svg>
-          <span>Budget</span>
+          {({ isActive }) => (
+            <>
+              {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" style={{ boxShadow: '0 0 8px rgba(74,222,128,0.8)' }} />}
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.5))' } : undefined}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm2 3h10v4H7V6zm0 7h.01M12 13h.01M17 13h.01M7 17h.01M12 17h.01M17 17h.01" />
+              </svg>
+              <span>Budget</span>
+            </>
+          )}
         </NavLink>
 
         {/* Ledger */}
         <NavLink to="/accounts" className={tabClass}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          <span>Ledger</span>
+          {({ isActive }) => (
+            <>
+              {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" style={{ boxShadow: '0 0 8px rgba(74,222,128,0.8)' }} />}
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.5))' } : undefined}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span>Ledger</span>
+            </>
+          )}
         </NavLink>
 
         {/* Reports */}
         <NavLink to="/reports" className={tabClass}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <span>Reports</span>
+          {({ isActive }) => (
+            <>
+              {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" style={{ boxShadow: '0 0 8px rgba(74,222,128,0.8)' }} />}
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.5))' } : undefined}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>Reports</span>
+            </>
+          )}
         </NavLink>
 
         {/* More (hamburger) */}
         <button
-          className={`flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors ${open ? 'text-accent' : 'text-muted'}`}
+          className={`flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors relative ${open ? 'text-accent' : 'text-muted hover:text-secondary'}`}
           onClick={() => setOpen(true)}
           aria-label="More"
         >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {open && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" style={{ boxShadow: '0 0 8px rgba(74,222,128,0.8)' }} />}
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={open ? { filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.5))' } : undefined}>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           <span>More</span>
