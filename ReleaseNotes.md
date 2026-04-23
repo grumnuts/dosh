@@ -12,6 +12,7 @@
 
 ### Bug Fixes
 - Budget: removed the "Investment Category" toggle from the category modal — investment categories are determined by the group, not a per-category flag
+- Portfolio: investments breakdown no longer requires horizontal scrolling on mobile; Units and Gain/Loss columns are hidden on small screens, with gain/loss shown inline under the ticker
 
 ---
 
