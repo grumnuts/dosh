@@ -6,9 +6,11 @@
 - Budget: roll forward a category's remaining balance to the next period; supports partial amounts and is fully undoable
 - Budget: cover, sweep, and roll forward actions are now always-visible icon buttons on desktop (replacing context menus); roll forward and undo roll are accessible via the category modal on mobile
 - Budget: categories can now be moved to a different group via the category edit modal
+- Ledger: new "Possible duplicates" filter on the transaction list — highlights transactions that share the same date, amount, account, and payee as another transaction in the same account
 
 ### Enhancements
 - Budget: catch up toggle now automatically resets when a new period starts, so it only applies to the period in which it was enabled
+- Budget: cover modal now accepts a partial amount, allowing an overspend to be covered across multiple transactions or sources
 - Budget: collapse chevron added to all group headers; rotates to indicate expanded/collapsed state
 - Ledger: collapse chevron added to Accounts and Transactions section headers
 
