@@ -110,7 +110,7 @@ export function InvestmentsReport() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-4">
           <div>
             <div className="text-xs text-muted">Portfolio Value</div>
@@ -141,7 +141,7 @@ export function InvestmentsReport() {
             onClick={() => refreshMutation.mutate()}
             loading={refreshMutation.isPending}
           >
-            Refresh Prices
+            Refresh
           </Button>
         </div>
       </div>
@@ -183,15 +183,15 @@ export function InvestmentsReport() {
 
       {/* Holdings table */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[500px] text-sm">
+        <table className="w-full min-w-[320px] text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted uppercase tracking-wide">
               <th className="text-left py-2 pr-3 font-medium">Ticker</th>
-              <th className="text-right py-2 pr-3 font-medium">Units</th>
+              <th className="text-right py-2 pr-3 font-medium hidden sm:table-cell">Units</th>
               <th className="text-right py-2 pr-3 font-medium hidden md:table-cell">Avg Cost</th>
               <th className="text-right py-2 pr-3 font-medium">Price</th>
               <th className="text-right py-2 pr-3 font-medium">Value</th>
-              <th className="text-right py-2 font-medium">Gain / Loss</th>
+              <th className="text-right py-2 font-medium hidden sm:table-cell">Gain / Loss</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
@@ -210,11 +210,14 @@ export function InvestmentsReport() {
                       {colour && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colour }} />}
                       <div>
                         <div className="font-semibold text-primary">{h.ticker}</div>
-                        {h.name && <div className="text-xs text-muted truncate max-w-[140px]">{h.name}</div>}
+                        {h.name && <div className="text-xs text-muted truncate max-w-[120px]">{h.name}</div>}
+                        <div className="text-xs sm:hidden">
+                          <GainLoss cents={h.gainLossCents} />
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className="py-2.5 pr-3 text-right font-mono tabular-nums text-primary">
+                  <td className="py-2.5 pr-3 text-right font-mono tabular-nums text-primary hidden sm:table-cell">
                     {formatQuantity(h.quantity)}
                   </td>
                   <td className="py-2.5 pr-3 text-right font-mono tabular-nums text-secondary hidden md:table-cell">
@@ -226,7 +229,7 @@ export function InvestmentsReport() {
                   <td className="py-2.5 pr-3 text-right font-mono tabular-nums text-primary">
                     {formatMoney(h.marketValueCents)}
                   </td>
-                  <td className="py-2.5 text-right font-mono tabular-nums">
+                  <td className="py-2.5 text-right font-mono tabular-nums hidden sm:table-cell">
                     <GainLoss cents={h.gainLossCents} />
                     <div className="text-xs">
                       <GainLossPct holding={h} />
@@ -239,13 +242,13 @@ export function InvestmentsReport() {
           <tfoot>
             <tr className="border-t border-border font-semibold">
               <td className="py-2.5 pr-3 text-xs text-muted uppercase tracking-wide">Total</td>
-              <td className="py-2.5 pr-3" />
+              <td className="py-2.5 pr-3 hidden sm:table-cell" />
               <td className="py-2.5 pr-3 hidden md:table-cell" />
               <td className="py-2.5 pr-3" />
               <td className="py-2.5 pr-3 text-right font-mono tabular-nums text-primary">
                 {formatMoney(data.totalMarketValueCents)}
               </td>
-              <td className="py-2.5 text-right font-mono tabular-nums">
+              <td className="py-2.5 text-right font-mono tabular-nums hidden sm:table-cell">
                 <GainLoss cents={totalGainLoss} />
               </td>
             </tr>
