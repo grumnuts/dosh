@@ -113,12 +113,13 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       where += ` AND EXISTS (SELECT 1 FROM transaction_receipts WHERE transaction_id = t.id)`
     }
     if (query.duplicates === 'true') {
-      where += ` AND EXISTS (
+      where += ` AND t.type != 'transfer' AND EXISTS (
         SELECT 1 FROM transactions t2
         WHERE t2.id != t.id
         AND t2.date = t.date
         AND t2.amount = t.amount
         AND t2.account_id = t.account_id
+        AND t2.type != 'transfer'
         AND ((t2.payee IS NULL AND t.payee IS NULL) OR t2.payee = t.payee)
       )`
     }
