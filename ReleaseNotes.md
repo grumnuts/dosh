@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+---
+
+## v1.14.0 — 2026-04-23
+
 ### New Features
 - Budget: roll forward a category's remaining balance to the next period; supports partial amounts and is fully undoable
 - Budget: cover, sweep, and roll forward actions are now always-visible icon buttons on desktop (replacing context menus); roll forward and undo roll are accessible via the category modal on mobile
@@ -13,6 +17,7 @@
 - Budget: cover modal now accepts a partial amount, allowing an overspend to be covered across multiple transactions or sources
 - Budget: collapse chevron added to all group headers; rotates to indicate expanded/collapsed state
 - Ledger: collapse chevron added to Accounts and Transactions section headers
+- UI enhancements
 
 ### Bug Fixes
 - Budget: removed the "Investment Category" toggle from the category modal — investment categories are determined by the group, not a per-category flag
