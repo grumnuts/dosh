@@ -1,3 +1,5 @@
+import type React from 'react'
+
 /** Format cents to a dollar string with commas */
 export function formatMoney(cents: number): string {
   const abs = Math.abs(cents)
@@ -22,17 +24,20 @@ interface AmountProps {
  */
 export function Amount({ cents, type = 'auto', className = '', colored = true }: AmountProps) {
   let colorClass = ''
+  let glowStyle: React.CSSProperties | undefined
   if (colored) {
     if (type === 'transfer' || type === 'cover' || type === 'sweep') {
       colorClass = 'text-transfer'
     } else if (cents >= 0) {
       colorClass = 'text-accent'
+      glowStyle = { textShadow: '0 0 10px rgba(74,222,128,0.4)' }
     } else {
       colorClass = 'text-danger'
+      glowStyle = { textShadow: '0 0 10px rgba(248,113,113,0.35)' }
     }
   }
   return (
-    <span className={`font-mono tabular-nums ${colorClass} ${className}`}>
+    <span className={`font-mono tabular-nums ${colorClass} ${className}`} style={glowStyle}>
       {formatMoney(cents)}
     </span>
   )
