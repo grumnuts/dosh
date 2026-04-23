@@ -9,6 +9,8 @@
 
 ### Enhancements
 - Budget: catch up toggle now automatically resets when a new period starts, so it only applies to the period in which it was enabled
+- Budget: collapse chevron added to all group headers; rotates to indicate expanded/collapsed state
+- Ledger: collapse chevron added to Accounts and Transactions section headers
 
 ### Bug Fixes
 - Budget: removed the "Investment Category" toggle from the category modal — investment categories are determined by the group, not a per-category flag
