@@ -19,7 +19,7 @@ export function Button({
     'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100'
 
   const variants = {
-    primary: 'bg-accent text-bg hover:bg-accent-dim',
+    primary: 'bg-accent-muted text-accent border border-accent-dim hover:bg-accent hover:text-bg',
     ghost: 'text-secondary hover:bg-surface-2 hover:text-primary',
     danger: 'bg-danger-muted text-danger border border-danger-dim hover:bg-danger hover:text-bg',
     outline: 'border border-border text-primary hover:bg-surface-2',
