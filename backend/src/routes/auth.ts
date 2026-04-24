@@ -6,7 +6,7 @@ import { getDb, hasUsers } from '../db/client'
 import { logAudit } from '../utils/audit'
 import { authenticate } from '../middleware/auth'
 
-const SESSION_DAYS = 30
+const SESSION_DAYS = 90
 
 const loginSchema = z.object({
   username: z.string().min(1),

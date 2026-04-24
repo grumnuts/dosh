@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Enhancements
+- Auth: session timeout extended from 30 to 90 days
+- UI: Button primary variant updated to outlined style with hover fill
+- UI: ConfirmModal supports configurable cancel label; confirm button uses primary style, cancel uses danger style
+
 ---
 
 ## v1.14.0 — 2026-04-23
