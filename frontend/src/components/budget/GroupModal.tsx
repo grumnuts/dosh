@@ -43,6 +43,7 @@ export function GroupModal({ open, onClose, group, isIncome }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['budget-groups'] })
       onClose()
     },
   })
@@ -51,6 +52,7 @@ export function GroupModal({ open, onClose, group, isIncome }: Props) {
     mutationFn: () => budgetApi.deleteGroup(group!.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['budget-groups'] })
       onClose()
     },
   })
