@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Bug Fixes
+- Budget: newly added category groups now appear immediately in the category modal group dropdown without requiring a page refresh
+
 ### Enhancements
 - Auth: session timeout extended from 30 to 90 days
 - UI: Button primary variant updated to outlined style with hover fill
