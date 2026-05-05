@@ -2,13 +2,18 @@
 
 ## Unreleased
 
-### Bug Fixes
-- Budget: newly added category groups now appear immediately in the category modal group dropdown without requiring a page refresh
+---
+
+## v1.14.1 — 2026-05-05
 
 ### Enhancements
 - Auth: session timeout extended from 30 to 90 days
 - UI: Button primary variant updated to outlined style with hover fill
 - UI: ConfirmModal supports configurable cancel label; confirm button uses primary style, cancel uses danger style
+
+### Bug Fixes
+- Budget: newly added category groups now appear immediately in the category modal group dropdown without requiring a page refresh
+- Accounts: goal amount and target date now saved when creating a savings account, so it appears in the Goals report immediately
 
 ---
 
