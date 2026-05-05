@@ -13,6 +13,8 @@ const createAccountSchema = z.object({
   startingBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   notes: z.string().max(500).optional().nullable(),
   sortOrder: z.number().int().optional(),
+  goalAmount: z.number().int().optional().nullable(),
+  goalTargetDate: z.string().regex(/^\d{4}-\d{2}$/).optional().nullable(),
 })
 
 const updateAccountSchema = z.object({
@@ -102,14 +104,16 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
     const result = db
       .prepare(
-        `INSERT INTO accounts (name, type, starting_balance, notes, sort_order, created_at, updated_at)
-         VALUES (?, ?, 0, ?, ?, ?, ?)`,
+        `INSERT INTO accounts (name, type, starting_balance, notes, sort_order, goal_amount, goal_target_date, created_at, updated_at)
+         VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.name,
         body.data.type,
         body.data.notes ?? null,
         body.data.sortOrder ?? maxOrder + 1,
+        body.data.goalAmount ?? null,
+        body.data.goalTargetDate ?? null,
         now,
         now,
       )
