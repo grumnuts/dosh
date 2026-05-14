@@ -41,7 +41,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const now = new Date().toISOString()
 
     const result = db
-      .prepare('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)')
+      .prepare(
+        "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, 'admin', ?)",
+      )
       .run(body.data.username, hash, now)
 
     const userId = result.lastInsertRowid as number

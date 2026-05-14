@@ -1,8 +1,11 @@
 import { api } from './client'
 
+export type UserRole = 'admin' | 'readonly'
+
 export interface AuthUser {
   id: number
   username: string
+  role: UserRole
 }
 
 export const authApi = {

@@ -11,8 +11,10 @@ import { GroupModal } from '../components/budget/GroupModal'
 import { CategoryModal } from '../components/budget/CategoryModal'
 import { Modal } from '../components/ui/Modal'
 import { useSwipe } from '../hooks/useSwipe'
+import { useAuth } from '../hooks/useAuth'
 
 export function BudgetPage() {
+  const { isReadonly } = useAuth()
   const [fabOpen, setFabOpen] = useState(false)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
   const [groupPickerOpen, setGroupPickerOpen] = useState(false)
@@ -88,8 +90,8 @@ export function BudgetPage() {
 
   return (
     <>
-      {/* Mobile FAB */}
-      <div className="md:hidden">
+      {/* Mobile FAB — hidden for read-only users */}
+      <div className={`md:hidden ${isReadonly ? 'hidden' : ''}`}>
         {/* Backdrop */}
         {fabOpen && (
           <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setFabOpen(false)} />

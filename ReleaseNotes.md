@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### New Features
+- Read-only user role: admins can create or demote users to a read-only role with access to only the Budget, Ledger and Reports views. Read-only users cannot create, edit, delete or import anything anywhere in the app, and have no access to Rules, Settings, Users or the Audit log.
+
 ---
 
 ## v1.14.1 — 2026-05-05

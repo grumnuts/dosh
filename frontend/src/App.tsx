@@ -49,6 +49,8 @@ function AppRoutes() {
     return <LoginPage />
   }
 
+  const isReadonly = user.role === 'readonly'
+
   return (
     <Layout>
       <Routes>
@@ -56,11 +58,15 @@ function AppRoutes() {
         <Route path="/budget" element={<BudgetPage />} />
         <Route path="/transactions" element={<Navigate to="/accounts" replace />} />
         <Route path="/accounts" element={<AccountsPage />} />
-        <Route path="/users" element={<Navigate to="/settings" replace />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/audit" element={<AuditPage />} />
-        <Route path="/rules" element={<RulesPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        {!isReadonly && (
+          <>
+            <Route path="/users" element={<Navigate to="/settings" replace />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/audit" element={<AuditPage />} />
+            <Route path="/rules" element={<RulesPage />} />
+          </>
+        )}
         <Route path="*" element={<Navigate to="/budget" replace />} />
       </Routes>
     </Layout>

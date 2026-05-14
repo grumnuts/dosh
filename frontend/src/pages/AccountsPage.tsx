@@ -38,6 +38,7 @@ import { CategoryCombobox } from '../components/ui/CategoryCombobox'
 import { SearchableSelect } from '../components/ui/SearchableSelect'
 import { useResizableCols, ResizeHandle } from '../hooks/useResizableCols'
 import { useLongPress } from '../hooks/useLongPress'
+import { useAuth } from '../hooks/useAuth'
 
 const DEFAULT_COL_WIDTHS = {
   date: 68, account: 205, payee: 160, description: 240, category: 160, amount: 110,
@@ -574,6 +575,7 @@ function ClosedAccountRow({ account, onEdit }: { account: Account; onEdit: () =>
 
 export function AccountsPage() {
   const qc = useQueryClient()
+  const { isReadonly } = useAuth()
 
   // Collapse state
   const [accountsCollapsed, setAccountsCollapsed] = useLocalStorageBool('dosh:collapsed:accounts', false)
@@ -814,9 +816,11 @@ export function AccountsPage() {
               {showClosed ? 'Hide closed' : 'Show closed'}
             </button>
           )}
-          <Button size="sm" onClick={() => setAccountModal({ open: true, account: null })} className="hidden sm:inline-flex">
-            + Add Account
-          </Button>
+          {!isReadonly && (
+            <Button size="sm" onClick={() => setAccountModal({ open: true, account: null })} className="hidden sm:inline-flex">
+              + Add Account
+            </Button>
+          )}
         </div>
       </div>
 
@@ -916,7 +920,7 @@ export function AccountsPage() {
           Transactions
         </button>
         <div className="flex items-center gap-2">
-          {someSelected && (
+          {someSelected && !isReadonly && (
             <>
               <span className="text-sm text-secondary shrink-0">{selectedIds.size} selected</span>
               <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>Edit</Button>
@@ -986,17 +990,21 @@ export function AccountsPage() {
             </svg>
           </button>
           {/* Upload: desktop only */}
-          <button
-            className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
-            onClick={() => setImportOpen(true)}
-            aria-label="Import CSV"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-          </button>
+          {!isReadonly && (
+            <button
+              className="hidden sm:block p-1.5 rounded text-muted hover:text-primary transition-colors"
+              onClick={() => setImportOpen(true)}
+              aria-label="Import CSV"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </button>
+          )}
           {/* Add: desktop only (mobile uses FAB) */}
-          <Button size="sm" onClick={() => setAddTxOpen(true)} className="hidden sm:inline-flex">+ Add</Button>
+          {!isReadonly && (
+            <Button size="sm" onClick={() => setAddTxOpen(true)} className="hidden sm:inline-flex">+ Add</Button>
+          )}
         </div>
       </div>
 
@@ -1174,7 +1182,7 @@ export function AccountsPage() {
         ) : transactions?.length === 0 ? (
           <div className="text-center py-12 text-secondary">
             No transactions found.
-            {!hasFilters && (
+            {!hasFilters && !isReadonly && (
               <div className="mt-2">
                 <button className="text-accent text-sm" onClick={() => setImportOpen(true)}>Import your first CSV</button>
               </div>
@@ -1389,8 +1397,8 @@ export function AccountsPage() {
         )}
       </div>}
 
-      {/* Mobile FAB */}
-      <div className="md:hidden">
+      {/* Mobile FAB — hidden for read-only users */}
+      <div className={`md:hidden ${isReadonly ? 'hidden' : ''}`}>
         {fabOpen && <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setFabOpen(false)} />}
 
         {/* Speed dial options */}
