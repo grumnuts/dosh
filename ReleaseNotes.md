@@ -4,6 +4,13 @@
 
 ---
 
+## v1.15.1 — 2026-05-16
+
+### Bug Fixes
+- Role selector and Make Read-only / Make Admin actions now appear on the Settings → Users list. The v1.15.0 release shipped these only on a stale, unrouted Users page, leaving the actual user management UI unchanged.
+
+---
+
 ## v1.15.0 — 2026-05-16
 
 ### New Features
