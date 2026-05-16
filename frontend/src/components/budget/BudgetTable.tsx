@@ -22,6 +22,7 @@ import { useLongPress } from '../../hooks/useLongPress'
 import { BudgetWeek, BudgetGroup, BudgetCategory, IncomeGroup, IncomeCategory, DebtGroup, DebtCategory, SavingsGroup, SavingsCategory, InvestmentGroup, InvestmentCategory, budgetApi } from '../../api/budget'
 import { Account } from '../../api/accounts'
 import { formatMoney } from '../ui/AmountDisplay'
+import { useAuth } from '../../hooks/useAuth'
 
 import { CoverModal } from './CoverModal'
 import { SweepModal } from './SweepModal'
@@ -991,6 +992,7 @@ function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSecti
 const BUDGET_DEFAULT_COL_WIDTHS = { category: 220, budgeted: 110, weekly: 78, spent: 100, balance: 100 }
 
 export function BudgetTable({ data, accounts }: BudgetTableProps) {
+  const { isReadonly } = useAuth()
   const { widths, onResizeStart } = useResizableCols(BUDGET_DEFAULT_COL_WIDTHS, 'dosh:budget-col-widths-v2')
   const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string; isIncome: boolean; isInvestment: boolean } | null>(null)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
@@ -1049,14 +1051,16 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                 <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative hidden sm:table-cell" style={{ width: widths.spent }}>Spent<ResizeHandle onMouseDown={(e) => onResizeStart('spent', e)} /></th>
                 <th className="px-1.5 sm:px-2 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Balance<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
                 <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16">
-                  <button
-                    className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
-                    onClick={() => setAddGroupOpen(true)}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
+                  {!isReadonly && (
+                    <button
+                      className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
+                      onClick={() => setAddGroupOpen(true)}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  )}
                 </th>
               </tr>
             </thead>
@@ -1162,14 +1166,16 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                 <th className="hidden md:table-cell" style={{ width: widths.spent }} />
                 <th className="px-3 py-3 text-right font-medium relative" style={{ width: widths.balance }}>Received<ResizeHandle onMouseDown={(e) => onResizeStart('balance', e)} /></th>
                 <th className="hidden sm:table-cell px-1.5 py-3 sm:w-16">
-                  <button
-                    className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
-                    onClick={() => setAddIncomeGroupOpen(true)}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
+                  {!isReadonly && (
+                    <button
+                      className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors ml-auto"
+                      onClick={() => setAddIncomeGroupOpen(true)}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  )}
                 </th>
               </tr>
             </thead>

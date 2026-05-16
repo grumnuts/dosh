@@ -2,14 +2,21 @@ import { FastifyInstance } from 'fastify'
 import argon2 from 'argon2'
 import { z } from 'zod'
 import { getDb } from '../db/client'
-import { authenticate } from '../middleware/auth'
+import { authenticate, UserRole } from '../middleware/auth'
 import { logAudit } from '../utils/audit'
+
+function countAdmins(): number {
+  const row = getDb()
+    .prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")
+    .get() as { count: number }
+  return row.count
+}
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/users', { preHandler: authenticate }, async (_req, reply) => {
     const db = getDb()
     const users = db
-      .prepare('SELECT id, username, created_at FROM users ORDER BY username')
+      .prepare('SELECT id, username, role, created_at FROM users ORDER BY username')
       .all()
     return reply.send(users)
   })
@@ -19,6 +26,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       .object({
         username: z.string().min(2).max(64),
         password: z.string().min(8),
+        role: z.enum(['admin', 'readonly']).default('admin'),
       })
       .safeParse(request.body)
 
@@ -38,9 +46,9 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     const now = new Date().toISOString()
     const result = db
       .prepare(
-        'INSERT INTO users (username, password_hash, created_at, created_by) VALUES (?, ?, ?, ?)',
+        'INSERT INTO users (username, password_hash, role, created_at, created_by) VALUES (?, ?, ?, ?, ?)',
       )
-      .run(body.data.username, hash, now, request.user!.id)
+      .run(body.data.username, hash, body.data.role, now, request.user!.id)
 
     const newId = result.lastInsertRowid as number
 
@@ -50,11 +58,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'user.created',
       entityType: 'user',
       entityId: newId,
-      details: { username: body.data.username },
+      details: { username: body.data.username, role: body.data.role },
       ipAddress: request.ip,
     })
 
-    return reply.code(201).send({ id: newId, username: body.data.username })
+    return reply.code(201).send({ id: newId, username: body.data.username, role: body.data.role })
   })
 
   app.put('/api/users/:id/password', { preHandler: authenticate }, async (request, reply) => {
@@ -91,6 +99,46 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ ok: true })
   })
 
+  app.put('/api/users/:id/role', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const userId = parseInt(id, 10)
+    const body = z.object({ role: z.enum(['admin', 'readonly']) }).safeParse(request.body)
+
+    if (!body.success) {
+      return reply.code(400).send({ error: 'Invalid input' })
+    }
+
+    const db = getDb()
+    const target = db
+      .prepare('SELECT id, username, role FROM users WHERE id = ?')
+      .get(userId) as { id: number; username: string; role: UserRole } | undefined
+
+    if (!target) return reply.code(404).send({ error: 'User not found' })
+
+    if (target.role === 'admin' && body.data.role === 'readonly' && countAdmins() <= 1) {
+      return reply.code(400).send({ error: 'Cannot demote the last admin' })
+    }
+
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(body.data.role, userId)
+
+    // If demoting to readonly, invalidate sessions so write access drops immediately
+    if (body.data.role === 'readonly') {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+    }
+
+    logAudit({
+      userId: request.user!.id,
+      username: request.user!.username,
+      eventType: 'user.role_changed',
+      entityType: 'user',
+      entityId: target.id,
+      details: { targetUsername: target.username, from: target.role, to: body.data.role },
+      ipAddress: request.ip,
+    })
+
+    return reply.send({ ok: true })
+  })
+
   app.delete('/api/users/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const userId = parseInt(id, 10)
@@ -100,11 +148,15 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const db = getDb()
-    const user = db.prepare('SELECT id, username FROM users WHERE id = ?').get(userId) as
-      | { id: number; username: string }
+    const user = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(userId) as
+      | { id: number; username: string; role: UserRole }
       | undefined
 
     if (!user) return reply.code(404).send({ error: 'User not found' })
+
+    if (user.role === 'admin' && countAdmins() <= 1) {
+      return reply.code(400).send({ error: 'Cannot delete the last admin' })
+    }
 
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
     db.prepare('DELETE FROM users WHERE id = ?').run(userId)

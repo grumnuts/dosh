@@ -4,6 +4,7 @@ import { authApi, AuthUser } from '../api/auth'
 interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
+  isReadonly: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -32,7 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }, [])
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+  const isReadonly = user?.role === 'readonly'
+
+  return <AuthContext.Provider value={{ user, loading, isReadonly, login, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthContextValue {

@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 export function BottomNav() {
-  const { user, logout } = useAuth()
+  const { user, logout, isReadonly } = useAuth()
   const [open, setOpen] = useState(false)
 
   const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -62,7 +62,20 @@ export function BottomNav() {
           )}
         </NavLink>
 
-        {/* More (hamburger) */}
+        {/* More (hamburger) — readonly users get a logout button instead */}
+        {isReadonly ? (
+          <button
+            className="flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 text-muted hover:text-secondary transition-colors"
+            onClick={logout}
+            aria-label="Sign out"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Sign out</span>
+          </button>
+        ) : (
         <button
           className={`flex-1 flex flex-col items-center justify-center pt-2 pb-5 text-xs gap-1 transition-colors relative ${open ? 'text-accent' : 'text-muted hover:text-secondary'}`}
           onClick={() => setOpen(true)}
@@ -74,10 +87,11 @@ export function BottomNav() {
           </svg>
           <span>More</span>
         </button>
+        )}
       </nav>
 
       {/* Backdrop */}
-      {open && (
+      {!isReadonly && open && (
         <div
           className="md:hidden fixed inset-0 z-50 bg-black/50"
           onClick={() => setOpen(false)}

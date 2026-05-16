@@ -7,6 +7,7 @@ export type AuditEventType =
   | 'user.created'
   | 'user.deleted'
   | 'user.password_changed'
+  | 'user.role_changed'
   | 'account.created'
   | 'account.updated'
   | 'account.deleted'
