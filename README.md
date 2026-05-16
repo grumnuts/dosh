@@ -48,6 +48,7 @@ A self-hosted, zero-based envelope budgeting app. Set a budget per category with
 - **Ledger** — track checking, savings, and debt accounts; starting balances, reconciliation, and net worth calculated automatically
 - **Catch Up** — weekly amounts are increased to cover the full budgeted amount by the end of the period, useful when adding new categories mid-period or when a bill increases
 - **Audit log** — all user actions recorded with timestamps and client IP address; failed login attempts logged
+- **Read-only users** — create accounts with read-only access to the Budget, Ledger and Reports views; useful for sharing your finances with an accountant, partner, or AI assistant without granting edit access
 - **Mobile-optimised** — bottom tab bar navigation, floating action button with speed dial, and long-press interactions for quick access on mobile
 
 ---
