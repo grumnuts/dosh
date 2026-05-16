@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { usersApi, User } from '../api/users'
+import { UserRole } from '../api/auth'
 import { settingsApi } from '../api/settings'
 import { useAuth } from '../hooks/useAuth'
 import { Modal } from '../components/ui/Modal'
@@ -28,10 +29,11 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState<UserRole>('admin')
   const [error, setError] = useState('')
 
   const mutation = useMutation({
-    mutationFn: () => usersApi.create(username, password),
+    mutationFn: () => usersApi.create(username, password, role),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
       onClose()
@@ -52,6 +54,21 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
         onChange={(e) => setPassword(e.target.value)}
         hint="Minimum 8 characters"
       />
+      <div>
+        <Select
+          label="Role"
+          value={role}
+          onChange={(e) => setRole(e.target.value as UserRole)}
+        >
+          <option value="admin">Admin</option>
+          <option value="readonly">Read-only</option>
+        </Select>
+        <p className="text-xs text-muted mt-1">
+          {role === 'readonly'
+            ? 'Can only view the budget, ledger and reports — no edits.'
+            : 'Full access to all features.'}
+        </p>
+      </div>
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
@@ -125,6 +142,12 @@ export function SettingsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   })
 
+  const roleMutation = useMutation({
+    mutationFn: ({ id, role }: { id: number; role: UserRole }) => usersApi.changeRole(id, role),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onError: (err: Error) => alert(err.message),
+  })
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-xl font-bold text-primary">Settings</h1>
@@ -163,12 +186,36 @@ export function SettingsPage() {
                     {user.id === currentUser?.id && (
                       <span className="text-xs text-accent">(you)</span>
                     )}
+                    <span
+                      className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border ${
+                        user.role === 'readonly'
+                          ? 'bg-surface-2 text-muted border-border'
+                          : 'bg-accent-muted text-accent border-accent/30'
+                      }`}
+                    >
+                      {user.role === 'readonly' ? 'Read-only' : 'Admin'}
+                    </span>
                   </div>
                   <div className="text-xs text-muted mt-0.5">
                     Created {format(parseISO(user.created_at), 'dd MMM yyyy')}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {user.id !== currentUser?.id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const next: UserRole = user.role === 'admin' ? 'readonly' : 'admin'
+                        const verb = next === 'readonly' ? 'Demote' : 'Promote'
+                        if (confirm(`${verb} "${user.username}" to ${next}? Their active sessions will be invalidated if demoting.`)) {
+                          roleMutation.mutate({ id: user.id, role: next })
+                        }
+                      }}
+                    >
+                      {user.role === 'admin' ? 'Make Read-only' : 'Make Admin'}
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => setChangePwUser(user)}>
                     Change Password
                   </Button>
