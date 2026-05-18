@@ -158,8 +158,23 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Cannot delete the last admin' })
     }
 
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId)
+    // Null out references first — FKs are NO ACTION so a direct DELETE would
+    // fail for any user with audit_log / transactions / budget_history /
+    // created_by references. The audit_log keeps the username as text.
+    db.prepare('BEGIN').run()
+    try {
+      db.prepare('UPDATE audit_log SET user_id = NULL WHERE user_id = ?').run(userId)
+      db.prepare('UPDATE transactions SET created_by = NULL WHERE created_by = ?').run(userId)
+      db.prepare('UPDATE budget_history SET created_by = NULL WHERE created_by = ?').run(userId)
+      db.prepare('UPDATE budget_rollovers SET created_by = NULL WHERE created_by = ?').run(userId)
+      db.prepare('UPDATE users SET created_by = NULL WHERE created_by = ?').run(userId)
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+      db.prepare('DELETE FROM users WHERE id = ?').run(userId)
+      db.prepare('COMMIT').run()
+    } catch (err) {
+      db.prepare('ROLLBACK').run()
+      throw err
+    }
 
     logAudit({
       userId: request.user!.id,
