@@ -7,6 +7,7 @@ import { UserRole } from '../api/auth'
 import { settingsApi } from '../api/settings'
 import { useAuth } from '../hooks/useAuth'
 import { Modal } from '../components/ui/Modal'
+import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { Button } from '../components/ui/Button'
 import { Input, Select } from '../components/ui/Input'
 
@@ -131,6 +132,9 @@ export function SettingsPage() {
   })
   const [addOpen, setAddOpen] = useState(false)
   const [changePwUser, setChangePwUser] = useState<User | null>(null)
+  const [deleteUser, setDeleteUser] = useState<User | null>(null)
+  const [roleChange, setRoleChange] = useState<{ user: User; next: UserRole } | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -139,13 +143,24 @@ export function SettingsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => usersApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      setDeleteUser(null)
+      setDeleteError('')
+    },
+    onError: (err: Error) => setDeleteError(err.message),
   })
 
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: number; role: UserRole }) => usersApi.changeRole(id, role),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
-    onError: (err: Error) => alert(err.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      setRoleChange(null)
+    },
+    onError: (err: Error) => {
+      setRoleChange(null)
+      alert(err.message)
+    },
   })
 
   return (
@@ -205,13 +220,7 @@ export function SettingsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        const next: UserRole = user.role === 'admin' ? 'readonly' : 'admin'
-                        const verb = next === 'readonly' ? 'Demote' : 'Promote'
-                        if (confirm(`${verb} "${user.username}" to ${next}? Their active sessions will be invalidated if demoting.`)) {
-                          roleMutation.mutate({ id: user.id, role: next })
-                        }
-                      }}
+                      onClick={() => setRoleChange({ user, next: user.role === 'admin' ? 'readonly' : 'admin' })}
                     >
                       {user.role === 'admin' ? 'Make Read-only' : 'Make Admin'}
                     </Button>
@@ -223,12 +232,7 @@ export function SettingsPage() {
                     <Button
                       variant="danger"
                       size="sm"
-                      onClick={() => {
-                        if (confirm(`Delete user "${user.username}"? This cannot be undone.`)) {
-                          deleteMutation.mutate(user.id)
-                        }
-                      }}
-                      loading={deleteMutation.isPending}
+                      onClick={() => { setDeleteError(''); setDeleteUser(user) }}
                     >
                       Delete
                     </Button>
@@ -279,6 +283,38 @@ export function SettingsPage() {
           <ChangePasswordModal user={changePwUser} onClose={() => setChangePwUser(null)} />
         </Modal>
       )}
+
+      <ConfirmModal
+        open={!!deleteUser}
+        onClose={() => { setDeleteUser(null); setDeleteError('') }}
+        onConfirm={() => deleteUser && deleteMutation.mutate(deleteUser.id)}
+        title="Delete User"
+        message={
+          deleteError
+            ? `Failed to delete "${deleteUser?.username}": ${deleteError}`
+            : `Delete user "${deleteUser?.username}"? Their transactions, budget history and audit log entries will be retained but no longer attributed. This cannot be undone.`
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        loading={deleteMutation.isPending}
+      />
+
+      <ConfirmModal
+        open={!!roleChange}
+        onClose={() => setRoleChange(null)}
+        onConfirm={() => roleChange && roleMutation.mutate({ id: roleChange.user.id, role: roleChange.next })}
+        title={roleChange?.next === 'readonly' ? 'Make user read-only' : 'Make user admin'}
+        message={
+          roleChange
+            ? roleChange.next === 'readonly'
+              ? `Demote "${roleChange.user.username}" to read-only? Their active sessions will be invalidated and they will lose edit access immediately.`
+              : `Promote "${roleChange.user.username}" to admin? They will gain full edit access to everything in Dosh.`
+            : ''
+        }
+        confirmLabel={roleChange?.next === 'readonly' ? 'Demote' : 'Promote'}
+        cancelLabel="Cancel"
+        loading={roleMutation.isPending}
+      />
     </div>
   )
 }
