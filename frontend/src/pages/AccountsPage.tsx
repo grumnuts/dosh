@@ -478,9 +478,11 @@ function SortableAccountRow({
   onSelect: () => void
   isSelected: boolean
 }) {
+  const { isReadonly } = useAuth()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: account.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined }
   const longPress = useLongPress(onEdit)
+  const longPressProps = isReadonly ? {} : longPress
 
   const typeLabel = account.type.charAt(0).toUpperCase() + account.type.slice(1)
 
@@ -490,10 +492,10 @@ function SortableAccountRow({
       style={style}
       className={`flex items-center gap-2 pl-7 md:pl-2 pr-4 py-1.5 cursor-pointer group border-t border-border transition-colors select-none ${isSelected ? 'bg-accent/10' : 'hover:bg-surface-2/50'}`}
       onClick={onSelect}
-      {...longPress}
+      {...longPressProps}
     >
       <div className="hidden md:flex">
-        <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />
+        {!isReadonly && <GripHandle listeners={listeners as SyntheticListenerMap | undefined} attributes={attributes} />}
       </div>
       <div className="w-36 min-w-0 shrink-0">
         <div className={`text-sm font-medium truncate ${isSelected ? 'text-accent' : 'text-primary'}`}>{account.name}</div>
@@ -516,30 +518,35 @@ function SortableAccountRow({
             </div>
           )}
         </div>
-        <button
-          title="Edit account"
-          className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
-          onClick={(e) => { e.stopPropagation(); onEdit() }}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </button>
-        <button
-          title="Reconcile"
-          className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
-          onClick={(e) => { e.stopPropagation(); onReconcile() }}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
+        {!isReadonly && (
+          <>
+            <button
+              title="Edit account"
+              className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
+              onClick={(e) => { e.stopPropagation(); onEdit() }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              title="Reconcile"
+              className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
+              onClick={(e) => { e.stopPropagation(); onReconcile() }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
 function ClosedAccountRow({ account, onEdit }: { account: Account; onEdit: () => void }) {
+  const { isReadonly } = useAuth()
   const typeLabel = account.type.charAt(0).toUpperCase() + account.type.slice(1)
   return (
     <div className="flex items-center gap-2 pl-7 md:pl-9 pr-4 py-1.5 border-t border-border opacity-50">
@@ -557,15 +564,17 @@ function ClosedAccountRow({ account, onEdit }: { account: Account; onEdit: () =>
         <div className="text-right">
           <div className="text-sm font-bold font-mono text-muted">{formatMoney(account.currentBalance)}</div>
         </div>
-        <button
-          title="Edit account"
-          className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
-          onClick={(e) => { e.stopPropagation(); onEdit() }}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </button>
+        {!isReadonly && (
+          <button
+            title="Edit account"
+            className="hidden sm:block p-1 rounded text-muted hover:text-primary transition-colors"
+            onClick={(e) => { e.stopPropagation(); onEdit() }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        )}
         {/* Spacer to align with open account rows that have a reconcile button */}
         <div className="hidden sm:block w-6" />
       </div>
@@ -1193,13 +1202,15 @@ export function AccountsPage() {
               <thead>
                 <tr className="border-b border-border text-xs text-muted uppercase tracking-wide bg-white/5">
                   <th className="pl-3 pr-1 py-3 w-8 hidden sm:table-cell">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
-                      onChange={toggleAll}
-                      className="w-3.5 h-3.5 accent-accent cursor-pointer"
-                    />
+                    {!isReadonly && (
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
+                        onChange={toggleAll}
+                        className="w-3.5 h-3.5 accent-accent cursor-pointer"
+                      />
+                    )}
                   </th>
                   <th className="pl-2 pr-1 py-3 text-left font-medium relative sm:px-3" style={{ width: widths.date }}>
                     Date
@@ -1233,19 +1244,21 @@ export function AccountsPage() {
                   <>
                   <tr
                     key={tx.id}
-                    className={`border-b ${tx.splits.length > 0 ? 'border-border/20' : 'border-border/50'} hover:bg-surface-2/50 cursor-pointer ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
-                    onClick={() => {
+                    className={`border-b ${tx.splits.length > 0 ? 'border-border/20' : 'border-border/50'} hover:bg-surface-2/50 ${isReadonly ? '' : 'cursor-pointer'} ${selectedIds.has(tx.id) ? 'bg-surface-2/30' : ''}`}
+                    onClick={isReadonly ? undefined : () => {
                       if (someSelected) { toggleOne(tx.id); return }
                       setEditTx(tx)
                     }}
                   >
                     <td className="pl-3 pr-1 py-2.5 w-px hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(tx.id)}
-                        onChange={() => toggleOne(tx.id)}
-                        className="w-3.5 h-3.5 accent-accent cursor-pointer"
-                      />
+                      {!isReadonly && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(tx.id)}
+                          onChange={() => toggleOne(tx.id)}
+                          className="w-3.5 h-3.5 accent-accent cursor-pointer"
+                        />
+                      )}
                     </td>
                     <td className="pl-2 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap sm:px-4">
                       {format(parseISO(tx.date), 'dd/MM/yy')}
@@ -1298,8 +1311,8 @@ export function AccountsPage() {
                       {tx.splits.length > 0 ? (
                         <span className="text-sm text-muted italic">Split</span>
                       ) : tx.type === 'transaction' ? (
-                        tx.category_is_unlisted ? (
-                          <span className="text-sm text-secondary">{tx.category_name}</span>
+                        tx.category_is_unlisted || isReadonly ? (
+                          <span className="text-sm text-secondary">{tx.category_name ?? <span className="italic text-muted">Uncategorised</span>}</span>
                         ) : (
                           <CategoryCombobox
                             value={tx.category_id ? String(tx.category_id) : ''}
@@ -1331,8 +1344,8 @@ export function AccountsPage() {
                   {tx.splits.map((split, i) => (
                     <tr
                       key={`split-${split.id}`}
-                      className={`${i === tx.splits.length - 1 ? 'border-b border-border/50' : 'border-b border-border/20'} bg-surface-2/20 cursor-pointer hover:bg-surface-2/40`}
-                      onClick={() => setEditTx(tx)}
+                      className={`${i === tx.splits.length - 1 ? 'border-b border-border/50' : 'border-b border-border/20'} bg-surface-2/20 hover:bg-surface-2/40 ${isReadonly ? '' : 'cursor-pointer'}`}
+                      onClick={isReadonly ? undefined : () => setEditTx(tx)}
                     >
                       <td className="pl-3 pr-1 py-1.5 w-px hidden sm:table-cell" />
                       <td className="pl-1 pr-1 py-1.5 w-px sm:w-auto sm:px-4" />

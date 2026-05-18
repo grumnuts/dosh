@@ -148,6 +148,7 @@ function CategoryRow({
   dragListeners,
   dragAttributes,
 }: CategoryRowProps) {
+  const { isReadonly } = useAuth()
   const qc = useQueryClient()
   const [coverOpen, setCoverOpen] = useState(false)
   const [sweepOpen, setSweepOpen] = useState(false)
@@ -170,11 +171,11 @@ function CategoryRow({
       <tr
         ref={rowRef}
         style={rowStyle}
-        className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
-        onClick={() => setEditOpen(true)}
+        className={`border-b border-border/50 hover:bg-surface-2/50 group ${isReadonly ? '' : 'cursor-pointer'}`}
+        onClick={isReadonly ? undefined : () => setEditOpen(true)}
       >
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
-          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+          {!isReadonly && <GripHandle listeners={dragListeners} attributes={dragAttributes} />}
         </td>
         <td className="pl-2 pr-2 py-2.5">
           <div className="flex items-center gap-2">
@@ -219,43 +220,45 @@ function CategoryRow({
           </span>
         </td>
         <td className="hidden sm:table-cell px-1.5 py-2.5">
-          <div className="flex items-center justify-end gap-3">
-            {cat.isOverspent && (
-              <button
-                title="Cover overspend"
-                onClick={(e) => { e.stopPropagation(); setCoverOpen(true) }}
-                className="text-danger hover:text-danger/70 transition-colors"
-              >
-                <CoverIcon />
-              </button>
-            )}
-            {isRolledOut ? (
-              <button
-                title="Undo roll forward"
-                onClick={(e) => { e.stopPropagation(); setUndoRolloverOpen(true) }}
-                className="text-orange-400 hover:text-orange-300 transition-colors"
-              >
-                <UndoRollIcon />
-              </button>
-            ) : (!cat.isOverspent && cat.balance > 0 && (
-              <>
+          {!isReadonly && (
+            <div className="flex items-center justify-end gap-3">
+              {cat.isOverspent && (
                 <button
-                  title="Roll balance forward to next period"
-                  onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                  title="Cover overspend"
+                  onClick={(e) => { e.stopPropagation(); setCoverOpen(true) }}
+                  className="text-danger hover:text-danger/70 transition-colors"
                 >
-                  <RollForwardIcon />
+                  <CoverIcon />
                 </button>
+              )}
+              {isRolledOut ? (
                 <button
-                  title="Sweep to savings"
-                  onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
-                  className="text-accent hover:text-accent/70 transition-colors"
+                  title="Undo roll forward"
+                  onClick={(e) => { e.stopPropagation(); setUndoRolloverOpen(true) }}
+                  className="text-orange-400 hover:text-orange-300 transition-colors"
                 >
-                  <SweepIcon />
+                  <UndoRollIcon />
                 </button>
-              </>
-            ))}
-          </div>
+              ) : (!cat.isOverspent && cat.balance > 0 && (
+                <>
+                  <button
+                    title="Roll balance forward to next period"
+                    onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <RollForwardIcon />
+                  </button>
+                  <button
+                    title="Sweep to savings"
+                    onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
+                    className="text-accent hover:text-accent/70 transition-colors"
+                  >
+                    <SweepIcon />
+                  </button>
+                </>
+              ))}
+            </div>
+          )}
         </td>
       </tr>
 
@@ -352,6 +355,7 @@ function GroupSection({
   dragAttributes,
   isBeingDragged,
 }: GroupSectionProps) {
+  const { isReadonly } = useAuth()
   const [editOpen, setEditOpen] = useState(false)
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:group:${group.id}`, false)
   const [orderedCats, setOrderedCats] = useState<BudgetCategory[]>(group.categories)
@@ -383,12 +387,13 @@ function GroupSection({
   const showCategories = !collapsed && !isBeingDragged
 
   const longPress = useLongPress(() => setEditOpen(true))
+  const longPressProps = isReadonly ? {} : longPress
 
   return (
     <>
-      <tr ref={rowRef} style={{ ...rowStyle, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} className="group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+      <tr ref={rowRef} style={{ ...rowStyle, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} className="group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPressProps}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
-          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+          {!isReadonly && <GripHandle listeners={dragListeners} attributes={dragAttributes} />}
         </td>
         <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
@@ -411,25 +416,27 @@ function GroupSection({
           </span>
         </td>
         <td className="hidden sm:table-cell px-1.5 py-2.5">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              className="text-muted hover:text-secondary transition-colors"
-              onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-              aria-label="Edit group"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-            <button
-              className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
-              onClick={(e) => { e.stopPropagation(); onAddCategory(group.id, group.name) }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
+          {!isReadonly && (
+            <div className="flex items-center justify-end gap-3">
+              <button
+                className="text-muted hover:text-secondary transition-colors"
+                onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+                aria-label="Edit group"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onAddCategory(group.id, group.name) }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+          )}
         </td>
       </tr>
 
@@ -508,6 +515,7 @@ function IncomeCategoryRow({
   dragListeners,
   dragAttributes,
 }: IncomeCategoryRowProps) {
+  const { isReadonly } = useAuth()
   const [editOpen, setEditOpen] = useState(false)
 
   return (
@@ -515,11 +523,11 @@ function IncomeCategoryRow({
       <tr
         ref={rowRef}
         style={rowStyle}
-        className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
-        onClick={() => setEditOpen(true)}
+        className={`border-b border-border/50 hover:bg-surface-2/50 group ${isReadonly ? '' : 'cursor-pointer'}`}
+        onClick={isReadonly ? undefined : () => setEditOpen(true)}
       >
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
-          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+          {!isReadonly && <GripHandle listeners={dragListeners} attributes={dragAttributes} />}
         </td>
         <td className="pl-2 pr-2 py-2.5">
           <div className="flex items-center gap-2">
@@ -570,6 +578,7 @@ type DebtGroupSectionProps = {
 }
 
 function DebtGroupSection({ group }: DebtGroupSectionProps) {
+  const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:debt-group:${group.id}`, false)
   const [editCat, setEditCat] = useState<DebtCategory | null>(null)
 
@@ -606,8 +615,8 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
       {showCategories && group.categories.map((cat) => (
         <tr
           key={cat.id}
-          className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
-          onClick={() => setEditCat(cat)}
+          className={`border-b border-border/50 hover:bg-surface-2/50 group ${isReadonly ? '' : 'cursor-pointer'}`}
+          onClick={isReadonly ? undefined : () => setEditCat(cat)}
         >
           <td className="px-2 py-2.5 hidden md:table-cell w-6" />
           <td className="pl-2 pr-2 py-2.5">
@@ -669,6 +678,7 @@ function IncomeGroupSection({
   dragAttributes,
   isBeingDragged,
 }: IncomeGroupSectionProps) {
+  const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:income-group:${group.id}`, false)
   const [editOpen, setEditOpen] = useState(false)
   const [orderedCats, setOrderedCats] = useState<IncomeCategory[]>(group.categories)
@@ -697,12 +707,13 @@ function IncomeGroupSection({
   const showCategories = !collapsed && !isBeingDragged
 
   const longPress = useLongPress(() => setEditOpen(true))
+  const longPressProps = isReadonly ? {} : longPress
 
   return (
     <>
-      <tr ref={rowRef} style={{ ...rowStyle, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} className="group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPress}>
+      <tr ref={rowRef} style={{ ...rowStyle, background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }} className="group cursor-pointer select-none" onClick={() => setCollapsed((c) => !c)} {...longPressProps}>
         <td className="px-2 py-2.5 hidden md:table-cell w-6">
-          <GripHandle listeners={dragListeners} attributes={dragAttributes} />
+          {!isReadonly && <GripHandle listeners={dragListeners} attributes={dragAttributes} />}
         </td>
         <td className="pl-2 pr-2 py-2.5" style={{ borderLeft: '2px solid rgba(74,222,128,0.35)' }}>
           <div className="flex items-center gap-1.5">
@@ -719,25 +730,27 @@ function IncomeGroupSection({
           {formatMoney(groupReceived)}
         </td>
         <td className="hidden sm:table-cell px-1.5 py-2.5">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              className="text-muted hover:text-secondary transition-colors"
-              onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
-              aria-label="Edit group"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-            <button
-              className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
-              onClick={(e) => { e.stopPropagation(); onAddCategory(group.id, group.name) }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
+          {!isReadonly && (
+            <div className="flex items-center justify-end gap-3">
+              <button
+                className="text-muted hover:text-secondary transition-colors"
+                onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+                aria-label="Edit group"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onAddCategory(group.id, group.name) }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+          )}
         </td>
       </tr>
 
@@ -801,6 +814,7 @@ type SavingsGroupSectionProps = {
 }
 
 function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
+  const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:savings-group:${group.id}`, false)
   const [editCat, setEditCat] = useState<SavingsCategory | null>(null)
 
@@ -837,8 +851,8 @@ function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
       {showCategories && group.categories.map((cat) => (
         <tr
           key={cat.id}
-          className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
-          onClick={() => setEditCat(cat)}
+          className={`border-b border-border/50 hover:bg-surface-2/50 group ${isReadonly ? '' : 'cursor-pointer'}`}
+          onClick={isReadonly ? undefined : () => setEditCat(cat)}
         >
           <td className="px-2 py-2.5 hidden md:table-cell w-6" />
           <td className="pl-2 pr-2 py-2.5">
@@ -887,6 +901,7 @@ type InvestmentGroupSectionProps = {
 }
 
 function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSectionProps) {
+  const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:investment-group:${group.id}`, false)
   const [editCat, setEditCat] = useState<InvestmentCategory | null>(null)
   const showCategories = !collapsed
@@ -920,20 +935,22 @@ function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSecti
           </span>
         </td>
         <td className="hidden sm:table-cell px-1.5 py-2.5">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
-              onClick={(e) => { e.stopPropagation(); onAddInvestment(group.id, group.name) }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
+          {!isReadonly && (
+            <div className="flex items-center justify-end gap-3">
+              <button
+                className="text-muted hover:text-accent text-xs flex items-center gap-1 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onAddInvestment(group.id, group.name) }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+          )}
         </td>
       </tr>
 
-      {showCategories && group.categories.length === 0 && (
+      {showCategories && group.categories.length === 0 && !isReadonly && (
         <tr>
           <td colSpan={7} className="px-6 py-2 text-xs text-muted italic">
             No investments yet — add one above
@@ -944,8 +961,8 @@ function InvestmentGroupSection({ group, onAddInvestment }: InvestmentGroupSecti
       {showCategories && group.categories.map((cat) => (
         <tr
           key={cat.id}
-          className="border-b border-border/50 hover:bg-surface-2/50 cursor-pointer group"
-          onClick={() => setEditCat(cat)}
+          className={`border-b border-border/50 hover:bg-surface-2/50 group ${isReadonly ? '' : 'cursor-pointer'}`}
+          onClick={isReadonly ? undefined : () => setEditCat(cat)}
         >
           <td className="px-2 py-2.5 hidden md:table-cell w-6" />
           <td className="pl-2 pr-2 py-2.5">
