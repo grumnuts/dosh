@@ -4,6 +4,14 @@
 
 ---
 
+## v1.15.2 — 2026-05-18
+
+### Bug Fixes
+- Read-only users no longer see edit, add, delete, cover, sweep, roll-forward, reconcile, import, or drag-to-reorder controls on the Budget and Ledger pages. Transaction and category rows are no longer clickable, checkboxes are hidden, and the inline category dropdown on the ledger is replaced with plain text. The backend already rejected these as 403; the UI now matches.
+- Mobile hamburger menu hides Rules and Settings for read-only users and shows the "Read-only" pill next to the username.
+
+---
+
 ## v1.15.1 — 2026-05-16
 
 ### Bug Fixes
