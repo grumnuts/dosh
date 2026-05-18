@@ -4,6 +4,14 @@
 
 ---
 
+## v1.15.3 — 2026-05-19
+
+### Bug Fixes
+- Settings: deleting a user no longer fails silently. The delete failed against the database because audit log, transaction, budget history and rollover rows referenced the user; those references are now nulled out before the user is removed, so the audit trail is preserved by username.
+- Settings: delete and promote/demote actions now use Dosh's standard confirmation modal instead of a browser prompt, and backend errors (e.g. "Cannot delete the last admin") are surfaced in the modal instead of being swallowed.
+
+---
+
 ## v1.15.2 — 2026-05-18
 
 ### Bug Fixes
