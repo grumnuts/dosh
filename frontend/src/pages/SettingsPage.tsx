@@ -11,6 +11,12 @@ import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { Button } from '../components/ui/Button'
 import { Input, Select } from '../components/ui/Input'
 
+function generateToken(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400)
   const h = Math.floor((seconds % 86400) / 3600)
@@ -135,6 +141,8 @@ export function SettingsPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const [roleChange, setRoleChange] = useState<{ user: User; next: UserRole } | null>(null)
   const [deleteError, setDeleteError] = useState('')
+  const [tokenRevealed, setTokenRevealed] = useState(false)
+  const [tokenCopied, setTokenCopied] = useState(false)
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -252,6 +260,65 @@ export function SettingsPage() {
           <Button variant="ghost" size="sm" onClick={() => navigate('/audit')}>View Log</Button>
         </div>
       </section>
+
+      {/* AI API */}
+      {currentUser?.role === 'admin' && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">AI API</h2>
+          <div className="card px-5 py-4 space-y-3">
+            <p className="text-sm text-secondary">
+              Bearer token for read-only AI access to your budget, accounts, and transactions via{' '}
+              <span className="font-mono text-xs text-primary">/api/ai/snapshot</span> and{' '}
+              <span className="font-mono text-xs text-primary">/api/ai/transactions</span>.
+            </p>
+            {settings?.ai_api_token ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs font-mono bg-surface-2 rounded px-3 py-2 text-primary truncate">
+                    {tokenRevealed ? settings.ai_api_token : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTokenRevealed((v) => !v)}
+                  >
+                    {tokenRevealed ? 'Hide' : 'Reveal'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(settings.ai_api_token!)
+                      setTokenCopied(true)
+                      setTimeout(() => setTokenCopied(false), 2000)
+                    }}
+                  >
+                    {tokenCopied ? 'Copied!' : 'Copy'}
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTokenRevealed(false)
+                    updateSetting.mutate({ key: 'ai_api_token', value: generateToken() })
+                  }}
+                >
+                  Regenerate Token
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => updateSetting.mutate({ key: 'ai_api_token', value: generateToken() })}
+                loading={updateSetting.isPending}
+              >
+                Generate Token
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* System */}
       <section className="space-y-3">
