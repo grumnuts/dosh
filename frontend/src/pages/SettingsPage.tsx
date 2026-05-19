@@ -261,13 +261,13 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* AI API */}
+      {/* Read-only API */}
       {currentUser?.role === 'admin' && (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">AI API</h2>
+          <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Read-only API</h2>
           <div className="card px-5 py-4 space-y-3">
             <p className="text-sm text-secondary">
-              Bearer token for read-only AI access to your budget, accounts, and transactions via{' '}
+              Bearer token for read-only external access to your budget, accounts, and transactions via{' '}
               <span className="font-mono text-xs text-primary">/api/ai/snapshot</span> and{' '}
               <span className="font-mono text-xs text-primary">/api/ai/transactions</span>.
             </p>
