@@ -2,6 +2,7 @@ import { api } from './client'
 
 export interface AppSettings {
   week_start_day: '0' | '1'
+  ai_api_token?: string
 }
 
 export interface SystemInfo {
