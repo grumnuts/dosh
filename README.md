@@ -49,6 +49,7 @@ A self-hosted, zero-based envelope budgeting app. Set a budget per category with
 - **Catch Up** — weekly amounts are increased to cover the full budgeted amount by the end of the period, useful when adding new categories mid-period or when a bill increases
 - **Audit log** — all user actions recorded with timestamps and client IP address; failed login attempts logged
 - **Read-only users** — create accounts with read-only access to the Budget, Ledger and Reports views; useful for sharing your finances with an accountant, partner, or AI assistant without granting edit access
+- **AI API** — read-only REST endpoints (`/api/ai/snapshot` and `/api/ai/transactions`) authenticated via a static Bearer token; returns accounts, budget allocations, and transaction history in a single call for use with AI tools, financial analysis scripts, or automation
 - **Mobile-optimised** — bottom tab bar navigation, floating action button with speed dial, and long-press interactions for quick access on mobile
 
 ---

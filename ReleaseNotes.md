@@ -4,6 +4,13 @@
 
 ---
 
+## v1.16.0 — 2026-05-19
+
+### New Features
+- AI API: two read-only endpoints (`GET /api/ai/snapshot` and `GET /api/ai/transactions`) authenticated via a static Bearer token, designed for AI tools and automation. The snapshot returns accounts with current balances, the full budget for any requested week, and the last 90 days of transactions in a single call. The transactions endpoint supports filtering by date range, account, and category with pagination. The token is generated and managed from the Settings page (admin-only).
+
+---
+
 ## v1.15.3 — 2026-05-19
 
 ### Bug Fixes
