@@ -90,6 +90,8 @@ export function ImportWizard({ open, onClose }: Props) {
       setImportedCount(data.imported)
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       setStep('done')
     },
   })

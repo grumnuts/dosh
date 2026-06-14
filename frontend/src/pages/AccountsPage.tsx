@@ -222,7 +222,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
-      qc.invalidateQueries({ queryKey: ['reports', 'goals'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
     },
   })
@@ -232,6 +232,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
     },
   })
@@ -242,6 +243,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
     },
   })
@@ -251,6 +253,7 @@ function AccountForm({ account, onClose }: { account?: Account | null; onClose: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
     },
   })
@@ -748,6 +751,8 @@ export function AccountsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
     },
   })
 
@@ -757,6 +762,7 @@ export function AccountsPage() {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       setSelectedIds(new Set())
     },
   })

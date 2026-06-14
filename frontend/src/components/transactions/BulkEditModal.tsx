@@ -59,7 +59,9 @@ export function BulkEditModal({ open, onClose, selectedIds, transactions, accoun
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       handleClose()
     },
   })

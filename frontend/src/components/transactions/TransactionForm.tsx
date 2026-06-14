@@ -339,6 +339,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       qc.invalidateQueries({ queryKey: ['budget'] })
       qc.invalidateQueries({ queryKey: ['payees'] })
       qc.invalidateQueries({ queryKey: ['investments'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
     },
   })
@@ -349,6 +350,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
     },
   })

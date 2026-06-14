@@ -56,6 +56,7 @@ export function SweepModal({
       qc.invalidateQueries({ queryKey: ['budget'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       onClose()
       onSuccess?.()
     },

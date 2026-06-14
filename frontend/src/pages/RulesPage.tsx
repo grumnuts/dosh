@@ -152,6 +152,8 @@ export function RulesPage() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       setRunResult(data.updatedCount)
     },
   })
@@ -161,6 +163,8 @@ export function RulesPage() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
       setRunResult(data.updatedCount)
     },
   })

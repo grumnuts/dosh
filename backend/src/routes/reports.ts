@@ -518,7 +518,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         `SELECT id, name, goal_amount, goal_target_date, starting_balance,
                 starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
          FROM accounts a
-         WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1`,
+         WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1 AND closed_at IS NULL`,
       )
       .all() as Array<{ id: number; name: string; goal_amount: number; goal_target_date: string | null; starting_balance: number; current_balance: number }>
 
@@ -543,7 +543,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                       AND pt.type = 'transaction' AND ts.amount < 0
                   ), 0) AS current_balance
          FROM accounts a
-         WHERE type = 'debt' AND is_active = 1`,
+         WHERE type = 'debt' AND is_active = 1 AND closed_at IS NULL`,
       )
       .all() as Array<{ id: number; name: string; starting_balance: number; current_balance: number }>
 
@@ -619,7 +619,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     const accounts = db
       .prepare(
-        `SELECT id, name, type, starting_balance FROM accounts WHERE is_active = 1 ORDER BY sort_order, name`,
+        `SELECT id, name, type, starting_balance FROM accounts WHERE is_active = 1 AND closed_at IS NULL ORDER BY sort_order, name`,
       )
       .all() as Array<{ id: number; name: string; type: string; starting_balance: number }>
 
@@ -633,6 +633,46 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            ORDER BY month`,
         )
         .all(account.id) as Array<{ month: string; net_change: number }>
+
+      if (account.type === 'debt') {
+        const categorizedPayments = db
+          .prepare(
+            `SELECT strftime('%Y-%m', t.date) AS month, SUM(-t.amount) AS net_change
+             FROM transactions t
+             JOIN budget_categories bc ON t.category_id = bc.id
+             WHERE bc.linked_account_id = ?
+               AND t.account_id != ?
+               AND t.type = 'transaction'
+               AND t.amount < 0
+             GROUP BY month`,
+          )
+          .all(account.id, account.id) as Array<{ month: string; net_change: number }>
+
+        const splitPayments = db
+          .prepare(
+            `SELECT strftime('%Y-%m', t.date) AS month, SUM(-s.amount) AS net_change
+             FROM transaction_splits s
+             JOIN transactions t ON s.transaction_id = t.id
+             JOIN budget_categories bc ON s.category_id = bc.id
+             WHERE bc.linked_account_id = ?
+               AND t.account_id != ?
+               AND t.type = 'transaction'
+               AND s.amount < 0
+             GROUP BY month`,
+          )
+          .all(account.id, account.id) as Array<{ month: string; net_change: number }>
+
+        const changesByMonth = new Map(monthlyChanges.map((row) => [row.month, row.net_change]))
+        for (const row of [...categorizedPayments, ...splitPayments]) {
+          changesByMonth.set(row.month, (changesByMonth.get(row.month) ?? 0) + row.net_change)
+        }
+        monthlyChanges.length = 0
+        monthlyChanges.push(
+          ...Array.from(changesByMonth.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([month, net_change]) => ({ month, net_change })),
+        )
+      }
 
       let running = account.starting_balance
       const history: Array<{ month: string; balance: number }> = []
