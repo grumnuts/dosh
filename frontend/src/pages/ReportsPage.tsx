@@ -25,7 +25,7 @@ export function ReportsPage() {
   const yearOptions = years && years.length > 0 ? years : [currentYear]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5 md:px-6">
+    <div className="max-w-7xl xl:max-w-[86rem] 2xl:max-w-[92rem] mx-auto px-4 py-6 space-y-5 md:px-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">Reports</h1>
         {tab === 'cashflow' && (
