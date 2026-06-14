@@ -581,11 +581,12 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   const debtLinkedIds = [...new Set(debtCats.map((c) => c.linked_account_id as number))]
 
   const debtBalanceMap = new Map<number, number>()
+  const closedDebtAccountIds = new Set<number>()
   if (debtLinkedIds.length > 0) {
     const ph = debtLinkedIds.map(() => '?').join(',')
     const balanceRows = db
       .prepare(
-        `SELECT a.id,
+        `SELECT a.id, a.closed_at, a.is_active,
                 a.starting_balance + COALESCE(SUM(t.amount), 0) +
                 COALESCE((
                   SELECT -SUM(pt.amount)
@@ -607,8 +608,14 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
          WHERE a.id IN (${ph})
          GROUP BY a.id`,
       )
-      .all(...debtLinkedIds) as Array<{ id: number; balance: number }>
-    for (const r of balanceRows) debtBalanceMap.set(r.id, r.balance)
+      .all(...debtLinkedIds) as Array<{ id: number; closed_at: string | null; is_active: number; balance: number }>
+    for (const r of balanceRows) {
+      if (r.closed_at !== null || r.is_active === 0) {
+        closedDebtAccountIds.add(r.id)
+      } else {
+        debtBalanceMap.set(r.id, r.balance)
+      }
+    }
   }
 
   // Compute savings account balances (simple: starting_balance + SUM(transactions))
@@ -638,7 +645,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   }
 
   const debtGroups: DebtGroup[] = debtGroupsRaw.map((group) => {
-    const groupCats = categories.filter((c) => c.group_id === group.id && c.linked_account_id !== null)
+    const groupCats = categories.filter((c) => c.group_id === group.id && c.linked_account_id !== null && !closedDebtAccountIds.has(c.linked_account_id as number))
 
     const builtCats: DebtCategory[] = groupCats.map((cat) => {
       const { budgetedAmount, period } = effectiveBudgetMap.get(cat.id)!

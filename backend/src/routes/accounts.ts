@@ -28,6 +28,39 @@ const updateAccountSchema = z.object({
 })
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
+  const restoreLinkedDebtCategory = (accountId: number, accountName: string, userId: number, updatedAt: string) => {
+    const db = getDb()
+    const debtGroup = db
+      .prepare('SELECT id FROM budget_groups WHERE is_debt = 1 LIMIT 1')
+      .get() as { id: number } | undefined
+
+    if (!debtGroup) return
+
+    const existingCat = db
+      .prepare('SELECT id FROM budget_categories WHERE linked_account_id = ? AND group_id = ?')
+      .get(accountId, debtGroup.id) as { id: number } | undefined
+
+    if (existingCat) {
+      db.prepare('UPDATE budget_categories SET name = ?, is_active = 1, updated_at = ? WHERE id = ?')
+        .run(accountName, updatedAt, existingCat.id)
+      return
+    }
+
+    const maxCatOrder = (
+      db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM budget_categories WHERE group_id = ?')
+        .get(debtGroup.id) as { m: number }
+    ).m
+
+    const catResult = db
+      .prepare(
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, linked_account_id, is_system, sort_order, created_at, updated_at)
+         VALUES (?, ?, 0, 'monthly', ?, 1, ?, ?, ?)`,
+      )
+      .run(debtGroup.id, accountName, accountId, maxCatOrder + 1, updatedAt, updatedAt)
+
+    recordBudgetChange(catResult.lastInsertRowid as number, 0, 'monthly', userId)
+  }
+
   app.get('/api/accounts', { preHandler: authenticate }, async (req, reply) => {
     const db = getDb()
     const includeClosed = (req.query as Record<string, string>).includeClosed === 'true'
@@ -434,6 +467,14 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     }
 
     db.prepare('UPDATE accounts SET closed_at = ?, updated_at = ? WHERE id = ?').run(now, now, account.id)
+    if (account.type === 'debt') {
+      db.prepare(
+        `UPDATE budget_categories
+         SET is_active = 0, updated_at = ?
+         WHERE linked_account_id = ?
+           AND group_id IN (SELECT id FROM budget_groups WHERE is_debt = 1)`,
+      ).run(now, account.id)
+    }
 
     logAudit({
       userId: request.user!.id,
@@ -453,13 +494,16 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     const db = getDb()
 
     const account = db
-      .prepare('SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND closed_at IS NOT NULL')
-      .get(id) as { id: number; name: string } | undefined
+      .prepare('SELECT id, name, type FROM accounts WHERE id = ? AND is_active = 1 AND closed_at IS NOT NULL')
+      .get(id) as { id: number; name: string; type: string } | undefined
 
     if (!account) return reply.code(404).send({ error: 'Account not found or not closed' })
 
     const now = new Date().toISOString()
     db.prepare('UPDATE accounts SET closed_at = NULL, updated_at = ? WHERE id = ?').run(now, account.id)
+    if (account.type === 'debt') {
+      restoreLinkedDebtCategory(account.id, account.name, request.user!.id, now)
+    }
 
     logAudit({
       userId: request.user!.id,
