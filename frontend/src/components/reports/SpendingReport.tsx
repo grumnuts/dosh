@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { getWeek } from 'date-fns'
 import {
   BarChart,
   Bar,
@@ -11,11 +12,12 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { reportsApi } from '../../api/reports'
+import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Select } from '../ui/Input'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 
-const DEFAULT_COL_WIDTHS = { category: 176, m01: 64, m02: 64, m03: 64, m04: 64, m05: 64, m06: 64, m07: 64, m08: 64, m09: 64, m10: 64, m11: 64, m12: 64, total: 80 }
+const DEFAULT_COL_WIDTHS = { category: 176, m01: 64, m02: 64, m03: 64, m04: 64, m05: 64, m06: 64, m07: 64, m08: 64, m09: 64, m10: 64, m11: 64, m12: 64, total: 80, weeklyAverage: 92 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -37,9 +39,17 @@ export function SpendingReport({ year }: Props) {
     queryKey: ['reports', 'spending', year],
     queryFn: () => reportsApi.spending(year),
   })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
 
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.length === 0) return <div className="py-12 text-center text-secondary">No spending data for {year}.</div>
+
+  const reportYear = parseInt(year, 10)
+  const currentYear = new Date().getFullYear()
+  const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
+  const weeklyAverageDivisor = reportYear === currentYear
+    ? Math.max(1, getWeek(new Date(), { weekStartsOn }))
+    : reportYear < currentYear ? 52 : 1
 
   // Collect unique groups
   const groups = Array.from(new Map(
@@ -69,10 +79,11 @@ export function SpendingReport({ year }: Props) {
 
   const monthIdx = parseInt(selectedMonth, 10) - 1
   const filteredRows = Array.from(catMap.values())
-    .map((r) => ({ category: r.category, group: r.group, amount: r.months[monthIdx] }))
+    .map((r) => ({ category: r.category, group: r.group, amount: r.months[monthIdx], total: r.months.reduce((s, v) => s + v, 0) }))
     .filter((r) => r.amount > 0)
     .sort((a, b) => b.amount - a.amount)
   const monthTotal = filteredRows.reduce((s, r) => s + r.amount, 0)
+  const filteredAnnualTotal = filteredRows.reduce((s, r) => s + r.total, 0)
 
   // When viewing a past year, default to month 12 if current defaultMonth has no data
   const hasDataForSelectedMonth = filteredRows.length > 0
@@ -123,6 +134,7 @@ export function SpendingReport({ year }: Props) {
               <tr className="text-left border-b border-border">
                 <th className="pb-2 pr-4 text-secondary font-medium">Category</th>
                 <th className="pb-2 text-right text-secondary font-medium">Amount</th>
+                <th className="pb-2 pl-3 text-right text-secondary font-medium">Avg/wk</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -130,6 +142,7 @@ export function SpendingReport({ year }: Props) {
                 <tr key={`${r.group}::${r.category}`} className="hover:bg-surface-2">
                   <td className="py-1.5 pr-4 text-primary">{r.category}</td>
                   <td className="py-1.5 text-right text-secondary tabular-nums">{formatMoney(r.amount)}</td>
+                  <td className="py-1.5 pl-3 text-right text-secondary tabular-nums">{formatMoney(Math.round(r.total / weeklyAverageDivisor))}</td>
                 </tr>
               ))}
             </tbody>
@@ -137,6 +150,7 @@ export function SpendingReport({ year }: Props) {
               <tr className="border-t border-border font-semibold">
                 <td className="py-2 text-primary">Total</td>
                 <td className="py-2 text-right text-accent tabular-nums">{formatMoney(monthTotal)}</td>
+                <td className="py-2 pl-3 text-right text-accent tabular-nums">{formatMoney(Math.round(filteredAnnualTotal / weeklyAverageDivisor))}</td>
               </tr>
             </tfoot>
           </table>
@@ -147,7 +161,7 @@ export function SpendingReport({ year }: Props) {
 
       {/* Desktop: full 12-month table */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="min-w-[900px] w-full text-sm md:table-fixed">
+        <table className="min-w-[1000px] w-full text-sm md:table-fixed">
           <thead>
             <tr className="text-left border-b border-border">
               <th className="pb-2 pr-4 text-secondary font-medium relative" style={{ width: widths.category }}>Category<ResizeHandle onMouseDown={(e) => onResizeStart('category', e)} /></th>
@@ -160,6 +174,7 @@ export function SpendingReport({ year }: Props) {
                 )
               })}
               <th className="pb-2 pl-2 text-right text-secondary font-medium relative" style={{ width: widths.total }}>Total<ResizeHandle onMouseDown={(e) => onResizeStart('total', e)} /></th>
+              <th className="pb-2 pl-2 text-right text-secondary font-medium relative" style={{ width: widths.weeklyAverage }}>Avg/wk<ResizeHandle onMouseDown={(e) => onResizeStart('weeklyAverage', e)} /></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -176,6 +191,7 @@ export function SpendingReport({ year }: Props) {
                       </td>
                     ))}
                     <td className="py-1.5 pl-2 text-right font-medium text-primary tabular-nums">{formatMoney(total)}</td>
+                    <td className="py-1.5 pl-2 text-right text-secondary tabular-nums">{formatMoney(Math.round(total / weeklyAverageDivisor))}</td>
                   </tr>
                 )
               })}
@@ -193,6 +209,9 @@ export function SpendingReport({ year }: Props) {
               })}
               <td className="py-2 pl-2 text-right text-accent tabular-nums">
                 {formatMoney(Array.from(catMap.values()).reduce((s, r) => s + r.months.reduce((a, v) => a + v, 0), 0))}
+              </td>
+              <td className="py-2 pl-2 text-right text-accent tabular-nums">
+                {formatMoney(Math.round(Array.from(catMap.values()).reduce((s, r) => s + r.months.reduce((a, v) => a + v, 0), 0) / weeklyAverageDivisor))}
               </td>
             </tr>
           </tfoot>
