@@ -4,6 +4,19 @@
 
 ---
 
+## v1.16.1 — 2026-06-14
+
+### Bug Fixes
+- Reports: liabilities and debt account balance history now include payments made from other accounts against linked debt categories, so paid-off debts no longer show their starting balance in Portfolio reports.
+- Reports: closed accounts are hidden from Portfolio status/progress reports, including Net Worth, Account Balances, and Goals, while historical cashflow reports remain unchanged.
+- Budget: closing a debt account now hides its automatically linked debt category, and reopening the account restores or recreates that category.
+
+### Enhancements
+- Cashflow: Spending by Category now includes an average weekly spend column based on the selected year's total divided by the current week for the current year.
+- Reports: desktop layout now uses a little more available width to reduce cramped report columns.
+
+---
+
 ## v1.16.0 — 2026-05-19
 
 ### New Features
