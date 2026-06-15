@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+---
+
+## v1.16.2 — 2026-06-15
+
 ### Bug Fixes
 - Reports: investment portfolio chart Y-axis labels now show distinct dollar values for smaller ranges instead of rounding multiple ticks to the same `$1k` label.
 
