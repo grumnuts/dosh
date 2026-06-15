@@ -10,7 +10,9 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { reportsApi, type GoalSeries } from '../../api/reports'
+import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
+import { formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
 
 function ChartLegend({ color }: { color: string }) {
   return (
@@ -54,11 +56,6 @@ function buildChartData(series: GoalSeries) {
   return chartData
 }
 
-function formatYearMonth(yearMonth: string): string {
-  const [year, month] = yearMonth.split('-')
-  return `${month}/${year.slice(2)}`
-}
-
 function weeksUntilEndOfMonth(yearMonth: string): number {
   const [year, month] = yearMonth.split('-').map(Number)
   const endOfMonth = new Date(year, month, 0) // last day of that month
@@ -68,7 +65,7 @@ function weeksUntilEndOfMonth(yearMonth: string): number {
   return Math.max(1, (endOfMonth.getTime() - today.getTime()) / msPerWeek)
 }
 
-function GoalCard({ series }: { series: GoalSeries }) {
+function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: string }) {
   const chartData = buildChartData(series)
 
   const projectedEnd = series.projection.length > 0
@@ -97,7 +94,7 @@ function GoalCard({ series }: { series: GoalSeries }) {
         </>
       )
     } else if (projectionHitsGoal) {
-      statusLabel = <p className="text-sm text-muted">Projected: {formatYearMonth(projectedEnd!.month)}</p>
+      statusLabel = <p className="text-sm text-muted">Projected: {formatAppMonth(projectedEnd!.month, dateFormat)}</p>
     } else if (projectedEnd) {
       statusLabel = <p className="text-sm text-muted">Projected: 20+ years</p>
     }
@@ -128,11 +125,12 @@ function GoalCard({ series }: { series: GoalSeries }) {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={60} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
+                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
                 formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
               />
               <Line type="monotone" dataKey="balance" name="Balance" stroke="#4ade80" strokeWidth={2} dot={false} connectNulls={false} />
@@ -148,7 +146,7 @@ function GoalCard({ series }: { series: GoalSeries }) {
   )
 }
 
-function DebtCard({ series }: { series: GoalSeries }) {
+function DebtCard({ series, dateFormat }: { series: GoalSeries; dateFormat: string }) {
   const chartData = buildChartData(series)
 
   const projectedEnd = series.projection.length > 0
@@ -166,7 +164,7 @@ function DebtCard({ series }: { series: GoalSeries }) {
   let statusLabel: React.ReactNode = null
   if (!paidOff) {
     if (projectionPayedOff) {
-      statusLabel = <p className="text-sm text-muted">Projected: {formatYearMonth(projectedEnd!.month)}</p>
+      statusLabel = <p className="text-sm text-muted">Projected: {formatAppMonth(projectedEnd!.month, dateFormat)}</p>
     } else if (projectedEnd) {
       statusLabel = <p className="text-sm text-muted">Projected: 20+ years</p>
     }
@@ -197,11 +195,12 @@ function DebtCard({ series }: { series: GoalSeries }) {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.abs(v)}`} width={60} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
+                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
                 formatter={(value) => [formatMoney(Math.abs(Math.round((value as number) * 100))), '']}
               />
               <Line type="monotone" dataKey="balance" name="Balance" stroke="#f87171" strokeWidth={2} dot={false} connectNulls={false} />
@@ -222,6 +221,8 @@ export function GoalReport() {
     queryKey: ['reports', 'goals'],
     queryFn: reportsApi.goals,
   })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const dateFormat = normalizeDateFormat(settings?.date_format)
 
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
 
@@ -241,13 +242,13 @@ export function GoalReport() {
       {savings.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Savings</h2>
-          {savings.map((series) => <GoalCard key={series.accountId} series={series} />)}
+          {savings.map((series) => <GoalCard key={series.accountId} series={series} dateFormat={dateFormat} />)}
         </section>
       )}
       {debts.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-sm font-semibold text-secondary uppercase tracking-wide">Debts</h2>
-          {debts.map((series) => <DebtCard key={series.accountId} series={series} />)}
+          {debts.map((series) => <DebtCard key={series.accountId} series={series} dateFormat={dateFormat} />)}
         </section>
       )}
     </div>

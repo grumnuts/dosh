@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, parseISO } from 'date-fns'
 import { auditApi } from '../api/audit'
 import { usersApi } from '../api/users'
+import { settingsApi } from '../api/settings'
+import { formatAppDateTime, normalizeDateFormat } from '../utils/dateFormat'
 import { Select } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 
@@ -85,6 +86,8 @@ export function AuditPage() {
   })
 
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: usersApi.list })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const dateFormat = normalizeDateFormat(settings?.date_format)
 
   const setFilter = (key: string, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -180,7 +183,7 @@ export function AuditPage() {
                 {entries?.map((entry) => (
                   <tr key={entry.id} className="border-b border-border/50">
                     <td className="px-4 py-2.5 font-mono text-xs text-muted whitespace-nowrap">
-                      {format(parseISO(entry.occurred_at), 'dd MMM HH:mm')}
+                      {formatAppDateTime(entry.occurred_at, dateFormat)}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-secondary hidden sm:table-cell">
                       {entry.username}

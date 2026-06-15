@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, parseISO } from 'date-fns'
 import { usersApi, User } from '../api/users'
 import { UserRole } from '../api/auth'
 import { settingsApi } from '../api/settings'
+import { DATE_FORMAT_OPTIONS, formatAppDate, normalizeDateFormat } from '../utils/dateFormat'
 import { useAuth } from '../hooks/useAuth'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
@@ -131,6 +131,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const dateFormat = normalizeDateFormat(settings?.date_format)
   const { data: sysInfo } = useQuery({ queryKey: ['system-info'], queryFn: settingsApi.systemInfo })
   const updateSetting = useMutation({
     mutationFn: ({ key, value }: { key: string; value: string }) => settingsApi.update(key, value),
@@ -187,6 +188,15 @@ export function SettingsPage() {
             <option value="0">Sunday (Default)</option>
             <option value="1">Monday</option>
           </Select>
+          <Select
+            label="Date Format"
+            value={dateFormat}
+            onChange={(e) => updateSetting.mutate({ key: 'date_format', value: e.target.value })}
+          >
+            {DATE_FORMAT_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </Select>
         </div>
       </section>
 
@@ -220,7 +230,7 @@ export function SettingsPage() {
                     </span>
                   </div>
                   <div className="text-xs text-muted mt-0.5">
-                    Created {format(parseISO(user.created_at), 'dd MMM yyyy')}
+                    Created {formatAppDate(user.created_at, dateFormat)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

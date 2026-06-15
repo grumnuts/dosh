@@ -10,8 +10,10 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { investmentsApi, HoldingRow } from '../../api/investments'
+import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
+import { formatAppDateTime, formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
 
 const TICKER_COLOURS = [
   '#60a5fa', '#a78bfa', '#fb923c', '#34d399', '#f472b6',
@@ -21,16 +23,6 @@ const TICKER_COLOURS = [
 function formatQuantity(qty: number): string {
   if (qty === Math.floor(qty)) return qty.toLocaleString()
   return qty.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function GainLoss({ cents }: { cents: number }) {
@@ -61,6 +53,8 @@ export function InvestmentsReport() {
     queryKey: ['investments', 'history'],
     queryFn: investmentsApi.history,
   })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const dateFormat = normalizeDateFormat(settings?.date_format)
 
   const refreshMutation = useMutation({
     mutationFn: investmentsApi.refreshPrices,
@@ -133,7 +127,7 @@ export function InvestmentsReport() {
         <div className="flex items-center gap-3">
           {data.lastUpdated && (
             <span className="text-xs text-muted hidden sm:block">
-              Updated {formatDate(data.lastUpdated)}
+              Updated {formatAppDateTime(data.lastUpdated, dateFormat)}
             </span>
           )}
           <Button
@@ -155,7 +149,7 @@ export function InvestmentsReport() {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={displayChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis
                 tick={{ fill: '#6b7280', fontSize: 12 }}
                 axisLine={false}
@@ -166,6 +160,7 @@ export function InvestmentsReport() {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
+                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
                 formatter={(value) => [formatMoney(Math.round((value as number) * 100)), displayLabel]}
               />
               <Line

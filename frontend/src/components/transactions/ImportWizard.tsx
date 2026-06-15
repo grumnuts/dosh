@@ -6,6 +6,8 @@ import { Select } from '../ui/Input'
 import { Amount } from '../ui/AmountDisplay'
 import { importApi, PreviewRow, ColumnMapping } from '../../api/import'
 import { accountsApi } from '../../api/accounts'
+import { settingsApi } from '../../api/settings'
+import { formatAppDate, normalizeDateFormat } from '../../utils/dateFormat'
 
 type Step = 'upload' | 'map' | 'preview' | 'done'
 
@@ -30,6 +32,8 @@ export function ImportWizard({ open, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list() })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const displayDateFormat = normalizeDateFormat(settings?.date_format)
 
   // Parse header row to show column names for mapping
   const headerRow = (() => {
@@ -299,7 +303,7 @@ export function ImportWizard({ open, onClose }: Props) {
                         className="accent-accent"
                       />
                     </td>
-                    <td className="px-3 py-2 font-mono">{row.date}</td>
+                    <td className="px-3 py-2 font-mono">{formatAppDate(row.date, displayDateFormat)}</td>
                     <td className="px-3 py-2 truncate max-w-[160px]">{row.payee || row.description || '—'}</td>
                     <td className="px-3 py-2 text-right font-mono">
                       <Amount cents={row.amount} />

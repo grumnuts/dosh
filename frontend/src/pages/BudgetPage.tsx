@@ -5,6 +5,7 @@ import { useWeek } from '../hooks/useWeek'
 import { budgetApi } from '../api/budget'
 import { accountsApi } from '../api/accounts'
 import { settingsApi } from '../api/settings'
+import { formatAppDateRange, normalizeDateFormat } from '../utils/dateFormat'
 import { BudgetTable } from '../components/budget/BudgetTable'
 import { Button } from '../components/ui/Button'
 import { GroupModal } from '../components/budget/GroupModal'
@@ -22,6 +23,7 @@ export function BudgetPage() {
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
+  const dateFormat = normalizeDateFormat(settings?.date_format)
   const { weekStart, goNext, goPrev, goToday, isCurrentWeek } = useWeek(weekStartsOn)
   const slideDir = useRef<'left' | 'right'>('left')
 
@@ -50,7 +52,7 @@ export function BudgetPage() {
   const weekNumber = parsedStart ? getWeek(parsedStart, { weekStartsOn }) : null
   const weekYear = parsedStart ? format(parsedStart, 'yyyy') : ''
   const weekRange = parsedStart && parsedEnd
-    ? `${format(parsedStart, 'dd/MM')} - ${format(parsedEnd, 'dd/MM')}`
+    ? formatAppDateRange(parsedStart, parsedEnd, dateFormat)
     : ''
 
   const weekNav = (

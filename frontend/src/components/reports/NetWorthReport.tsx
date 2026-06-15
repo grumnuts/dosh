@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocalStorageBool } from '../../hooks/useLocalStorageBool'
 import { investmentsApi } from '../../api/investments'
+import { settingsApi } from '../../api/settings'
 import {
   LineChart,
   Line,
@@ -15,6 +16,7 @@ import {
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
+import { formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
 
 const DEFAULT_COL_WIDTHS = { account: 200, type: 100, balance: 150 }
 
@@ -83,6 +85,8 @@ export function NetWorthReport({ section }: Props = {}) {
     queryKey: ['reports', 'networth'],
     queryFn: reportsApi.networth,
   })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const dateFormat = normalizeDateFormat(settings?.date_format)
 
   // Must be called unconditionally — used only when section === 'breakdown'
   const { data: holdingsData } = useQuery({
@@ -133,9 +137,9 @@ export function NetWorthReport({ section }: Props = {}) {
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={netWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatYAxisTick} width={55} domain={[(v: number) => Math.min(v, 0), 'auto']} />
-              <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
+              <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} labelFormatter={(value) => formatAppMonth(String(value), dateFormat)} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
               <Line type="monotone" dataKey="Net Worth" stroke={netWorthLineColour} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -309,7 +313,7 @@ export function NetWorthReport({ section }: Props = {}) {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={balanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
                 <YAxis
                   tick={{ fill: '#6b7280', fontSize: 12 }}
                   axisLine={false}
@@ -322,6 +326,7 @@ export function NetWorthReport({ section }: Props = {}) {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                   labelStyle={{ color: '#e5e7eb' }}
+                  labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
                   formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
                 />
                 {chartAccounts.map((account) => (
@@ -424,6 +429,7 @@ export function NetWorthReport({ section }: Props = {}) {
               axisLine={false}
               tickLine={false}
               interval="preserveStartEnd"
+              tickFormatter={(value) => formatAppMonth(String(value), dateFormat)}
             />
             <YAxis
               tick={{ fill: '#6b7280', fontSize: 12 }}
@@ -436,6 +442,7 @@ export function NetWorthReport({ section }: Props = {}) {
             <Tooltip
               contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
               labelStyle={{ color: '#e5e7eb' }}
+              labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
               formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
             />
             <Line
@@ -462,6 +469,7 @@ export function NetWorthReport({ section }: Props = {}) {
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"
+                tickFormatter={(value) => formatAppMonth(String(value), dateFormat)}
               />
               <YAxis
                 tick={{ fill: '#6b7280', fontSize: 12 }}
@@ -474,6 +482,7 @@ export function NetWorthReport({ section }: Props = {}) {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
+                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
                 formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
               />
               <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />

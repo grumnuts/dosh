@@ -20,12 +20,13 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import { accountsApi, Account, AccountInput, AccountCreateInput } from '../api/accounts'
 import { investmentsApi } from '../api/investments'
 import { transactionsApi, Transaction } from '../api/transactions'
 import { budgetApi } from '../api/budget'
 import { settingsApi } from '../api/settings'
+import { formatAppDate, normalizeDateFormat } from '../utils/dateFormat'
 import { formatMoney, Amount } from '../components/ui/AmountDisplay'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
@@ -660,6 +661,7 @@ export function AccountsPage() {
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
+  const dateFormat = normalizeDateFormat(settings?.date_format)
   const currentWeekStart = format(startOfWeek(new Date(), { weekStartsOn }), 'yyyy-MM-dd')
 
   const quickDateRanges = {
@@ -1267,7 +1269,7 @@ export function AccountsPage() {
                       )}
                     </td>
                     <td className="pl-2 pr-1 py-2.5 font-mono text-xs text-primary whitespace-nowrap sm:px-4">
-                      {format(parseISO(tx.date), 'dd/MM/yy')}
+                      {formatAppDate(tx.date, dateFormat)}
                     </td>
                     <td className="pl-5 pr-2 py-2.5 sm:px-3 overflow-hidden">
                       {/* Desktop: account name */}

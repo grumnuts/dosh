@@ -1,7 +1,9 @@
 import { api } from './client'
+import type { DateFormatOption } from '../utils/dateFormat'
 
 export interface AppSettings {
   week_start_day: '0' | '1'
+  date_format?: DateFormatOption
   ai_api_token?: string
 }
 

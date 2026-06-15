@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Enhancements
+- Settings: added a date format preference and applied it across Ledger, Budget, Reports, Audit, and other date displays.
+
 ---
 
 ## v1.16.1 — 2026-06-14
