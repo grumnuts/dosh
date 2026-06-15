@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Bug Fixes
+- Reports: investment portfolio chart Y-axis labels now show distinct dollar values for smaller ranges instead of rounding multiple ticks to the same `$1k` label.
+
 ### Enhancements
 - Settings: added a date format preference and applied it across Ledger, Budget, Reports, Audit, and other date displays.
 
