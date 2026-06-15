@@ -11,6 +11,7 @@
 
 ### Enhancements
 - Settings: added a date format preference and applied it across Ledger, Budget, Reports, Audit, and other date displays.
+- Branding: refreshed the Dosh logo, favicon, thumbnail, and PWA icon assets.
 
 ---
 
