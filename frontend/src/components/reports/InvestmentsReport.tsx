@@ -23,6 +23,14 @@ function formatQuantity(qty: number): string {
   return qty.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 }
 
+function formatYAxisTick(value: number): string {
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`
+  if (abs >= 10_000) return `${sign}$${Math.round(abs / 1_000)}k`
+  return `${sign}$${Math.round(abs).toLocaleString()}`
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     day: '2-digit',
@@ -160,8 +168,8 @@ export function InvestmentsReport() {
                 tick={{ fill: '#6b7280', fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                width={55}
+                tickFormatter={formatYAxisTick}
+                width={72}
               />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
