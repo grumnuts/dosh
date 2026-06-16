@@ -4,6 +4,14 @@
 
 ---
 
+## v1.16.3 — 2026-06-16
+
+### Bug Fixes
+- Investments: transaction fees can now be recorded separately from trade value and are included in cost basis, so total gain/loss reflects brokerage fees correctly.
+- Investments: partial sells now reduce remaining cost basis proportionally instead of subtracting sale proceeds from the holding.
+
+---
+
 ## v1.16.2 — 2026-06-15
 
 ### Bug Fixes
