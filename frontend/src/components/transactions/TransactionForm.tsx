@@ -17,6 +17,11 @@ import { budgetApi } from '../../api/budget'
 import { payeesApi } from '../../api/payees'
 import { settingsApi } from '../../api/settings'
 
+const optionalNonNegativeNumber = z
+  .string()
+  .optional()
+  .refine((v) => !v || (!isNaN(parseFloat(v)) && parseFloat(v) >= 0), 'Enter zero or more')
+
 const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Required'),
   type: z.enum(['debit', 'credit', 'transfer', 'starting_balance']),
@@ -29,6 +34,8 @@ const schema = z.object({
   ignoreRules: z.boolean().optional().default(false),
   investmentTicker: z.string().max(20).optional(),
   investmentQuantity: z.string().optional(),
+  investmentTradeValue: optionalNonNegativeNumber,
+  investmentFee: optionalNonNegativeNumber,
 })
 
 type FormData = z.infer<typeof schema>
@@ -195,6 +202,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           ignoreRules: transaction.ignore_rules === 1,
           investmentTicker: transaction.investment_ticker ?? '',
           investmentQuantity: transaction.investment_quantity != null ? String(transaction.investment_quantity) : '',
+          investmentTradeValue: transaction.investment_trade_value_cents != null ? (transaction.investment_trade_value_cents / 100).toFixed(2) : '',
+          investmentFee: transaction.investment_fee_cents ? (transaction.investment_fee_cents / 100).toFixed(2) : '',
         })
         if (transaction.splits.length > 0) {
           setIsSplit(true)
@@ -220,6 +229,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           ignoreRules: false,
           investmentTicker: '',
           investmentQuantity: '',
+          investmentTradeValue: '',
+          investmentFee: '',
         })
         setIsSplit(false)
         setSplits(blankSplits())
@@ -285,6 +296,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
       const investmentQuantity = isInvestmentCategory && data.investmentQuantity
         ? parseFloat(data.investmentQuantity) * (data.type === 'credit' ? -1 : 1)
         : null
+      const investmentFeeCents = isInvestmentCategory && data.investmentFee
+        ? Math.round(parseFloat(data.investmentFee) * 100)
+        : 0
+      const investmentTradeValueCents = isInvestmentCategory && data.investmentTradeValue
+        ? Math.round(parseFloat(data.investmentTradeValue) * 100)
+        : null
 
       if (isEdit) {
         await transactionsApi.update(transaction!.id, {
@@ -302,6 +319,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           ignoreRules: data.ignoreRules,
           investmentTicker,
           investmentQuantity,
+          investmentTradeValueCents,
+          investmentFeeCents,
         })
         return { id: transaction!.id }
       }
@@ -331,6 +350,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         ignoreRules: data.ignoreRules,
         investmentTicker,
         investmentQuantity,
+        investmentTradeValueCents,
+        investmentFeeCents,
       })
     },
     onSuccess: () => {
@@ -448,7 +469,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
 
         {/* Investment fields */}
         {isInvestmentCategory && !isCover && canSplit && (
-          <div className={`grid gap-3 ${categoryTicker ? '' : 'grid-cols-2'}`}>
+          <div className="grid gap-3 sm:grid-cols-2">
             {categoryTicker ? (
               <div className="text-xs text-muted">
                 Ticker: <span className="font-mono text-primary">{categoryTicker}</span>
@@ -467,6 +488,24 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
               min="0.0000000001"
               placeholder="0.0000000000"
               {...register('investmentQuantity')}
+            />
+            <Input
+              label="Trade value ($)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Auto"
+              {...register('investmentTradeValue')}
+              error={errors.investmentTradeValue?.message}
+            />
+            <Input
+              label="Fee ($)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              {...register('investmentFee')}
+              error={errors.investmentFee?.message}
             />
           </div>
         )}

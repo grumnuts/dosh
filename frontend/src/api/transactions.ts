@@ -24,6 +24,8 @@ export interface Transaction {
   category_is_investment: number | null
   investment_ticker: string | null
   investment_quantity: number | null
+  investment_trade_value_cents: number | null
+  investment_fee_cents: number
   type: 'transaction' | 'transfer' | 'cover' | 'sweep'
   transfer_pair_id: number | null
   transfer_pair_account_id: number | null
@@ -69,6 +71,8 @@ export interface TransactionInput {
   ignoreRules?: boolean
   investmentTicker?: string | null
   investmentQuantity?: number | null
+  investmentTradeValueCents?: number | null
+  investmentFeeCents?: number | null
 }
 
 export const transactionsApi = {
