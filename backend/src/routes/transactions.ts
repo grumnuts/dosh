@@ -25,6 +25,8 @@ const transactionSchema = z.object({
   ignoreRules: z.boolean().optional().default(false),
   investmentTicker: z.string().max(20).optional().nullable().transform((v) => v?.toUpperCase() ?? null),
   investmentQuantity: z.number().optional().nullable(),
+  investmentTradeValueCents: z.number().int().nonnegative().optional().nullable(),
+  investmentFeeCents: z.number().int().nonnegative().optional().nullable(),
 })
 
 function upsertPayee(payeeName: string | null | undefined): void {
@@ -157,6 +159,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
              t.type, t.transfer_pair_id, pair_acct.id as transfer_pair_account_id,
              t.cover_week_start, t.ignore_rules, t.created_at,
              t.investment_ticker, t.investment_quantity,
+             t.investment_trade_value_cents, t.investment_fee_cents,
              (SELECT COUNT(*) FROM transaction_receipts WHERE transaction_id = t.id) as receipt_count,
              a.starting_balance + (
                SELECT COALESCE(SUM(t2.amount), 0)
@@ -341,11 +344,17 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       : undefined
     const ticker = catTickerRow?.ticker ?? body.data.investmentTicker ?? null
     const quantity = body.data.investmentQuantity ?? null
+    const feeCents = body.data.investmentFeeCents ?? 0
+    const tradeValueCents = ticker && quantity != null
+      ? (body.data.investmentTradeValueCents ?? inferInvestmentTradeValueCents(ruled.amount, quantity, feeCents))
+      : null
 
     const result = db
       .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, ignore_rules, investment_ticker, investment_quantity, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, ignore_rules,
+                                   investment_ticker, investment_quantity, investment_trade_value_cents, investment_fee_cents,
+                                   created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'transaction', ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         ruled.date,
@@ -357,6 +366,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         body.data.ignoreRules ? 1 : 0,
         ticker,
         quantity,
+        tradeValueCents,
+        ticker && quantity != null ? feeCents : 0,
         now,
         now,
         request.user!.id,
@@ -415,6 +426,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         ignoreRules: z.boolean().optional(),
         investmentTicker: z.string().max(20).optional().nullable().transform((v) => v?.toUpperCase() ?? null),
         investmentQuantity: z.number().optional().nullable(),
+        investmentTradeValueCents: z.number().int().nonnegative().optional().nullable(),
+        investmentFeeCents: z.number().int().nonnegative().optional().nullable(),
       })
       .safeParse(request.body)
 
@@ -469,17 +482,23 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       const thisLegAmount = existing.amount <= 0 ? -absAmount : absAmount
       const pairLegAmount = existing.amount <= 0 ? absAmount : -absAmount
       db.prepare(
-        `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, updated_at = ? WHERE id = ?`,
+        `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?,
+         investment_ticker = NULL, investment_quantity = NULL, investment_trade_value_cents = NULL,
+         investment_fee_cents = 0, updated_at = ? WHERE id = ?`,
       ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, thisLegAmount, now, id)
       if (existing.transfer_pair_id) {
         const destAccountId = body.data.transferToAccountId ?? null
         if (destAccountId !== null) {
           db.prepare(
-            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, account_id = ?, updated_at = ? WHERE id = ?`,
+            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, account_id = ?,
+             investment_ticker = NULL, investment_quantity = NULL, investment_trade_value_cents = NULL,
+             investment_fee_cents = 0, updated_at = ? WHERE id = ?`,
           ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, pairLegAmount, destAccountId, now, existing.transfer_pair_id)
         } else {
           db.prepare(
-            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?, updated_at = ? WHERE id = ?`,
+            `UPDATE transactions SET date = ?, payee = ?, description = ?, amount = ?,
+             investment_ticker = NULL, investment_quantity = NULL, investment_trade_value_cents = NULL,
+             investment_fee_cents = 0, updated_at = ? WHERE id = ?`,
           ).run(body.data.date, body.data.payee ?? null, body.data.description ?? null, pairLegAmount, now, existing.transfer_pair_id)
         }
       }
@@ -511,7 +530,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').run(id)
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-         category_id = NULL, type = 'transfer', transfer_pair_id = NULL, ignore_rules = 0, updated_at = ? WHERE id = ?`,
+         category_id = NULL, type = 'transfer', transfer_pair_id = NULL, ignore_rules = 0,
+         investment_ticker = NULL, investment_quantity = NULL, investment_trade_value_cents = NULL,
+         investment_fee_cents = 0, updated_at = ? WHERE id = ?`,
       ).run(
         body.data.date,
         body.data.accountId,
@@ -548,10 +569,15 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         : undefined
       const newTicker = updCatTickerRow?.ticker ?? body.data.investmentTicker ?? null
       const newQuantity = body.data.investmentQuantity ?? null
+      const newFeeCents = body.data.investmentFeeCents ?? 0
+      const newTradeValueCents = newTicker && newQuantity != null
+        ? (body.data.investmentTradeValueCents ?? inferInvestmentTradeValueCents(body.data.amount, newQuantity, newFeeCents))
+        : null
 
       db.prepare(
         `UPDATE transactions SET date = ?, account_id = ?, payee = ?, description = ?, amount = ?,
-         category_id = ?, ignore_rules = ?, investment_ticker = ?, investment_quantity = ?, updated_at = ? WHERE id = ?`,
+         category_id = ?, ignore_rules = ?, investment_ticker = ?, investment_quantity = ?,
+         investment_trade_value_cents = ?, investment_fee_cents = ?, updated_at = ? WHERE id = ?`,
       ).run(
         body.data.date,
         body.data.accountId,
@@ -566,6 +592,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
         ignoreRules ? 1 : 0,
         newTicker,
         newQuantity,
+        newTradeValueCents,
+        newTicker && newQuantity != null ? newFeeCents : 0,
         now,
         id,
       )
@@ -594,6 +622,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     const resolvedNewTicker = resolvedCatTickerRow?.ticker ?? body.data.investmentTicker ?? null
     if (resolvedNewTicker || existing.investment_ticker) {
       recalculateHoldings(body.data.accountId)
+      if (existing.account_id !== body.data.accountId) {
+        recalculateHoldings(existing.account_id)
+      }
       if (resolvedNewTicker) {
         const priceExists = db.prepare('SELECT ticker FROM share_prices WHERE ticker = ?').get(resolvedNewTicker)
         if (!priceExists) {
@@ -687,4 +718,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({ ok: true })
   })
+}
+
+function inferInvestmentTradeValueCents(amount: number, quantity: number, feeCents: number): number {
+  const absAmount = Math.abs(amount)
+  if (quantity < 0) return absAmount + feeCents
+  return Math.max(0, absAmount - feeCents)
 }

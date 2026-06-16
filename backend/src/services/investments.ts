@@ -79,26 +79,77 @@ export function recalculateHoldings(accountId: number): void {
   db.exec('BEGIN TRANSACTION')
   try {
     db.prepare('DELETE FROM investment_holdings WHERE account_id = ?').run(accountId)
-    // Cost basis uses ABS(amount) weighted by quantity sign so it is correct regardless of
-    // whether the transaction is a debit (negative amount) or credit (positive amount):
-    //   buy  (quantity > 0): cost increases by ABS(amount)
-    //   sell (quantity < 0): cost decreases by ABS(amount)
-    db.prepare(`
-      INSERT INTO investment_holdings (account_id, ticker, quantity, cost_basis_cents)
-        SELECT account_id,
-               investment_ticker,
-               SUM(investment_quantity),
-               SUM(CASE WHEN investment_quantity >= 0 THEN ABS(amount) ELSE -ABS(amount) END)
-        FROM transactions
-        WHERE account_id = ? AND investment_ticker IS NOT NULL
-        GROUP BY investment_ticker
-        HAVING SUM(investment_quantity) > 0
-    `).run(accountId)
+
+    const rows = db
+      .prepare(
+        `SELECT investment_ticker AS ticker,
+                investment_quantity AS quantity,
+                amount,
+                investment_trade_value_cents AS trade_value_cents,
+                investment_fee_cents AS fee_cents
+         FROM transactions
+         WHERE account_id = ?
+           AND investment_ticker IS NOT NULL
+           AND investment_quantity IS NOT NULL
+         ORDER BY date, id`,
+      )
+      .all(accountId) as Array<{
+        ticker: string
+        quantity: number
+        amount: number
+        trade_value_cents: number | null
+        fee_cents: number | null
+      }>
+
+    const holdings = new Map<string, { quantity: number; costBasisCents: number }>()
+
+    for (const row of rows) {
+      const ticker = row.ticker.toUpperCase()
+      const holding = holdings.get(ticker) ?? { quantity: 0, costBasisCents: 0 }
+      const quantity = row.quantity
+      const feeCents = row.fee_cents ?? 0
+      const tradeValueCents = row.trade_value_cents ?? inferTradeValueCents(row.amount, quantity, feeCents)
+
+      if (quantity > 0) {
+        holding.quantity += quantity
+        holding.costBasisCents += tradeValueCents + feeCents
+      } else if (quantity < 0 && holding.quantity > 0) {
+        const soldQuantity = Math.min(Math.abs(quantity), holding.quantity)
+        const remainingQuantity = holding.quantity - soldQuantity
+        const allocatedBasis = remainingQuantity <= 0
+          ? holding.costBasisCents
+          : Math.round((holding.costBasisCents / holding.quantity) * soldQuantity)
+
+        holding.quantity = remainingQuantity
+        holding.costBasisCents -= allocatedBasis
+      }
+
+      if (holding.quantity > 0) {
+        holdings.set(ticker, holding)
+      } else {
+        holdings.delete(ticker)
+      }
+    }
+
+    const insert = db.prepare(
+      `INSERT INTO investment_holdings (account_id, ticker, quantity, cost_basis_cents)
+       VALUES (?, ?, ?, ?)`,
+    )
+    for (const [ticker, holding] of holdings) {
+      insert.run(accountId, ticker, holding.quantity, holding.costBasisCents)
+    }
+
     db.exec('COMMIT')
   } catch (err) {
     db.exec('ROLLBACK')
     throw err
   }
+}
+
+function inferTradeValueCents(amount: number, quantity: number, feeCents: number): number {
+  const absAmount = Math.abs(amount)
+  if (quantity < 0) return absAmount + feeCents
+  return Math.max(0, absAmount - feeCents)
 }
 
 export function recalculateAllHoldings(): void {
