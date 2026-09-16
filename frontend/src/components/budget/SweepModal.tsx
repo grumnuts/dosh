@@ -153,15 +153,15 @@ export function SweepModal({
                 <option value="category">Category</option>
               </Select>
               {destination.kind === 'account' ? (
-                <Select
+                <select
                   aria-label="Destination"
                   value={destination.id}
                   onChange={(e) => updateDestination(index, { id: Number(e.target.value) || '' })}
-                  className="flex-1 min-w-0 h-9 [&>select]:h-9"
+                  className="input-base flex-1 min-w-0 h-9"
                 >
                   <option value="">Select account...</option>
                   {savingsAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({formatMoney(account.currentBalance)})</option>)}
-                </Select>
+                </select>
               ) : (
                 <CategoryCombobox
                   value={destination.id === '' ? '' : String(destination.id)}
