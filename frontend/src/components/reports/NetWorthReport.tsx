@@ -103,7 +103,7 @@ export function NetWorthReport({ section }: Props = {}) {
   const accountCurrentBalances = data.accounts.map((a) => ({
     ...a,
     currentBalance: a.history.length > 0 ? a.history[a.history.length - 1].balance : 0,
-  }))
+  })).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
   const assets = accountCurrentBalances.filter((a) => a.currentBalance > 0)
   const liabilities = accountCurrentBalances.filter((a) => a.currentBalance < 0)
 
@@ -187,7 +187,7 @@ export function NetWorthReport({ section }: Props = {}) {
       }
     }
 
-    rows.sort((a, b) => b.balanceCents - a.balanceCents)
+    rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
     if (rows.length === 0) {
       return <div className="py-6 text-center text-sm text-secondary">No assets to display.</div>

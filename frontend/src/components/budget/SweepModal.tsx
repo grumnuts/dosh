@@ -14,6 +14,13 @@ interface SweepModalProps {
   category: BudgetCategory
   weekStart: string
   transactionalAccounts: Account[]
+  destinationCategories: BudgetCategory[]
+}
+
+interface DestinationRow {
+  kind: 'account' | 'category'
+  id: number | ''
+  amount: string
 }
 
 export function SweepModal({
@@ -23,6 +30,7 @@ export function SweepModal({
   category,
   weekStart,
   transactionalAccounts,
+  destinationCategories,
 }: SweepModalProps) {
   const qc = useQueryClient()
   const availableBalance = category.balance
@@ -31,7 +39,9 @@ export function SweepModal({
   const [sourceAccountId, setSourceAccountId] = useState<number | ''>(
     transactionalAccounts[0]?.id ?? '',
   )
-  const [destAccountId, setDestAccountId] = useState<number | ''>('')
+  const [destinations, setDestinations] = useState<DestinationRow[]>([
+    { kind: 'account', id: '', amount: (availableBalance / 100).toFixed(2) },
+  ])
 
   const { data: accounts } = useQuery({
     queryKey: ['accounts'],
@@ -41,7 +51,18 @@ export function SweepModal({
   const savingsAccounts = accounts?.filter((a) => a.type === 'savings') ?? []
 
   const parsedAmount = Math.round(parseFloat(amountStr) * 100)
+  const parsedDestinations = destinations.map((destination) => ({
+    ...destination,
+    parsedAmount: Math.round(parseFloat(destination.amount) * 100),
+  }))
+  const destinationTotal = parsedDestinations.reduce((total, destination) => total + (isNaN(destination.parsedAmount) ? 0 : destination.parsedAmount), 0)
+  const destinationsValid = parsedDestinations.length > 0 && parsedDestinations.every((destination) => destination.id !== '' && destination.parsedAmount > 0)
   const amountValid = !isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= availableBalance
+  const sweepValid = amountValid && destinationsValid && destinationTotal === parsedAmount
+
+  const updateDestination = (index: number, patch: Partial<DestinationRow>) => {
+    setDestinations((current) => current.map((destination, i) => i === index ? { ...destination, ...patch } : destination))
+  }
 
   const sweep = useMutation({
     mutationFn: () =>
@@ -50,7 +71,11 @@ export function SweepModal({
         weekStart,
         amount: parsedAmount,
         sourceAccountId: sourceAccountId as number,
-        destinationAccountId: destAccountId as number,
+        destinations: parsedDestinations.map((destination) => ({
+          kind: destination.kind,
+          id: destination.id as number,
+          amount: destination.parsedAmount,
+        })),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budget'] })
@@ -63,7 +88,7 @@ export function SweepModal({
   })
 
   return (
-    <Modal open={open} onClose={onClose} title="Sweep to Savings">
+    <Modal open={open} onClose={onClose} title="Sweep Unspent">
       <div className="space-y-4">
         <div className="bg-surface-2 rounded-lg p-4">
           <div className="text-sm text-secondary mb-1">Category</div>
@@ -85,8 +110,7 @@ export function SweepModal({
         />
 
         <p className="text-sm text-secondary">
-          This will transfer unspent money from your spending account to savings.
-          The transfer will appear in your transaction list for matching when you import your next CSV.
+          Split this unspent balance between other categories and savings accounts.
         </p>
 
         {transactionalAccounts.length > 1 && (
@@ -103,18 +127,64 @@ export function SweepModal({
           </Select>
         )}
 
-        <Select
-          label="Transfer to (savings)"
-          value={destAccountId}
-          onChange={(e) => setDestAccountId(Number(e.target.value))}
-        >
-          <option value="">Select savings account...</option>
-          {savingsAccounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name} ({formatMoney(a.currentBalance)})
-            </option>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-secondary uppercase tracking-wide">Destinations</span>
+            <button
+              type="button"
+              className="text-xs text-accent hover:text-accent/80 transition-colors"
+              onClick={() => setDestinations((current) => [...current, { kind: 'account', id: '', amount: '' }])}
+            >
+              + Add destination
+            </button>
+          </div>
+          {destinations.map((destination, index) => (
+            <div key={index} className="flex gap-2 items-start">
+              <Select
+                aria-label="Destination type"
+                value={destination.kind}
+                onChange={(e) => updateDestination(index, { kind: e.target.value as DestinationRow['kind'], id: '' })}
+                className="w-28"
+              >
+                <option value="account">Account</option>
+                <option value="category">Category</option>
+              </Select>
+              <Select
+                aria-label="Destination"
+                value={destination.id}
+                onChange={(e) => updateDestination(index, { id: Number(e.target.value) || '' })}
+                className="flex-1 min-w-0"
+              >
+                <option value="">Select {destination.kind}...</option>
+                {destination.kind === 'account'
+                  ? savingsAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({formatMoney(account.currentBalance)})</option>)
+                  : destinationCategories.map((categoryOption) => <option key={categoryOption.id} value={categoryOption.id}>{categoryOption.name}</option>)}
+              </Select>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0.00"
+                value={destination.amount}
+                onChange={(e) => updateDestination(index, { amount: e.target.value })}
+                className="input-base text-sm text-right w-24"
+                aria-label="Destination amount"
+              />
+              <button
+                type="button"
+                onClick={() => setDestinations((current) => current.filter((_, i) => i !== index))}
+                disabled={destinations.length <= 1}
+                className="mt-1 p-1 text-muted hover:text-danger disabled:opacity-30 transition-colors"
+                aria-label="Remove destination"
+              >
+                ×
+              </button>
+            </div>
           ))}
-        </Select>
+          <div className={`text-xs px-3 py-2 rounded ${destinationTotal === parsedAmount ? 'bg-accent/10 text-accent' : 'bg-surface-2 text-secondary'}`}>
+            Destinations: {formatMoney(destinationTotal)} / {formatMoney(parsedAmount || 0)}
+          </div>
+        </div>
 
         {sweep.isError && (
           <p className="text-sm text-danger">{(sweep.error as Error).message}</p>
@@ -126,10 +196,10 @@ export function SweepModal({
           </Button>
           <Button
             onClick={() => sweep.mutate()}
-            disabled={!amountValid || !sourceAccountId || !destAccountId}
+            disabled={!sweepValid || !sourceAccountId}
             loading={sweep.isPending}
           >
-            Sweep {amountValid ? formatMoney(parsedAmount) : ''}
+            Sweep {sweepValid ? formatMoney(parsedAmount) : ''}
           </Button>
         </div>
       </div>

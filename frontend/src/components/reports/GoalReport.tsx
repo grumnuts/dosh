@@ -226,8 +226,8 @@ export function GoalReport() {
 
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
 
-  const savings = data?.filter((s) => s.type === 'savings') ?? []
-  const debts = data?.filter((s) => s.type === 'debt') ?? []
+  const savings = (data?.filter((s) => s.type === 'savings') ?? []).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  const debts = (data?.filter((s) => s.type === 'debt') ?? []).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
   if (savings.length === 0 && debts.length === 0) {
     return (

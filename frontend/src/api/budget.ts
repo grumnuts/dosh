@@ -131,7 +131,9 @@ export interface CategoryInput {
   sortOrder?: number
   catchUp?: boolean
   catchUpWeekStart?: string
+  effectiveWeekStart?: string
   isInvestment?: boolean
+  isUnlisted?: boolean
   ticker?: string | null
 }
 
@@ -164,17 +166,23 @@ export const budgetApi = {
   coverOverspend: (data: {
     categoryId: number
     weekStart: string
-    sourceAccountId: number
+    sourceAccountId?: number
     destinationAccountId: number
     amount?: number
-  }) => api.post<{ ok: boolean; amount: number }>('/api/budget/cover', data),
+    sources?: Array<{
+      kind: 'account' | 'category'
+      accountId?: number
+      categoryId?: number
+      amount: number
+    }>
+  }) => api.post<{ ok: boolean; amount: number; sourceDetails?: Array<{ type: 'account' | 'category'; id: number; name: string; amount: number }> }>('/api/budget/cover', data),
 
   sweepUnspent: (data: {
     categoryId: number
     weekStart: string
     amount: number
     sourceAccountId: number
-    destinationAccountId: number
+    destinations: Array<{ kind: 'account' | 'category'; id: number; amount: number }>
   }) => api.post<{ ok: boolean; amount: number }>('/api/budget/sweep', data),
 
   rollForward: (data: { categoryId: number; weekStart: string; amount: number }) =>

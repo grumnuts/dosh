@@ -401,8 +401,9 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
     for (const r of rows) coversMap.set(r.category_id, r.total)
   }
 
-  // --- Batch: fetch sweeps (unspent money swept out to savings) ---
+  // --- Batch: fetch sweeps (unspent money swept out of or into categories) ---
   const sweepsMap = new Map<number, number>()
+  const sweepInsMap = new Map<number, number>()
   for (const { start, end, ids } of spentByPeriodKey.values()) {
     const ph = ids.map(() => '?').join(',')
     const rows = db
@@ -415,6 +416,17 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
       )
       .all(...ids, start, end) as Array<{ category_id: number; total: number }>
     for (const r of rows) sweepsMap.set(r.category_id, r.total)
+
+    const inRows = db
+      .prepare(
+        `SELECT category_id, COALESCE(SUM(amount), 0) AS total
+         FROM transactions
+         WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+           AND type = 'sweep' AND amount > 0
+         GROUP BY category_id`,
+      )
+      .all(...ids, start, end) as Array<{ category_id: number; total: number }>
+    for (const r of inRows) sweepInsMap.set(r.category_id, r.total)
   }
 
   // --- Batch: fetch rollovers (balance rolled forward from/to this period) ---
@@ -435,7 +447,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
     const outRows = db
       .prepare(
-        `SELECT category_id, COALESCE(SUM(amount), 0) AS total, MIN(id) AS rollover_id
+        `SELECT category_id, COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total, MIN(id) AS rollover_id
          FROM budget_rollovers
          WHERE category_id IN (${ph}) AND source_week_start >= ? AND source_week_start <= ?
          GROUP BY category_id`,
@@ -511,10 +523,11 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
       const spent = spentMap.get(cat.id) ?? 0
       const covers = coversMap.get(cat.id) ?? 0
       const sweeps = sweepsMap.get(cat.id) ?? 0
+      const sweepIns = sweepInsMap.get(cat.id) ?? 0
       const rolledIn = rolledInMap.get(cat.id) ?? 0
       const rolledOut = rolledOutMap.get(cat.id) ?? 0
       const rolloverIdOut = rolloverIdOutMap.get(cat.id) ?? null
-      const balance = budgetedAmount - spent + covers - sweeps + rolledIn - rolledOut
+      const balance = budgetedAmount - spent + covers - sweeps + sweepIns + rolledIn - rolledOut
       const weekly = cat.catch_up
         ? catchUpWeeklyEquivalent(cat.id, budgetedAmount, period, weekStart)
         : weeklyEquivalent(budgetedAmount, period)
@@ -807,6 +820,15 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
 
+  const sourceCoverRow = db
+    .prepare(
+      `SELECT COALESCE(-SUM(amount), 0) as total
+       FROM transactions
+       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+         AND type = 'cover' AND amount < 0`,
+    )
+    .get(categoryId, bounds.start, bounds.end) as { total: number }
+
   const sweepsRow = db
     .prepare(
       `SELECT COALESCE(-SUM(amount), 0) as total
@@ -816,9 +838,18 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
 
-  const rolledInRow = db
+  const sweepInsRow = db
     .prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
+       FROM transactions
+       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+         AND type = 'sweep' AND amount > 0`,
+    )
+    .get(categoryId, bounds.start, bounds.end) as { total: number }
+
+  const rolledInRow = db
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total
        FROM budget_rollovers
        WHERE category_id = ? AND dest_period_start >= ? AND dest_period_start <= ?`,
     )
@@ -832,7 +863,7 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
 
-  return budgetedAmount - spentRow.spent + coversRow.total - sweepsRow.total + rolledInRow.total - rolledOutRow.total
+  return budgetedAmount - spentRow.spent + coversRow.total - sourceCoverRow.total - sweepsRow.total + sweepInsRow.total + rolledInRow.total - rolledOutRow.total
 }
 
 /**
@@ -869,6 +900,10 @@ export function recordBudgetChange(
   const db = getDb()
   const weekStart = effectiveFrom ?? currentWeekStart(getWeekStartsOn())
   const now = new Date().toISOString()
+
+  db.prepare(
+    'DELETE FROM budget_history WHERE category_id = ? AND effective_from = ?',
+  ).run(categoryId, weekStart)
 
   db.prepare(
     `INSERT INTO budget_history (category_id, budgeted_amount, period, effective_from, created_at, created_by)

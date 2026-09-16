@@ -90,11 +90,13 @@ export function InvestmentsReport() {
     )
   }
 
-  const totalGainLoss = data.holdings.reduce((sum, h) => sum + h.gainLossCents, 0)
+  const holdings = [...data.holdings].sort((a, b) => a.ticker.localeCompare(b.ticker, undefined, { sensitivity: 'base' }))
+  const totalGainLoss = holdings.reduce((sum, h) => sum + h.gainLossCents, 0)
   const totalCostBasis = data.holdings.reduce((sum, h) => sum + h.costBasisCents, 0)
 
+  const tickers = [...(historyData?.tickers ?? holdings.map((h) => h.ticker))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   const tickerColourMap = new Map(
-    (historyData?.tickers ?? data.holdings.map((h) => h.ticker)).map((t, i) => [t, TICKER_COLOURS[i % TICKER_COLOURS.length]])
+    tickers.map((t, i) => [t, TICKER_COLOURS[i % TICKER_COLOURS.length]])
   )
 
   // Derive chart display data based on selection
@@ -102,7 +104,7 @@ export function InvestmentsReport() {
     if (selectedTicker) {
       return { month: row.month, [selectedTicker]: row[selectedTicker] ?? 0 }
     }
-    const total = historyData.tickers.reduce((sum, t) => sum + ((row[t] as number) ?? 0), 0)
+    const total = tickers.reduce((sum, t) => sum + ((row[t] as number) ?? 0), 0)
     return { month: row.month, total }
   }) ?? []
   const displayKey = selectedTicker ?? 'total'
@@ -198,7 +200,7 @@ export function InvestmentsReport() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {data.holdings.map((h) => {
+            {holdings.map((h) => {
               const avgCostCents = h.quantity > 0 ? Math.round(h.costBasisCents / h.quantity) : 0
               const colour = tickerColourMap.get(h.ticker)
               const isSelected = selectedTicker === h.ticker

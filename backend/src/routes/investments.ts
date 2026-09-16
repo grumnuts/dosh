@@ -21,7 +21,7 @@ export async function investmentRoutes(app: FastifyInstance): Promise<void> {
          LEFT JOIN share_prices sp ON sp.ticker = ih.ticker
          WHERE ih.quantity > 0
          GROUP BY ih.ticker
-         ORDER BY ih.ticker`,
+         ORDER BY ih.ticker COLLATE NOCASE`,
       )
       .all() as Array<{
         ticker: string

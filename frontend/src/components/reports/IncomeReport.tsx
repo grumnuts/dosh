@@ -44,7 +44,7 @@ export function IncomeReport({ year }: Props) {
   // Collect unique groups
   const groups = Array.from(new Map(
     data.map((r) => [r.group_name, { name: r.group_name, sort: r.group_sort }])
-  ).values()).sort((a, b) => a.sort - b.sort)
+  ).values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
   // Build chart data: one entry per month
   const monthlyTotals: Record<string, Record<string, number>> = {}
@@ -71,7 +71,7 @@ export function IncomeReport({ year }: Props) {
   const filteredRows = Array.from(catMap.values())
     .map((r) => ({ category: r.category, group: r.group, amount: r.months[monthIdx] }))
     .filter((r) => r.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
+    .sort((a, b) => a.category.localeCompare(b.category, undefined, { sensitivity: 'base' }))
   const monthTotal = filteredRows.reduce((s, r) => s + r.amount, 0)
 
   const hasDataForSelectedMonth = filteredRows.length > 0
@@ -163,7 +163,7 @@ export function IncomeReport({ year }: Props) {
           </thead>
           <tbody className="divide-y divide-border">
             {Array.from(catMap.values())
-              .sort((a, b) => a.group !== b.group ? a.group.localeCompare(b.group) : a.category.localeCompare(b.category))
+              .sort((a, b) => a.category.localeCompare(b.category, undefined, { sensitivity: 'base' }))
               .map((r) => {
                 const total = r.months.reduce((s, v) => s + v, 0)
                 return (

@@ -51,7 +51,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
          WHERE bg.is_income = 0
          GROUP BY combined.category_id, month
          HAVING SUM(-combined.amount) > 0
-         ORDER BY bg.sort_order, bc.sort_order, month`,
+         ORDER BY bc.name COLLATE NOCASE, month`,
       )
       .all(year, year) as Array<{
       category: string
@@ -99,7 +99,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
          WHERE bg.is_income = 1
          GROUP BY combined.category_id, month
          HAVING SUM(combined.amount) > 0
-         ORDER BY bg.sort_order, bc.sort_order, month`,
+         ORDER BY bc.name COLLATE NOCASE, month`,
       )
       .all(year, year) as Array<{
       category: string
@@ -174,6 +174,20 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       )
       .all(weekStartDay, year, year) as Array<{ category_id: number; week_start: string; spent_cents: number }>
 
+    const rolloverRows = db
+      .prepare(
+        `SELECT category_id, source_week_start, amount
+         FROM budget_rollovers
+         WHERE source_week_start >= ? AND source_week_start <= ? AND amount < 0`,
+      )
+      .all(`${year}-01-01`, `${year}-12-31`) as Array<{ category_id: number; source_week_start: string; amount: number }>
+
+    function rolledForwardForRange(categoryId: number, start: string, end: string): number {
+      return rolloverRows
+        .filter((row) => row.category_id === categoryId && row.source_week_start >= start && row.source_week_start <= end)
+        .reduce((total, row) => total - row.amount, 0)
+    }
+
     // Build week-level spend lookup and collect week starts per category
     const spendByWeek = new Map<string, number>()
     const weeksByCat = new Map<number, string[]>()
@@ -183,6 +197,13 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       weeksByCat.get(s.category_id)!.push(s.week_start)
     }
     // Ensure each category's weeks are sorted
+    for (const weeks of weeksByCat.values()) weeks.sort()
+    for (const rollover of rolloverRows) {
+      if (!weeksByCat.has(rollover.category_id)) weeksByCat.set(rollover.category_id, [])
+      if (!weeksByCat.get(rollover.category_id)!.includes(rollover.source_week_start)) {
+        weeksByCat.get(rollover.category_id)!.push(rollover.source_week_start)
+      }
+    }
     for (const weeks of weeksByCat.values()) weeks.sort()
 
     // Spending per category per month (for monthly/quarterly/annual categories)
@@ -283,22 +304,26 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
           .filter((r) => r.category_id === cat.id)
           .reduce((s, r) => s + r.spent_cents, 0)
         totalSpent = spent
-        totalOverspend = Math.max(0, spent - budgetAmount)
+        totalOverspend = Math.max(0, spent - budgetAmount - rolledForwardForRange(cat.id, periodStart, `${year}-12-31`))
       } else if (budget.period === 'quarterly') {
         const quarterStarts: Record<string, string> = {
           Q1: `${year}-01-01`, Q2: `${year}-04-01`, Q3: `${year}-07-01`, Q4: `${year}-10-01`,
         }
         for (const [q, months] of Object.entries(QUARTER_MONTHS)) {
           const spent = months.reduce((s, m) => s + (spendByMonth.get(`${cat.id}:${m}`) ?? 0), 0)
+          const quarterStart = quarterStarts[q]
+          const quarterEnd = new Date(Date.UTC(year, Number(months[months.length - 1]), 0)).toISOString().slice(0, 10)
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, quarterStarts[q]))
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, quarterStart) - rolledForwardForRange(cat.id, quarterStart, quarterEnd))
         }
       } else if (budget.period === 'monthly') {
         for (let m = 1; m <= 12; m++) {
           const monthStr = String(m).padStart(2, '0')
           const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
+          const monthStart = `${year}-${monthStr}-01`
+          const monthEnd = new Date(Date.UTC(year, m, 0)).toISOString().slice(0, 10)
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, `${year}-${monthStr}-01`))
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, monthStart) - rolledForwardForRange(cat.id, monthStart, monthEnd))
         }
       } else if (budget.period === 'fortnightly') {
         const weeks = weeksByCat.get(cat.id) ?? []
@@ -306,8 +331,9 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
           const w1 = spendByWeek.get(`${cat.id}:${weeks[i]}`) ?? 0
           const w2 = i + 1 < weeks.length ? (spendByWeek.get(`${cat.id}:${weeks[i + 1]}`) ?? 0) : 0
           const spent = w1 + w2
+          const fortnightEnd = new Date(new Date(`${weeks[i]}T00:00:00Z`).getTime() + 13 * 86400000).toISOString().slice(0, 10)
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, weeks[i]))
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, weeks[i]) - rolledForwardForRange(cat.id, weeks[i], fortnightEnd))
         }
       } else {
         // weekly
@@ -315,7 +341,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         for (const weekStart of weeks) {
           const spent = spendByWeek.get(`${cat.id}:${weekStart}`) ?? 0
           totalSpent += spent
-          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, weekStart))
+          totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, weekStart) - rolledForwardForRange(cat.id, weekStart, weekStart))
         }
       }
 
@@ -351,9 +377,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       })
     }
 
-    results.sort((a, b) =>
-      a.group_sort !== b.group_sort ? a.group_sort - b.group_sort : a.cat_sort - b.cat_sort,
-    )
+    results.sort((a, b) => a.category.localeCompare(b.category, undefined, { sensitivity: 'base' }))
 
     return reply.send(results)
   })
@@ -376,7 +400,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
            AND strftime('%Y', t.date) = ?
            AND t.payee IS NOT NULL AND t.payee != ''
          GROUP BY t.payee, month
-         ORDER BY t.payee, month`,
+         ORDER BY t.payee COLLATE NOCASE, month`,
       )
       .all(year) as Array<{
       payee: string
@@ -518,7 +542,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         `SELECT id, name, goal_amount, goal_target_date, starting_balance,
                 starting_balance + COALESCE((SELECT SUM(amount) FROM transactions WHERE account_id = a.id), 0) AS current_balance
          FROM accounts a
-         WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1 AND closed_at IS NULL`,
+         WHERE type = 'savings' AND goal_amount IS NOT NULL AND is_active = 1 AND closed_at IS NULL
+         ORDER BY name COLLATE NOCASE`,
       )
       .all() as Array<{ id: number; name: string; goal_amount: number; goal_target_date: string | null; starting_balance: number; current_balance: number }>
 
@@ -543,7 +568,8 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
                       AND pt.type = 'transaction' AND ts.amount < 0
                   ), 0) AS current_balance
          FROM accounts a
-         WHERE type = 'debt' AND is_active = 1 AND closed_at IS NULL`,
+         WHERE type = 'debt' AND is_active = 1 AND closed_at IS NULL
+         ORDER BY name COLLATE NOCASE`,
       )
       .all() as Array<{ id: number; name: string; starting_balance: number; current_balance: number }>
 
@@ -619,7 +645,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     const accounts = db
       .prepare(
-        `SELECT id, name, type, starting_balance FROM accounts WHERE is_active = 1 AND closed_at IS NULL ORDER BY sort_order, name`,
+        `SELECT id, name, type, starting_balance FROM accounts WHERE is_active = 1 AND closed_at IS NULL ORDER BY name COLLATE NOCASE`,
       )
       .all() as Array<{ id: number; name: string; type: string; starting_balance: number }>
 

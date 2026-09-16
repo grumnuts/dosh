@@ -129,6 +129,8 @@ type CategoryRowProps = {
   cat: BudgetCategory
   weekStart: string
   accounts: Account[]
+  sourceCategories: BudgetCategory[]
+  destinationCategories: BudgetCategory[]
   groupId: number
   groupName: string
   rowRef?: React.RefCallback<HTMLTableRowElement>
@@ -141,6 +143,8 @@ function CategoryRow({
   cat,
   weekStart,
   accounts,
+  sourceCategories,
+  destinationCategories,
   groupId,
   groupName,
   rowRef,
@@ -158,7 +162,7 @@ function CategoryRow({
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
   const isCovered = cat.covers > 0 && !cat.isOverspent
   const isSwept = cat.sweeps > 0 && !cat.isOverspent
-  const isRolledOut = cat.rolledOut > 0
+  const isRolledOut = cat.rolloverIdOut !== null
   const isRolledIn = cat.rolledIn > 0
 
   const undoRollover = useMutation({
@@ -239,22 +243,24 @@ function CategoryRow({
                 >
                   <UndoRollIcon />
                 </button>
-              ) : (!cat.isOverspent && cat.balance > 0 && (
+              ) : (cat.balance !== 0 && (
                 <>
                   <button
-                    title="Roll balance forward to next period"
+                    title={cat.isOverspent ? 'Roll overspending forward to next period' : 'Roll balance forward to next period'}
                     onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
                     className="text-blue-400 hover:text-blue-300 transition-colors"
                   >
                     <RollForwardIcon />
                   </button>
-                  <button
-                    title="Sweep to savings"
-                    onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
-                    className="text-accent hover:text-accent/70 transition-colors"
-                  >
-                    <SweepIcon />
-                  </button>
+                  {!cat.isOverspent && (
+                    <button
+                      title="Sweep unspent balance"
+                      onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
+                      className="text-accent hover:text-accent/70 transition-colors"
+                    >
+                      <SweepIcon />
+                    </button>
+                  )}
                 </>
               ))}
             </div>
@@ -269,6 +275,7 @@ function CategoryRow({
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
+          sourceCategories={sourceCategories.filter((sourceCat) => sourceCat.id !== cat.id && sourceCat.balance > 0)}
         />
       )}
       {sweepOpen && (
@@ -278,6 +285,7 @@ function CategoryRow({
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
+          destinationCategories={destinationCategories.filter((destination) => destination.id !== cat.id)}
         />
       )}
       {rollForwardOpen && (
@@ -336,6 +344,8 @@ type GroupSectionProps = {
   group: BudgetGroup
   weekStart: string
   accounts: Account[]
+  sourceCategories: BudgetCategory[]
+  destinationCategories: BudgetCategory[]
   onAddCategory: (groupId: number, groupName: string) => void
   rowRef?: React.RefCallback<HTMLTableRowElement>
   rowStyle?: React.CSSProperties
@@ -348,6 +358,8 @@ function GroupSection({
   group,
   weekStart,
   accounts,
+  sourceCategories,
+  destinationCategories,
   onAddCategory,
   rowRef,
   rowStyle,
@@ -457,6 +469,8 @@ function GroupSection({
                 cat={cat}
                 weekStart={weekStart}
                 accounts={accounts}
+                sourceCategories={sourceCategories}
+                destinationCategories={destinationCategories}
                 groupId={group.id}
                 groupName={group.name}
               />
@@ -1019,6 +1033,8 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   const debtGroups = data.debtGroups ?? []
   const savingsGroups = data.savingsGroups ?? []
   const investmentGroups = data.investmentGroups ?? []
+  const sourceCategories = data.groups.flatMap((group) => group.categories).filter((category) => category.balance > 0)
+  const destinationCategories = data.groups.flatMap((group) => group.categories)
   const hasSavingsOrInvestments = savingsGroups.length > 0 || investmentGroups.length > 0
   const queryClient = useQueryClient()
 
@@ -1090,6 +1106,8 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                       group={group}
                       weekStart={data.weekStart}
                       accounts={accounts}
+                      sourceCategories={sourceCategories}
+                      destinationCategories={destinationCategories}
                       onAddCategory={(groupId, groupName) =>
                         setAddCatState({ groupId, groupName, isIncome: false, isInvestment: false })
                       }

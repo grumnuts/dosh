@@ -57,11 +57,13 @@ function PayeeCombobox({
   onChange,
   payees,
   disabled,
+  optionLabel = 'Payees',
 }: {
   value: string
   onChange: (v: string) => void
   payees: { id: number; name: string }[]
   disabled?: boolean
+  optionLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -90,7 +92,7 @@ function PayeeCombobox({
         <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-surface-2 border border-border rounded-lg shadow-lg overflow-hidden">
           {filtered.length > 0 && (
             <>
-              <div className="px-3 pt-2 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">Payees</div>
+              <div className="px-3 pt-2 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">{optionLabel}</div>
               {filtered.map((p) => (
                 <button
                   key={p.id}
@@ -445,7 +447,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         <PayeeCombobox
           value={watch('payee') ?? ''}
           onChange={(v) => setValue('payee', v)}
-          payees={payees ?? []}
+          payees={txType === 'transfer' ? (accounts ?? []) : (payees ?? [])}
+          optionLabel={txType === 'transfer' ? 'Accounts' : 'Payees'}
           disabled={isCover}
         />
 
