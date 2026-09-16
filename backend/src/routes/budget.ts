@@ -151,12 +151,13 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // --- Categories ---
 
-  app.get('/api/budget/categories', { preHandler: authenticate }, async (_req, reply) => {
+  app.get('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
+    const query = request.query as { includeHidden?: string }
     const db = getDb()
     const cats = db
       .prepare(
         `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, is_investment, ticker
-         FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
+         FROM budget_categories WHERE is_active = 1 ${query.includeHidden === 'true' ? '' : 'AND is_unlisted = 0'} ORDER BY sort_order, name`,
       )
       .all()
     return reply.send(cats)

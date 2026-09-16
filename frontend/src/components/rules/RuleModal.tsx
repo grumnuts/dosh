@@ -351,7 +351,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
 
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list(), enabled: open })
   const { data: payees = [] } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list, enabled: open })
-  const { data: categoriesRaw = [] } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories, enabled: open })
+  const { data: categoriesRaw = [] } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: () => budgetApi.getCategories(), enabled: open })
   const { data: budgetGroupsRaw = [] } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups, enabled: open })
 
   const categories = categoriesRaw as unknown as Array<{ id: number; group_id: number; name: string }>

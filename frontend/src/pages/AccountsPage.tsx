@@ -657,7 +657,7 @@ export function AccountsPage() {
     })
   }
 
-  const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
+  const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat', 'include-hidden'], queryFn: () => budgetApi.getCategories(true) })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0

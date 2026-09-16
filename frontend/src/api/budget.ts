@@ -156,8 +156,8 @@ export const budgetApi = {
   updateGroup: (id: number, data: GroupInput) => api.put<{ ok: boolean }>(`/api/budget/groups/${id}`, data),
   deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/api/budget/groups/${id}`),
 
-  getCategories: () =>
-    api.get<Array<CategoryInput & { id: number; is_investment: number; ticker: string | null }>>('/api/budget/categories'),
+  getCategories: (includeHidden = false) =>
+    api.get<Array<CategoryInput & { id: number; is_investment: number; ticker: string | null }>>(`/api/budget/categories${includeHidden ? '?includeHidden=true' : ''}`),
   createCategory: (data: CategoryInput) => api.post<{ id: number }>('/api/budget/categories', data),
   updateCategory: (id: number, data: CategoryInput) =>
     api.put<{ ok: boolean }>(`/api/budget/categories/${id}`, data),
