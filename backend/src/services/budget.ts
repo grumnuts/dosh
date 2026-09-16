@@ -163,6 +163,7 @@ interface IncomeCategory {
   received: number
   notes: string | null
   sortOrder: number
+  isUnlisted: boolean
 }
 
 interface BudgetGroup {
@@ -652,6 +653,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
       received: receivedMap.get(cat.id) ?? 0,
       notes: cat.notes,
       sortOrder: cat.sort_order,
+      isUnlisted: cat.is_unlisted === 1,
     }))
 
     return {

@@ -38,6 +38,7 @@ export interface IncomeCategory {
   received: number
   notes: string | null
   sortOrder: number
+  isUnlisted: boolean
 }
 
 export interface IncomeGroup {
