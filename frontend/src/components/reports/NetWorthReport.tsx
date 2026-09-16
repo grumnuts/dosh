@@ -16,7 +16,7 @@ import {
 import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
-import { formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
+import { normalizeDateFormat } from '../../utils/dateFormat'
 import { TimelineControl, formatTimelineLabel, resampleTimeline, useTimelineWindow } from './TimelineControl'
 
 const DEFAULT_COL_WIDTHS = { account: 200, type: 100, balance: 150 }
@@ -147,9 +147,9 @@ export function NetWorthReport({ section }: Props = {}) {
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={visibleNetWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat)} />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat, netWorthTimeline.range)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatYAxisTick} width={55} domain={[(v: number) => Math.min(v, 0), 'auto']} />
-              <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat)} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
+              <Tooltip contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }} labelStyle={{ color: '#e5e7eb' }} labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat, netWorthTimeline.range)} formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']} />
               <Line type="monotone" dataKey="Net Worth" stroke={netWorthLineColour} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -326,7 +326,7 @@ export function NetWorthReport({ section }: Props = {}) {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={visibleBalanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
+                <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat, balanceTimeline.range)} />
                 <YAxis
                   tick={{ fill: '#6b7280', fontSize: 12 }}
                   axisLine={false}
@@ -339,7 +339,7 @@ export function NetWorthReport({ section }: Props = {}) {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                   labelStyle={{ color: '#e5e7eb' }}
-                  labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+                  labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat, balanceTimeline.range)}
                   formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
                 />
                 {chartAccounts.map((account) => (
@@ -432,9 +432,12 @@ export function NetWorthReport({ section }: Props = {}) {
 
       {/* Net worth trend */}
       <div className="card p-4">
-        <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Net Worth Over Time</p>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Net Worth Over Time</p>
+          <TimelineControl {...netWorthTimeline} />
+        </div>
         <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={netWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+          <LineChart data={visibleNetWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis
               dataKey="month"
@@ -442,7 +445,7 @@ export function NetWorthReport({ section }: Props = {}) {
               axisLine={false}
               tickLine={false}
               interval="preserveStartEnd"
-              tickFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+              tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat, netWorthTimeline.range)}
             />
             <YAxis
               tick={{ fill: '#6b7280', fontSize: 12 }}
@@ -455,7 +458,7 @@ export function NetWorthReport({ section }: Props = {}) {
             <Tooltip
               contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
               labelStyle={{ color: '#e5e7eb' }}
-              labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+              labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat, netWorthTimeline.range)}
               formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
             />
             <Line
@@ -472,9 +475,12 @@ export function NetWorthReport({ section }: Props = {}) {
       {/* Account balances over time */}
       {activeAccounts.length > 0 && (
         <div className="card p-4">
-          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Account Balances Over Time</p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Account Balances Over Time</p>
+            <TimelineControl {...balanceTimeline} />
+          </div>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={balanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+            <LineChart data={visibleBalanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis
                 dataKey="month"
@@ -482,7 +488,7 @@ export function NetWorthReport({ section }: Props = {}) {
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"
-                tickFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+                tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat, balanceTimeline.range)}
               />
               <YAxis
                 tick={{ fill: '#6b7280', fontSize: 12 }}
@@ -495,7 +501,7 @@ export function NetWorthReport({ section }: Props = {}) {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
-                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+                labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat, balanceTimeline.range)}
                 formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
               />
               <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />

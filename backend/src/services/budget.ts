@@ -397,7 +397,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
       .prepare(
         `SELECT category_id, COALESCE(SUM(amount), 0) AS total
          FROM transactions
-         WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+         WHERE category_id IN (${ph}) AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
            AND type = 'cover' AND amount > 0
          GROUP BY category_id`,
       )
@@ -408,7 +408,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
         .prepare(
           `SELECT category_id, COALESCE(-SUM(amount), 0) AS total
            FROM transactions
-           WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+           WHERE category_id IN (${ph}) AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
              AND type = 'cover' AND amount < 0
            GROUP BY category_id`,
         )
@@ -425,7 +425,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
       .prepare(
         `SELECT category_id, COALESCE(-SUM(amount), 0) AS total
          FROM transactions
-         WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+         WHERE category_id IN (${ph}) AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
            AND type = 'sweep' AND amount < 0
          GROUP BY category_id`,
       )
@@ -436,7 +436,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
       .prepare(
         `SELECT category_id, COALESCE(SUM(amount), 0) AS total
          FROM transactions
-         WHERE category_id IN (${ph}) AND cover_week_start >= ? AND cover_week_start <= ?
+           WHERE category_id IN (${ph}) AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
            AND type = 'sweep' AND amount > 0
          GROUP BY category_id`,
       )
@@ -489,7 +489,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
          JOIN transactions target ON target.id = source.transfer_pair_id
          JOIN budget_categories target_category ON target_category.id = target.category_id
          WHERE source.category_id IN (${ph})
-           AND source.cover_week_start >= ? AND source.cover_week_start <= ?
+           AND COALESCE(source.cover_week_start, date(source.date, '-' || CAST(strftime('%w', source.date) AS INTEGER) || ' days')) >= ? AND COALESCE(source.cover_week_start, date(source.date, '-' || CAST(strftime('%w', source.date) AS INTEGER) || ' days')) <= ?
            AND source.type = 'cover' AND source.amount < 0
            AND target.category_id IS NOT NULL
            AND source.category_id != target.category_id`,
@@ -513,7 +513,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
          JOIN transactions target ON target.id = source.transfer_pair_id
          JOIN budget_categories target_category ON target_category.id = target.category_id
          WHERE source.category_id IN (${ph})
-           AND source.cover_week_start >= ? AND source.cover_week_start <= ?
+           AND COALESCE(source.cover_week_start, date(source.date, '-' || CAST(strftime('%w', source.date) AS INTEGER) || ' days')) >= ? AND COALESCE(source.cover_week_start, date(source.date, '-' || CAST(strftime('%w', source.date) AS INTEGER) || ' days')) <= ?
            AND source.type = 'sweep' AND source.amount < 0
            AND target.category_id IS NOT NULL
            AND source.category_id != target.category_id`,
@@ -888,7 +888,7 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     .prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM transactions
-       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+      WHERE category_id = ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
          AND type = 'cover' AND amount > 0`,
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
@@ -897,7 +897,7 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     .prepare(
       `SELECT COALESCE(-SUM(amount), 0) as total
        FROM transactions
-       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+      WHERE category_id = ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
          AND type = 'cover' AND amount < 0`,
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
@@ -906,7 +906,7 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     .prepare(
       `SELECT COALESCE(-SUM(amount), 0) as total
        FROM transactions
-       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+      WHERE category_id = ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
          AND type = 'sweep' AND amount < 0`,
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
@@ -915,7 +915,7 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
     .prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM transactions
-       WHERE category_id = ? AND cover_week_start >= ? AND cover_week_start <= ?
+      WHERE category_id = ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(cover_week_start, date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
          AND type = 'sweep' AND amount > 0`,
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
