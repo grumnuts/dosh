@@ -410,6 +410,12 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
            FROM transactions
            WHERE category_id IN (${ph}) AND COALESCE(NULLIF(cover_week_start, ''), date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(NULLIF(cover_week_start, ''), date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
              AND type = 'cover' AND amount < 0
+             AND EXISTS (
+               SELECT 1 FROM transactions paired_cover
+               WHERE paired_cover.id = transactions.transfer_pair_id
+                 AND paired_cover.category_id IS NOT NULL
+                 AND paired_cover.category_id != transactions.category_id
+             )
            GROUP BY category_id`,
         )
         .all(...ids, start, end) as Array<{ category_id: number; total: number }>
@@ -898,7 +904,13 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
       `SELECT COALESCE(-SUM(amount), 0) as total
        FROM transactions
       WHERE category_id = ? AND COALESCE(NULLIF(cover_week_start, ''), date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) >= ? AND COALESCE(NULLIF(cover_week_start, ''), date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days')) <= ?
-         AND type = 'cover' AND amount < 0`,
+         AND type = 'cover' AND amount < 0
+         AND EXISTS (
+           SELECT 1 FROM transactions paired_cover
+           WHERE paired_cover.id = transactions.transfer_pair_id
+             AND paired_cover.category_id IS NOT NULL
+             AND paired_cover.category_id != transactions.category_id
+         )`,
     )
     .get(categoryId, bounds.start, bounds.end) as { total: number }
 
