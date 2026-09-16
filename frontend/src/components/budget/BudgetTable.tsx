@@ -200,6 +200,9 @@ function CategoryRow({
               {PERIOD_LABELS[cat.period]}
             </span>
             <span className="text-sm text-primary">{cat.name}</span>
+            {cat.isUnlisted && (
+              <span className="text-xs text-muted">hidden</span>
+            )}
             {isCovered && (
               <span className="text-xs text-accent-dim">covered</span>
             )}
@@ -1073,8 +1076,8 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   const debtGroups = data.debtGroups ?? []
   const savingsGroups = data.savingsGroups ?? []
   const investmentGroups = data.investmentGroups ?? []
-  const sourceCategories = data.groups.flatMap((group) => group.categories).filter((category) => category.balance > 0)
-  const destinationCategories = data.groups.flatMap((group) => group.categories)
+  const sourceCategories = data.groups.flatMap((group) => group.categories).filter((category) => category.balance > 0 && !category.isUnlisted)
+  const destinationCategories = data.groups.flatMap((group) => group.categories).filter((category) => !category.isUnlisted)
   const categoryGroups = data.groups.map((group) => ({ id: group.id, name: group.name }))
   const hasSavingsOrInvestments = savingsGroups.length > 0 || investmentGroups.length > 0
   const queryClient = useQueryClient()

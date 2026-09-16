@@ -119,6 +119,7 @@ interface RawCategory {
   catch_up: number
   catch_up_period_start: string | null
   is_investment: number
+  is_unlisted: number
   linked_account_id: number | null
   ticker: string | null
 }
@@ -294,7 +295,7 @@ export function computePeriodStart(weekStart: string, period: string): string {
 /**
  * Calculate the full budget for a given week (Sunday YYYY-MM-DD).
  */
-export function getBudgetWeek(weekStart: string): BudgetWeekData {
+export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeekData {
   const db = getDb()
   const weekStartsOn = getWeekStartsOn()
 
@@ -306,8 +307,8 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
   const categories = db
     .prepare(
-      `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, catch_up, catch_up_period_start, is_investment, linked_account_id, ticker
-       FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
+      `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, catch_up, catch_up_period_start, is_investment, is_unlisted, linked_account_id, ticker
+      FROM budget_categories WHERE is_active = 1 ${showHidden ? '' : 'AND is_unlisted = 0'} ORDER BY sort_order, name`,
     )
     .all() as unknown as RawCategory[]
 
@@ -582,6 +583,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
         sortOrder: cat.sort_order,
         catchUp: cat.catch_up === 1,
         isInvestment: cat.is_investment === 1,
+          isUnlisted: cat.is_unlisted === 1,
         coveringCategories: coveringCategoriesMap.get(cat.id) ?? [],
       }
     })

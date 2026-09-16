@@ -19,6 +19,7 @@ export interface BudgetCategory {
   sortOrder: number
   catchUp: boolean
   isInvestment: boolean
+    isUnlisted: boolean
   coveringCategories: Array<{ id: number; name: string; transactionId: number }>
 }
 
@@ -146,7 +147,8 @@ export interface GroupInput {
 }
 
 export const budgetApi = {
-  getWeek: (weekStart: string) => api.get<BudgetWeek>(`/api/budget/week/${weekStart}`),
+  getWeek: (weekStart: string, showHidden = false) =>
+    api.get<BudgetWeek>(`/api/budget/week/${weekStart}${showHidden ? '?showHidden=true' : ''}`),
 
   getGroups: () => api.get<Array<{ id: number; name: string; sort_order: number; is_income: number; is_debt: number; is_savings: number; is_investments: number }>>('/api/budget/groups'),
   createGroup: (data: GroupInput) => api.post<{ id: number }>('/api/budget/groups', data),

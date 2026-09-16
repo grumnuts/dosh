@@ -20,7 +20,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
       return reply.code(400).send({ error: 'Invalid weekStart format. Use YYYY-MM-DD' })
     }
-    return reply.send(getBudgetWeek(weekStart))
+      const query = request.query as { showHidden?: string }
+      return reply.send(getBudgetWeek(weekStart, query.showHidden === 'true'))
   })
 
   // --- Groups ---
