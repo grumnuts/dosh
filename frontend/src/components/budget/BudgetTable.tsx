@@ -162,7 +162,7 @@ function CategoryRow({
   const [undoRolloverOpen, setUndoRolloverOpen] = useState(false)
   const [undoCoverId, setUndoCoverId] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
-  const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
+  const transactionalAccounts = accounts
   const isCovered = cat.covers > 0 && !cat.isOverspent
   const isSwept = cat.sweeps > 0 && !cat.isOverspent
   const isRolledOut = cat.rolloverIdOut !== null

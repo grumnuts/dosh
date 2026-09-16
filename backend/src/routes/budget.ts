@@ -454,7 +454,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
           .prepare(`SELECT a.id, a.name, a.starting_balance + COALESCE(SUM(t.amount), 0) AS current_balance
                     FROM accounts a
                     LEFT JOIN transactions t ON t.account_id = a.id
-                    WHERE a.id = ? AND a.is_active = 1 AND a.type = 'savings'
+                    WHERE a.id = ? AND a.is_active = 1
                     GROUP BY a.id`)
           .get(sourceAccountId) as { id: number; name: string; current_balance: number } | undefined
 
@@ -570,9 +570,9 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     for (const destination of destinations) {
       if (destination.kind === 'account') {
         const account = db
-          .prepare("SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND type = 'savings'")
+          .prepare('SELECT id, name FROM accounts WHERE id = ? AND is_active = 1')
           .get(destination.id) as { id: number; name: string } | undefined
-        if (!account) return reply.code(400).send({ error: 'Destination savings account not found' })
+        if (!account) return reply.code(400).send({ error: 'Destination account not found' })
         destinationDetails.push({ ...destination, name: account.name })
         continue
       }

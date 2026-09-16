@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
 import { CategoryCombobox } from '../ui/CategoryCombobox'
+import { SearchableSelect } from '../ui/SearchableSelect'
 import { budgetApi, BudgetCategory } from '../../api/budget'
 import { accountsApi, Account } from '../../api/accounts'
 
@@ -50,7 +51,7 @@ export function SweepModal({
     queryFn: () => accountsApi.list(),
   })
 
-  const savingsAccounts = accounts?.filter((a) => a.type === 'savings') ?? []
+  const availableAccounts = accounts ?? []
 
   const parsedDestinations = destinations.map((destination) => ({
     ...destination,
@@ -101,12 +102,12 @@ export function SweepModal({
         </div>
 
         <p className="text-sm text-secondary">
-          Split this unspent balance between other categories and savings accounts.
+          Split this unspent balance between other categories and accounts.
         </p>
 
         {transactionalAccounts.length > 1 && (
           <Select
-            label="Transfer from (spending)"
+            label="Transfer from"
             value={sourceAccountId}
             onChange={(e) => setSourceAccountId(Number(e.target.value))}
           >
@@ -141,15 +142,13 @@ export function SweepModal({
                 <option value="category">Category</option>
               </Select>
               {destination.kind === 'account' ? (
-                <select
-                  aria-label="Destination"
-                  value={destination.id}
-                  onChange={(e) => updateDestination(index, { id: Number(e.target.value) || '' })}
-                  className="input-base flex-1 min-w-0 h-9"
-                >
-                  <option value="">Select account...</option>
-                  {savingsAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({formatMoney(account.currentBalance)})</option>)}
-                </select>
+                <SearchableSelect
+                  value={destination.id === '' ? '' : String(destination.id)}
+                  onChange={(value) => updateDestination(index, { id: Number(value) || '' })}
+                  allLabel="Select account..."
+                  className="flex-1 min-w-0 h-9"
+                  items={availableAccounts.map((account) => ({ id: String(account.id), label: `${account.name} (${formatMoney(account.currentBalance)})` }))}
+                />
               ) : (
                 <CategoryCombobox
                   value={destination.id === '' ? '' : String(destination.id)}

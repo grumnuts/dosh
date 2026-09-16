@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
 import { CategoryCombobox } from '../ui/CategoryCombobox'
+import { SearchableSelect } from '../ui/SearchableSelect'
 import { budgetApi, BudgetCategory } from '../../api/budget'
 import { accountsApi, Account } from '../../api/accounts'
 
@@ -43,13 +44,13 @@ export function CoverModal({
     queryFn: () => accountsApi.list(),
   })
 
-  const savingsAccounts = accounts?.filter((a) => a.type === 'savings') ?? []
+  const availableAccounts = accounts ?? []
   const overspendAmount = Math.abs(category.balance)
   const [destAccountId, setDestAccountId] = useState<number | ''>(transactionalAccounts[0]?.id ?? '')
   const [rows, setRows] = useState<CoverSourceRow[]>(() => {
     const initialKind = sourceCategories.length > 0 ? 'category' : 'account'
     const initialCategory = sourceCategories[0]
-    const initialAccount = savingsAccounts[0]
+    const initialAccount = availableAccounts[0]
 
     return [{
       id: `source-${Date.now()}`,
@@ -62,7 +63,7 @@ export function CoverModal({
 
   const addSourceRow = () => {
     const categoryOption = sourceCategories.find((c) => !rows.some((row) => row.kind === 'category' && row.categoryId === c.id))
-    const accountOption = savingsAccounts.find((a) => !rows.some((row) => row.kind === 'account' && row.accountId === a.id))
+    const accountOption = availableAccounts.find((a) => !rows.some((row) => row.kind === 'account' && row.accountId === a.id))
 
     const nextKind = categoryOption ? 'category' : 'account'
     setRows((current) => [
@@ -89,7 +90,7 @@ export function CoverModal({
     const stats = rows.map((row) => {
       const amountCents = Math.round(parseFloat(row.amountStr || '0') * 100)
       const available = row.kind === 'account'
-        ? savingsAccounts.find((a) => a.id === row.accountId)?.currentBalance ?? 0
+        ? availableAccounts.find((a) => a.id === row.accountId)?.currentBalance ?? 0
         : sourceCategories.find((c) => c.id === row.categoryId)?.balance ?? 0
       return {
         row,
@@ -101,7 +102,7 @@ export function CoverModal({
 
     const total = stats.reduce((sum, item) => sum + item.amountCents, 0)
     return { stats, total, isValid: stats.every((item) => item.valid) && total > 0 && total <= overspendAmount }
-  }, [rows, overspendAmount, savingsAccounts, sourceCategories])
+  }, [rows, overspendAmount, availableAccounts, sourceCategories])
 
   const cover = useMutation({
     mutationFn: () => {
@@ -144,7 +145,7 @@ export function CoverModal({
 
         {transactionalAccounts.length > 1 && (
           <Select
-            label="Transfer to (spending)"
+            label="Transfer to"
             value={destAccountId}
             onChange={(e) => setDestAccountId(Number(e.target.value))}
           >
@@ -167,7 +168,7 @@ export function CoverModal({
           </div>
           {rows.map((row, index) => {
             const selectedAccount = row.kind === 'account'
-              ? savingsAccounts.find((a) => a.id === row.accountId)
+              ? availableAccounts.find((a) => a.id === row.accountId)
               : undefined
             const selectedCategory = row.kind === 'category'
               ? sourceCategories.find((c) => c.id === row.categoryId)
@@ -184,7 +185,7 @@ export function CoverModal({
                   onChange={(e) => {
                     const nextKind = e.target.value as 'account' | 'category'
                     const nextAccount = nextKind === 'account'
-                      ? (savingsAccounts.find((a) => !rows.some((r) => r.id !== row.id && r.kind === 'account' && r.accountId === a.id))?.id ?? '')
+                      ? (availableAccounts.find((a) => !rows.some((r) => r.id !== row.id && r.kind === 'account' && r.accountId === a.id))?.id ?? '')
                       : ''
                     const nextCategory = nextKind === 'category'
                       ? (sourceCategories.find((c) => !rows.some((r) => r.id !== row.id && r.kind === 'category' && r.categoryId === c.id))?.id ?? '')
@@ -203,23 +204,18 @@ export function CoverModal({
                   }}
                   className="w-28"
                 >
-                  <option value="category">Category balance</option>
-                  <option value="account">Savings account</option>
+                  <option value="category">Category</option>
+                  <option value="account">Account</option>
                 </Select>
 
                 {row.kind === 'account' ? (
-                  <select
-                    value={row.accountId}
-                    onChange={(e) => updateRow(row.id, { accountId: Number(e.target.value) || '' })}
-                    className="input-base flex-1 min-w-0 h-9"
-                  >
-                    <option value="">Select savings account...</option>
-                    {savingsAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({formatMoney(a.currentBalance)})
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={row.accountId === '' ? '' : String(row.accountId)}
+                    onChange={(value) => updateRow(row.id, { accountId: Number(value) || '' })}
+                    allLabel="Select account..."
+                    className="flex-1 min-w-0 h-9"
+                    items={availableAccounts.map((account) => ({ id: String(account.id), label: `${account.name} (${formatMoney(account.currentBalance)})` }))}
+                  />
                 ) : (
                   <div className="flex-1 min-w-0 h-9">
                     <CategoryCombobox
