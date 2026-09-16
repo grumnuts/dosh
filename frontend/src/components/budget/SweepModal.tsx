@@ -157,7 +157,7 @@ export function SweepModal({
                   aria-label="Destination"
                   value={destination.id}
                   onChange={(e) => updateDestination(index, { id: Number(e.target.value) || '' })}
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 h-9 [&>select]:h-9"
                 >
                   <option value="">Select account...</option>
                   {savingsAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({formatMoney(account.currentBalance)})</option>)}
@@ -173,7 +173,8 @@ export function SweepModal({
                   }))}
                   groups={categoryGroups}
                   placeholder="Select category..."
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 h-9"
+                  buttonClassName="input-base text-sm w-full h-9 text-left flex items-center"
                   balances={Object.fromEntries(destinationCategories.map((destinationCategory) => [destinationCategory.id, destinationCategory.balance]))}
                 />
               )}
