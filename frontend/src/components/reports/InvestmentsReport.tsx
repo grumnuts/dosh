@@ -165,7 +165,7 @@ export function InvestmentsReport() {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={displayChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat)} />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat, investmentTimeline.range)} />
               <YAxis
                 tick={{ fill: '#6b7280', fontSize: 12 }}
                 axisLine={false}
@@ -176,7 +176,7 @@ export function InvestmentsReport() {
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
-                labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat)}
+                labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat, investmentTimeline.range)}
                 formatter={(value) => [formatMoney(Math.round((value as number) * 100)), displayLabel]}
               />
               <Line

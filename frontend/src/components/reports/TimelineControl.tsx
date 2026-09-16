@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, endOfMonth, format, parseISO, startOfMonth } from 'date-fns'
+import { formatAppDate } from '../../utils/dateFormat'
 
 export type TimelineRange = 'month' | 'year' | '3year' | '5year' | 'all'
 
@@ -59,9 +60,13 @@ export function resampleTimeline<T extends Record<string, number | string | null
   })
 }
 
-export function formatTimelineLabel(value: string, dateFormat: string): string {
-  void dateFormat
-  return value.length === 10 ? format(parseISO(value), 'dd MMM') : value
+export function formatTimelineLabel(value: string, dateFormat: string, range: TimelineRange): string {
+  const date = parseISO(value.length === 7 ? `${value}-01` : value)
+  if (range === 'month' || range === 'all') return value.length === 10 ? formatAppDate(value, dateFormat) : format(date, 'MMM yyyy')
+  if (range === 'year') return format(date, 'MMM')
+  if (range === '3year') return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`
+  if (range === '5year') return format(date, 'MM/yyyy')
+  return value
 }
 
 export function TimelineControl({
