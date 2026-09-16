@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { Input, Select } from '../ui/Input'
+import { Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
 import { CategoryCombobox } from '../ui/CategoryCombobox'
 import { budgetApi, BudgetCategory } from '../../api/budget'
@@ -155,22 +155,9 @@ export function CoverModal({
               : selectedCategory?.balance ?? 0
 
             return (
-              <div key={row.id} className="rounded-lg border border-border bg-surface-2 p-3 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium text-primary">Source {index + 1}</div>
-                  {rows.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSourceRow(row.id)}
-                      className="text-xs text-secondary hover:text-primary"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-
+              <div key={row.id} className="rounded-lg border border-border bg-surface-2 p-3 space-y-2">
+                <div className="flex gap-2 items-start">
                 <Select
-                  label="Cover from"
                   value={row.kind}
                   onChange={(e) => {
                     const nextKind = e.target.value as 'account' | 'category'
@@ -192,16 +179,17 @@ export function CoverModal({
                         : '0.00',
                     })
                   }}
+                  className="w-32"
                 >
                   <option value="category">Category balance</option>
                   <option value="account">Savings account</option>
                 </Select>
 
                 {row.kind === 'account' ? (
-                  <Select
-                    label="Account"
+                  <select
                     value={row.accountId}
                     onChange={(e) => updateRow(row.id, { accountId: Number(e.target.value) || '' })}
+                    className="input-base flex-1 min-w-0 h-9"
                   >
                     <option value="">Select savings account...</option>
                     {savingsAccounts.map((a) => (
@@ -209,10 +197,9 @@ export function CoverModal({
                         {a.name} ({formatMoney(a.currentBalance)})
                       </option>
                     ))}
-                  </Select>
+                  </select>
                 ) : (
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
+                  <div className="flex-1 min-w-0 h-9">
                     <CategoryCombobox
                       value={row.categoryId === '' ? '' : String(row.categoryId)}
                       onChange={(value) => {
@@ -231,20 +218,35 @@ export function CoverModal({
                       }))}
                       groups={categoryGroups}
                       placeholder="Select category..."
+                      className="w-full h-9"
+                      buttonClassName="input-base text-sm w-full h-9 text-left flex items-center"
                       balances={Object.fromEntries(sourceCategories.map((sourceCategory) => [sourceCategory.id, sourceCategory.balance]))}
                     />
                   </div>
                 )}
 
-                <Input
-                  label="Amount to cover ($)"
+                <input
                   type="number"
                   step="0.01"
                   min="0.01"
                   max={(Math.max(0, available) / 100).toFixed(2)}
                   value={row.amountStr}
                   onChange={(e) => updateRow(row.id, { amountStr: e.target.value })}
+                  className="input-base text-sm text-right w-24 h-9"
+                  aria-label="Amount to cover"
                 />
+
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSourceRow(row.id)}
+                    className="mt-1 p-1 text-muted hover:text-danger transition-colors"
+                    aria-label={`Remove source ${index + 1}`}
+                  >
+                    ×
+                  </button>
+                )}
+                </div>
 
                 <div className="text-xs text-secondary">
                   Available: {formatMoney(available)}
