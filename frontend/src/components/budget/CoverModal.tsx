@@ -184,7 +184,12 @@ export function CoverModal({
                       kind: nextKind,
                       accountId: nextKind === 'account' ? Number(nextAccount) || '' : '',
                       categoryId: nextKind === 'category' ? Number(nextCategory) || '' : '',
-                      amountStr: '0.00',
+                      amountStr: nextKind === 'category'
+                        ? (Math.min(
+                            overspendAmount,
+                            sourceCategories.find((sourceCategory) => sourceCategory.id === Number(nextCategory))?.balance ?? 0,
+                          ) / 100).toFixed(2)
+                        : '0.00',
                     })
                   }}
                 >
@@ -210,7 +215,15 @@ export function CoverModal({
                     <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
                     <CategoryCombobox
                       value={row.categoryId === '' ? '' : String(row.categoryId)}
-                      onChange={(value) => updateRow(row.id, { categoryId: Number(value) || '' })}
+                      onChange={(value) => {
+                        const selectedCategory = sourceCategories.find((sourceCategory) => sourceCategory.id === Number(value))
+                        updateRow(row.id, {
+                          categoryId: Number(value) || '',
+                          amountStr: selectedCategory
+                            ? (Math.min(overspendAmount, selectedCategory.balance) / 100).toFixed(2)
+                            : '0.00',
+                        })
+                      }}
                       categories={sourceCategories.map((sourceCategory) => ({
                         id: sourceCategory.id,
                         group_id: sourceCategory.groupId,
