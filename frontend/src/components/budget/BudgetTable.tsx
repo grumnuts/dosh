@@ -590,6 +590,7 @@ function SortableGroupSection(props: Omit<GroupSectionProps, 'rowRef' | 'rowStyl
 
 type IncomeCategoryRowProps = {
   cat: IncomeCategory
+  weekStart: string
   groupId: number
   groupName: string
   rowRef?: React.RefCallback<HTMLTableRowElement>
@@ -600,6 +601,7 @@ type IncomeCategoryRowProps = {
 
 function IncomeCategoryRow({
   cat,
+  weekStart,
   groupId,
   groupName,
   rowRef,
@@ -643,6 +645,7 @@ function IncomeCategoryRow({
         onClose={() => setEditOpen(false)}
         groupId={groupId}
         groupName={groupName}
+        weekStart={weekStart}
         isIncomeGroup
         category={{ id: cat.id, name: cat.name, period: cat.period, budgetedAmount: 0, notes: cat.notes, catchUp: false, isInvestment: false }}
       />
@@ -753,6 +756,7 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
 
 type IncomeGroupSectionProps = {
   group: IncomeGroup
+  weekStart: string
   onAddCategory: (groupId: number, groupName: string) => void
   rowRef?: React.RefCallback<HTMLTableRowElement>
   rowStyle?: React.CSSProperties
@@ -763,6 +767,7 @@ type IncomeGroupSectionProps = {
 
 function IncomeGroupSection({
   group,
+  weekStart,
   onAddCategory,
   rowRef,
   rowStyle,
@@ -861,6 +866,7 @@ function IncomeGroupSection({
               <SortableIncomeCategoryRow
                 key={cat.id}
                 cat={cat}
+                weekStart={weekStart}
                 groupId={group.id}
                 groupName={group.name}
               />
@@ -1301,6 +1307,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                     <SortableIncomeGroupSection
                       key={group.id}
                       group={group}
+                      weekStart={data.weekStart}
                       onAddCategory={(groupId, groupName) =>
                         setAddCatState({ groupId, groupName, isIncome: true, isInvestment: false })
                       }
