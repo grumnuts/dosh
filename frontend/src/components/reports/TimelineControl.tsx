@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { addDays, addMonths, endOfMonth, format, parseISO, startOfMonth } from 'date-fns'
 
 export type TimelineRange = 'month' | 'year' | '3year' | '5year' | 'all'
-
-const RANGE_MONTHS: Record<TimelineRange, number | null> = {
-  month: 4,
-  year: 52,
-  '3year': 156,
-  '5year': 260,
-  all: null,
-}
 
 const RANGE_LABELS: Array<{ value: TimelineRange; label: string }> = [
   { value: 'month', label: 'Month' },
@@ -20,39 +13,55 @@ const RANGE_LABELS: Array<{ value: TimelineRange; label: string }> = [
 
 export function useTimelineWindow(months: string[]) {
   const [range, setRange] = useState<TimelineRange>('all')
-  const [endIndex, setEndIndex] = useState(Math.max(0, months.length - 1))
+  const [anchor, setAnchor] = useState(months[months.length - 1] ?? format(new Date(), 'yyyy-MM-dd'))
 
   useEffect(() => {
-    setEndIndex(Math.max(0, months.length - 1))
-  }, [months.length])
+    if (months.length > 0) setAnchor(months[months.length - 1])
+  }, [months.length, months[months.length - 1]])
 
   const windowedMonths = useMemo(() => {
-    if (months.length === 0) return []
-    const maxIndex = months.length - 1
-    const end = Math.min(endIndex, maxIndex)
-    const count = RANGE_MONTHS[range]
-    if (count === null) return months
-    return months.slice(Math.max(0, end - count + 1), end + 1)
-  }, [endIndex, months, range])
+    const end = parseISO(anchor)
+    if (range === 'all') return months
+    if (range === 'month') {
+      const start = startOfMonth(end)
+      return Array.from({ length: endOfMonth(end).getDate() }, (_, i) => format(addDays(start, i), 'yyyy-MM-dd'))
+    }
+    if (range === 'year') return Array.from({ length: 12 }, (_, i) => format(new Date(end.getFullYear(), i, 1), 'yyyy-MM-dd'))
+    const yearStart = range === '3year' ? end.getFullYear() - 2 : end.getFullYear() - 4
+    const step = range === '3year' ? 3 : 6
+    return Array.from({ length: range === '3year' ? 12 : 10 }, (_, i) => format(new Date(yearStart, i * step, 1), 'yyyy-MM-dd'))
+  }, [anchor, months, range])
 
   const move = (direction: -1 | 1) => {
-    const count = RANGE_MONTHS[range]
-    if (count === null) return
-    setEndIndex((current) => Math.max(0, Math.min(months.length - 1, current + direction * count)))
+    if (range === 'all') return
+    const date = parseISO(anchor)
+    setAnchor(format(range === 'month' ? addMonths(date, direction) : new Date(date.getFullYear() + direction * (range === 'year' ? 1 : range === '3year' ? 3 : 5), date.getMonth(), 1), 'yyyy-MM-dd'))
   }
 
   return {
     range,
     setRange: (next: TimelineRange) => {
       setRange(next)
-      setEndIndex(Math.max(0, months.length - 1))
+      setAnchor(months[months.length - 1] ?? format(new Date(), 'yyyy-MM-dd'))
     },
     windowedMonths,
-    canPrevious: range !== 'all' && endIndex >= (RANGE_MONTHS[range] ?? 0),
-    canNext: range !== 'all' && endIndex < months.length - 1,
+    canPrevious: range !== 'all',
+    canNext: range !== 'all',
     previous: () => move(-1),
     next: () => move(1),
   }
+}
+
+export function resampleTimeline<T extends Record<string, number | string | null>>(data: T[], buckets: string[]): T[] {
+  return buckets.map((bucket) => {
+    const source = [...data].reverse().find((point) => String(point.month) <= bucket) ?? data[0]
+    return source ? { ...source, month: bucket } : ({ month: bucket } as unknown as T)
+  })
+}
+
+export function formatTimelineLabel(value: string, dateFormat: string): string {
+  void dateFormat
+  return value.length === 10 ? format(parseISO(value), 'dd MMM') : value
 }
 
 export function TimelineControl({

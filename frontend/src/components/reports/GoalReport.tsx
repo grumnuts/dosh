@@ -13,7 +13,7 @@ import { reportsApi, type GoalSeries } from '../../api/reports'
 import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
 import { formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
-import { TimelineControl, useTimelineWindow } from './TimelineControl'
+import { TimelineControl, formatTimelineLabel, resampleTimeline, useTimelineWindow } from './TimelineControl'
 
 function ChartLegend({ color }: { color: string }) {
   return (
@@ -69,8 +69,7 @@ function weeksUntilEndOfMonth(yearMonth: string): number {
 function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: string }) {
   const chartData = buildChartData(series)
   const timeline = useTimelineWindow(chartData.map((point) => point.month))
-  const visibleMonths = new Set(timeline.windowedMonths)
-  const visibleChartData = chartData.filter((point) => visibleMonths.has(point.month))
+  const visibleChartData = resampleTimeline(chartData, timeline.windowedMonths)
 
   const projectedEnd = series.projection.length > 0
     ? series.projection[series.projection.length - 1]
@@ -132,12 +131,12 @@ function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: stri
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={60} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
-                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+                labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat)}
                 formatter={(value) => [formatMoney(Math.round((value as number) * 100)), '']}
               />
               <Line type="monotone" dataKey="balance" name="Balance" stroke="#4ade80" strokeWidth={2} dot={false} connectNulls={false} />
@@ -156,8 +155,7 @@ function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: stri
 function DebtCard({ series, dateFormat }: { series: GoalSeries; dateFormat: string }) {
   const chartData = buildChartData(series)
   const timeline = useTimelineWindow(chartData.map((point) => point.month))
-  const visibleMonths = new Set(timeline.windowedMonths)
-  const visibleChartData = chartData.filter((point) => visibleMonths.has(point.month))
+  const visibleChartData = resampleTimeline(chartData, timeline.windowedMonths)
 
   const projectedEnd = series.projection.length > 0
     ? series.projection[series.projection.length - 1]
@@ -208,12 +206,12 @@ function DebtCard({ series, dateFormat }: { series: GoalSeries; dateFormat: stri
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
+              <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatTimelineLabel(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.abs(v)}`} width={60} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1c1c1c', border: '1px solid #374151', borderRadius: 6 }}
                 labelStyle={{ color: '#e5e7eb' }}
-                labelFormatter={(value) => formatAppMonth(String(value), dateFormat)}
+                labelFormatter={(value) => formatTimelineLabel(String(value), dateFormat)}
                 formatter={(value) => [formatMoney(Math.abs(Math.round((value as number) * 100))), '']}
               />
               <Line type="monotone" dataKey="balance" name="Balance" stroke="#f87171" strokeWidth={2} dot={false} connectNulls={false} />
