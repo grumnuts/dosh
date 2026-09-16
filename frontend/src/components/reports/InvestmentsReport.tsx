@@ -14,6 +14,7 @@ import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Button } from '../ui/Button'
 import { formatAppDateTime, formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
+import { TimelineControl, useTimelineWindow } from './TimelineControl'
 
 const TICKER_COLOURS = [
   '#60a5fa', '#a78bfa', '#fb923c', '#34d399', '#f472b6',
@@ -75,6 +76,8 @@ export function InvestmentsReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const investmentTimeline = useTimelineWindow(historyData?.chartData.map((row) => String(row.month)) ?? [])
+
   if (isLoading) {
     return <div className="py-8 text-center text-sm text-muted">Loading...</div>
   }
@@ -100,7 +103,8 @@ export function InvestmentsReport() {
   )
 
   // Derive chart display data based on selection
-  const displayChartData = historyData?.chartData.map((row) => {
+  const visibleMonths = new Set(investmentTimeline.windowedMonths)
+  const displayChartData = historyData?.chartData.filter((row) => visibleMonths.has(String(row.month))).map((row) => {
     if (selectedTicker) {
       return { month: row.month, [selectedTicker]: row[selectedTicker] ?? 0 }
     }
@@ -153,9 +157,12 @@ export function InvestmentsReport() {
       {/* Portfolio value chart */}
       {historyData && displayChartData.length > 1 && (
         <div className="card p-4">
-          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">
-            {selectedTicker ? `${selectedTicker} Value Over Time` : 'Portfolio Value Over Time'}
-          </p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-xs font-semibold text-secondary uppercase tracking-wide">
+              {selectedTicker ? `${selectedTicker} Value Over Time` : 'Portfolio Value Over Time'}
+            </p>
+            <TimelineControl {...investmentTimeline} />
+          </div>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={displayChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

@@ -13,6 +13,7 @@ import { reportsApi, type GoalSeries } from '../../api/reports'
 import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
 import { formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
+import { TimelineControl, useTimelineWindow } from './TimelineControl'
 
 function ChartLegend({ color }: { color: string }) {
   return (
@@ -67,6 +68,9 @@ function weeksUntilEndOfMonth(yearMonth: string): number {
 
 function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: string }) {
   const chartData = buildChartData(series)
+  const timeline = useTimelineWindow(chartData.map((point) => point.month))
+  const visibleMonths = new Set(timeline.windowedMonths)
+  const visibleChartData = chartData.filter((point) => visibleMonths.has(point.month))
 
   const projectedEnd = series.projection.length > 0
     ? series.projection[series.projection.length - 1]
@@ -122,8 +126,11 @@ function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: stri
 
       {chartData.length > 0 ? (
         <>
+          <div className="flex justify-end mb-2">
+            <TimelineControl {...timeline} />
+          </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+            <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={60} />
@@ -148,6 +155,9 @@ function GoalCard({ series, dateFormat }: { series: GoalSeries; dateFormat: stri
 
 function DebtCard({ series, dateFormat }: { series: GoalSeries; dateFormat: string }) {
   const chartData = buildChartData(series)
+  const timeline = useTimelineWindow(chartData.map((point) => point.month))
+  const visibleMonths = new Set(timeline.windowedMonths)
+  const visibleChartData = chartData.filter((point) => visibleMonths.has(point.month))
 
   const projectedEnd = series.projection.length > 0
     ? series.projection[series.projection.length - 1]
@@ -192,8 +202,11 @@ function DebtCard({ series, dateFormat }: { series: GoalSeries; dateFormat: stri
 
       {chartData.length > 0 ? (
         <>
+          <div className="flex justify-end mb-2">
+            <TimelineControl {...timeline} />
+          </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+            <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Math.abs(v)}`} width={60} />

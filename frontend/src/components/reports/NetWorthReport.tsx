@@ -17,6 +17,7 @@ import { reportsApi } from '../../api/reports'
 import { formatMoney } from '../ui/AmountDisplay'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
 import { formatAppMonth, normalizeDateFormat } from '../../utils/dateFormat'
+import { TimelineControl, useTimelineWindow } from './TimelineControl'
 
 const DEFAULT_COL_WIDTHS = { account: 200, type: 100, balance: 150 }
 
@@ -95,6 +96,10 @@ export function NetWorthReport({ section }: Props = {}) {
     enabled: section === 'breakdown',
   })
 
+  const netWorthTimeline = useTimelineWindow(data?.netWorth.map((p) => p.month) ?? [])
+  const balanceMonths = Array.from(new Set(data?.accounts.flatMap((a) => a.history.map((p) => p.month)) ?? [])).sort()
+  const balanceTimeline = useTimelineWindow(balanceMonths)
+
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.netWorth.length === 0) return <div className="py-12 text-center text-secondary">No account data available.</div>
 
@@ -122,20 +127,27 @@ export function NetWorthReport({ section }: Props = {}) {
     }
     return entry
   })
+  const visibleNetWorthMonths = new Set(netWorthTimeline.windowedMonths)
+  const visibleBalanceMonths = new Set(balanceTimeline.windowedMonths)
+  const visibleNetWorthChartData = netWorthChartData.filter((p) => visibleNetWorthMonths.has(p.month))
+  const visibleBalanceChartData = balanceChartData.filter((p) => visibleBalanceMonths.has(String(p.month)))
 
   const accountColourMap = new Map(activeAccounts.map((a, i) => [a.id, ACCOUNT_COLOURS[i % ACCOUNT_COLOURS.length]]))
 
   if (section === 'networth') {
-    const lastTwo = netWorthChartData.slice(-2)
+    const lastTwo = visibleNetWorthChartData.slice(-2)
     const isTrendingDown = lastTwo.length === 2 && lastTwo[1]['Net Worth'] < lastTwo[0]['Net Worth']
     const netWorthLineColour = latestNetWorth < 0 || isTrendingDown ? '#f87171' : '#4ade80'
 
     return (
       <div className="space-y-6">
         <div className="card p-4">
-          <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-3">Net Worth Over Time</p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Net Worth Over Time</p>
+            <TimelineControl {...netWorthTimeline} />
+          </div>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={netWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+            <LineChart data={visibleNetWorthChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatYAxisTick} width={55} domain={[(v: number) => Math.min(v, 0), 'auto']} />
@@ -273,7 +285,7 @@ export function NetWorthReport({ section }: Props = {}) {
     let yDomain: [number, number] | ['auto', 'auto'] = ['auto', 'auto']
     let yTicks: number[] | undefined
     if (selectedAccountId && chartAccounts.length > 0) {
-      const values = balanceChartData.map((d) => (d[chartAccounts[0].name] as number) ?? 0)
+      const values = visibleBalanceChartData.map((d) => (d[chartAccounts[0].name] as number) ?? 0)
       const min = Math.min(...values)
       const max = Math.max(...values)
       const pad = Math.max((max - min) * 0.1, 500)
@@ -300,7 +312,10 @@ export function NetWorthReport({ section }: Props = {}) {
         {activeAccounts.length > 0 && (
           <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Account Balances Over Time</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Account Balances Over Time</p>
+                <TimelineControl {...balanceTimeline} />
+              </div>
               {selectedAccountId && (
                 <button
                   onClick={() => setSelectedAccountId(null)}
@@ -311,7 +326,7 @@ export function NetWorthReport({ section }: Props = {}) {
               )}
             </div>
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={balanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+              <LineChart data={visibleBalanceChartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="month" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" tickFormatter={(value) => formatAppMonth(String(value), dateFormat)} />
                 <YAxis
