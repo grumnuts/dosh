@@ -199,9 +199,9 @@ function CategoryRow({
             <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
               {PERIOD_LABELS[cat.period]}
             </span>
-            <span className="text-sm text-primary">{cat.name}</span>
+            <span className={`text-sm ${cat.isUnlisted ? 'text-muted' : 'text-primary'}`}>{cat.name}</span>
             {cat.isUnlisted && (
-              <span className="text-xs text-muted">hidden</span>
+              <span className="px-1.5 py-0.5 rounded bg-surface-3 text-xs text-muted uppercase tracking-wide">Hidden</span>
             )}
             {isCovered && (
               <span className="text-xs text-accent-dim">covered</span>
