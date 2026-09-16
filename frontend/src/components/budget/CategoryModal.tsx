@@ -350,6 +350,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
             destinationCategories={[]}
+            categoryGroups={[]}
           />
         )}
         {showRollForwardButton && fullCategory && (

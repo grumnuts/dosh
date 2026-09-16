@@ -318,6 +318,7 @@ function CategoryRow({
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
           destinationCategories={destinationCategories.filter((destination) => destination.id !== cat.id)}
+          categoryGroups={categoryGroups}
         />
       )}
       {rollForwardOpen && (
