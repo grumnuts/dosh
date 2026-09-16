@@ -141,12 +141,15 @@ export function CoverModal({
 
         <div className="space-y-3">
           {rows.map((row, index) => {
-            const selectedSource = row.kind === 'account'
+            const selectedAccount = row.kind === 'account'
               ? savingsAccounts.find((a) => a.id === row.accountId)
-              : sourceCategories.find((c) => c.id === row.categoryId)
+              : undefined
+            const selectedCategory = row.kind === 'category'
+              ? sourceCategories.find((c) => c.id === row.categoryId)
+              : undefined
             const available = row.kind === 'account'
-              ? selectedSource?.currentBalance ?? 0
-              : selectedSource?.balance ?? 0
+              ? selectedAccount?.currentBalance ?? 0
+              : selectedCategory?.balance ?? 0
 
             return (
               <div key={row.id} className="rounded-lg border border-border bg-surface-2 p-3 space-y-3">
@@ -224,11 +227,9 @@ export function CoverModal({
                   onChange={(e) => updateRow(row.id, { amountStr: e.target.value })}
                 />
 
-                {selectedSource && (
-                  <div className="text-xs text-secondary">
-                    Available: {formatMoney(available)}
-                  </div>
-                )}
+                <div className="text-xs text-secondary">
+                  Available: {formatMoney(available)}
+                </div>
               </div>
             )
           })}

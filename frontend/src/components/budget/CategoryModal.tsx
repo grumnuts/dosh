@@ -337,6 +337,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
+            sourceCategories={[]}
           />
         )}
         {showSweepButton && fullCategory && transactionalAccounts && (
@@ -347,6 +348,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
+            destinationCategories={[]}
           />
         )}
         {showRollForwardButton && fullCategory && (

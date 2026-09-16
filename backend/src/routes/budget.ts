@@ -403,10 +403,15 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Category is not overspent' })
     }
 
+    type CoverSource =
+      | { kind: 'account'; accountId: number; amount: number }
+      | { kind: 'category'; categoryId: number; amount: number }
     const legacySourceAccountId = body.data.sourceAccountId
-    const sources = body.data.sources && body.data.sources.length > 0
-      ? body.data.sources
-      : [{ kind: 'account', accountId: legacySourceAccountId, amount: body.data.amount ?? overspendAmount }]
+    const sources: CoverSource[] = body.data.sources && body.data.sources.length > 0
+      ? body.data.sources.map((source) => source.kind === 'account'
+        ? { kind: 'account', accountId: source.accountId!, amount: source.amount }
+        : { kind: 'category', categoryId: source.categoryId!, amount: source.amount })
+      : [{ kind: 'account', accountId: legacySourceAccountId!, amount: body.data.amount ?? overspendAmount }]
 
     const totalCovered = sources.reduce((sum, source) => sum + source.amount, 0)
     if (totalCovered > overspendAmount) {
@@ -466,6 +471,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         continue
       }
 
+      if (source.kind !== 'category') continue
       const sourceCategoryId = source.categoryId!
       const sourceCategory = db
         .prepare('SELECT id, name FROM budget_categories WHERE id = ? AND is_active = 1')

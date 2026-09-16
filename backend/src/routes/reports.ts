@@ -312,7 +312,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         for (const [q, months] of Object.entries(QUARTER_MONTHS)) {
           const spent = months.reduce((s, m) => s + (spendByMonth.get(`${cat.id}:${m}`) ?? 0), 0)
           const quarterStart = quarterStarts[q]
-          const quarterEnd = new Date(Date.UTC(year, Number(months[months.length - 1]), 0)).toISOString().slice(0, 10)
+          const quarterEnd = new Date(Date.UTC(Number(year), Number(months[months.length - 1]), 0)).toISOString().slice(0, 10)
           totalSpent += spent
           totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, quarterStart) - rolledForwardForRange(cat.id, quarterStart, quarterEnd))
         }
@@ -321,7 +321,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
           const monthStr = String(m).padStart(2, '0')
           const spent = spendByMonth.get(`${cat.id}:${monthStr}`) ?? 0
           const monthStart = `${year}-${monthStr}-01`
-          const monthEnd = new Date(Date.UTC(year, m, 0)).toISOString().slice(0, 10)
+          const monthEnd = new Date(Date.UTC(Number(year), m, 0)).toISOString().slice(0, 10)
           totalSpent += spent
           totalOverspend += Math.max(0, spent - getBudgetAtDate(cat.id, monthStart) - rolledForwardForRange(cat.id, monthStart, monthEnd))
         }
