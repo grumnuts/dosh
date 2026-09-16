@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { Input, Select } from '../ui/Input'
+import { Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
 import { CategoryCombobox } from '../ui/CategoryCombobox'
 import { budgetApi, BudgetCategory } from '../../api/budget'
@@ -38,7 +38,6 @@ export function SweepModal({
   const qc = useQueryClient()
   const availableBalance = category.balance
 
-  const [amountStr, setAmountStr] = useState((availableBalance / 100).toFixed(2))
   const [sourceAccountId, setSourceAccountId] = useState<number | ''>(
     transactionalAccounts[0]?.id ?? '',
   )
@@ -53,15 +52,14 @@ export function SweepModal({
 
   const savingsAccounts = accounts?.filter((a) => a.type === 'savings') ?? []
 
-  const parsedAmount = Math.round(parseFloat(amountStr) * 100)
   const parsedDestinations = destinations.map((destination) => ({
     ...destination,
     parsedAmount: Math.round(parseFloat(destination.amount) * 100),
   }))
   const destinationTotal = parsedDestinations.reduce((total, destination) => total + (isNaN(destination.parsedAmount) ? 0 : destination.parsedAmount), 0)
   const destinationsValid = parsedDestinations.length > 0 && parsedDestinations.every((destination) => destination.id !== '' && destination.parsedAmount > 0)
-  const amountValid = !isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= availableBalance
-  const sweepValid = amountValid && destinationsValid && destinationTotal === parsedAmount
+  const amountValid = destinationTotal > 0 && destinationTotal <= availableBalance
+  const sweepValid = amountValid && destinationsValid
 
   const updateDestination = (index: number, patch: Partial<DestinationRow>) => {
     setDestinations((current) => current.map((destination, i) => i === index ? { ...destination, ...patch } : destination))
@@ -72,7 +70,7 @@ export function SweepModal({
       budgetApi.sweepUnspent({
         categoryId: category.id,
         weekStart,
-        amount: parsedAmount,
+        amount: destinationTotal,
         sourceAccountId: sourceAccountId as number,
         destinations: parsedDestinations.map((destination) => ({
           kind: destination.kind,
@@ -101,16 +99,6 @@ export function SweepModal({
             {formatMoney(availableBalance)}
           </div>
         </div>
-
-        <Input
-          label="Amount to sweep ($)"
-          type="number"
-          step="0.01"
-          min="0.01"
-          max={(availableBalance / 100).toFixed(2)}
-          value={amountStr}
-          onChange={(e) => setAmountStr(e.target.value)}
-        />
 
         <p className="text-sm text-secondary">
           Split this unspent balance between other categories and savings accounts.
@@ -199,9 +187,11 @@ export function SweepModal({
               </button>
             </div>
           ))}
-          <div className={`text-xs px-3 py-2 rounded ${destinationTotal === parsedAmount ? 'bg-accent/10 text-accent' : 'bg-surface-2 text-secondary'}`}>
-            Destinations: {formatMoney(destinationTotal)} / {formatMoney(parsedAmount || 0)}
-          </div>
+        </div>
+
+        <div className="rounded-lg border border-dashed border-border p-3 text-sm text-secondary">
+          <div>Selected total: <span className="font-semibold text-primary">{formatMoney(destinationTotal)}</span></div>
+          <div>Remaining to sweep: <span className="text-secondary">{formatMoney(Math.max(0, availableBalance - destinationTotal))}</span></div>
         </div>
 
         {sweep.isError && (
@@ -217,7 +207,7 @@ export function SweepModal({
             disabled={!sweepValid || !sourceAccountId}
             loading={sweep.isPending}
           >
-            Sweep {sweepValid ? formatMoney(parsedAmount) : ''}
+            Sweep {sweepValid ? formatMoney(destinationTotal) : ''}
           </Button>
         </div>
       </div>

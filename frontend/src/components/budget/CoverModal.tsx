@@ -142,7 +142,29 @@ export function CoverModal({
           </div>
         </div>
 
-        <div className="space-y-3">
+        {transactionalAccounts.length > 1 && (
+          <Select
+            label="Transfer to (spending)"
+            value={destAccountId}
+            onChange={(e) => setDestAccountId(Number(e.target.value))}
+          >
+            {transactionalAccounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </Select>
+        )}
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-secondary uppercase tracking-wide">Sources</span>
+            <button
+              type="button"
+              onClick={addSourceRow}
+              className="text-xs text-accent hover:text-accent/80 transition-colors"
+            >
+              + Add source
+            </button>
+          </div>
           {rows.map((row, index) => {
             const selectedAccount = row.kind === 'account'
               ? savingsAccounts.find((a) => a.id === row.accountId)
@@ -155,7 +177,7 @@ export function CoverModal({
               : selectedCategory?.balance ?? 0
 
             return (
-              <div key={row.id} className="rounded-lg border border-border bg-surface-2 p-3 space-y-2">
+              <div key={row.id} className="space-y-1">
                 <div className="flex gap-2 items-start">
                 <Select
                   value={row.kind}
@@ -179,7 +201,7 @@ export function CoverModal({
                         : '0.00',
                     })
                   }}
-                  className="w-32"
+                  className="w-28"
                 >
                   <option value="category">Category balance</option>
                   <option value="account">Savings account</option>
@@ -255,28 +277,6 @@ export function CoverModal({
             )
           })}
         </div>
-
-        <button
-          type="button"
-          onClick={addSourceRow}
-          className="text-sm text-accent hover:text-accent/80"
-        >
-          + Add another source
-        </button>
-
-        {transactionalAccounts.length > 1 && (
-          <Select
-            label="Transfer to (spending)"
-            value={destAccountId}
-            onChange={(e) => setDestAccountId(Number(e.target.value))}
-          >
-            {transactionalAccounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
-        )}
 
         <div className="rounded-lg border border-dashed border-border p-3 text-sm text-secondary">
           <div>Selected total: <span className="font-semibold text-primary">{formatMoney(sourceStats.total)}</span></div>
