@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 export type TimelineRange = 'month' | 'year' | '3year' | '5year' | 'all'
 
 const RANGE_MONTHS: Record<TimelineRange, number | null> = {
-  month: 1,
-  year: 12,
-  '3year': 36,
-  '5year': 60,
+  month: 4,
+  year: 52,
+  '3year': 156,
+  '5year': 260,
   all: null,
 }
 

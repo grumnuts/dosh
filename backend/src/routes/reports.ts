@@ -420,7 +420,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       // Build a month -> net_change map from direct transactions on this account
       const directChanges = db
         .prepare(
-          `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
+          `SELECT date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days') AS month, SUM(amount) AS net_change
            FROM transactions
            WHERE account_id = ?
            GROUP BY month
@@ -440,7 +440,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         // outstanding balance (i.e. they are positive contributions to the running balance).
         const catPayments = db
           .prepare(
-            `SELECT strftime('%Y-%m', t.date) AS month, SUM(ABS(t.amount)) AS net_change
+             `SELECT date(t.date, '-' || CAST(strftime('%w', t.date) AS INTEGER) || ' days') AS month, SUM(ABS(t.amount)) AS net_change
              FROM transactions t
              JOIN budget_categories bc ON t.category_id = bc.id
              WHERE bc.linked_account_id = ?
@@ -453,7 +453,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
         const splitPayments = db
           .prepare(
-            `SELECT strftime('%Y-%m', t.date) AS month, SUM(ABS(s.amount)) AS net_change
+             `SELECT date(t.date, '-' || CAST(strftime('%w', t.date) AS INTEGER) || ' days') AS month, SUM(ABS(s.amount)) AS net_change
              FROM transaction_splits s
              JOIN budget_categories bc ON s.category_id = bc.id
              JOIN transactions t ON s.transaction_id = t.id
@@ -483,7 +483,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       // in the same month as payments doesn't swamp the average and kill the projection.
       const directTrend = db
         .prepare(
-          `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
+          `SELECT date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days') AS month, SUM(amount) AS net_change
            FROM transactions
            WHERE account_id = ?
              AND (category_id IS NULL OR category_id NOT IN (
@@ -652,7 +652,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const accountHistories = accounts.map((account) => {
       const monthlyChanges = db
         .prepare(
-          `SELECT strftime('%Y-%m', date) AS month, SUM(amount) AS net_change
+          `SELECT date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days') AS month, SUM(amount) AS net_change
            FROM transactions
            WHERE account_id = ?
            GROUP BY month
@@ -663,7 +663,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       if (account.type === 'debt') {
         const categorizedPayments = db
           .prepare(
-            `SELECT strftime('%Y-%m', t.date) AS month, SUM(-t.amount) AS net_change
+             `SELECT date(t.date, '-' || CAST(strftime('%w', t.date) AS INTEGER) || ' days') AS month, SUM(-t.amount) AS net_change
              FROM transactions t
              JOIN budget_categories bc ON t.category_id = bc.id
              WHERE bc.linked_account_id = ?
@@ -676,7 +676,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
         const splitPayments = db
           .prepare(
-            `SELECT strftime('%Y-%m', t.date) AS month, SUM(-s.amount) AS net_change
+             `SELECT date(t.date, '-' || CAST(strftime('%w', t.date) AS INTEGER) || ' days') AS month, SUM(-s.amount) AS net_change
              FROM transaction_splits s
              JOIN transactions t ON s.transaction_id = t.id
              JOIN budget_categories bc ON s.category_id = bc.id
