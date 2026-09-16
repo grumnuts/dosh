@@ -21,6 +21,7 @@ export interface BudgetCategory {
   isInvestment: boolean
     isUnlisted: boolean
   coveringCategories: Array<{ id: number; name: string; transactionId: number }>
+  sweepingCategories: Array<{ id: number; name: string; transactionId: number }>
 }
 
 export interface BudgetGroup {
@@ -197,4 +198,7 @@ export const budgetApi = {
 
   undoCover: (id: number) =>
     api.delete<{ ok: boolean }>(`/api/budget/cover/${id}`),
+
+  undoSweep: (id: number) =>
+    api.delete<{ ok: boolean }>(`/api/budget/sweep/${id}`),
 }

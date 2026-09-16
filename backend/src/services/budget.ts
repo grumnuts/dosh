@@ -153,6 +153,7 @@ interface BudgetCategory {
   catchUp: boolean
   isInvestment: boolean
   coveringCategories: Array<{ id: number; name: string; transactionId: number }>
+  sweepingCategories: Array<{ id: number; name: string; transactionId: number }>
 }
 
 interface IncomeCategory {
@@ -501,6 +502,30 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
     }
   }
 
+  const sweepingCategoriesMap = new Map<number, Array<{ id: number; name: string; transactionId: number }>>()
+  for (const { start, end, ids } of spentByPeriodKey.values()) {
+    const ph = ids.map(() => '?').join(',')
+    const rows = db
+      .prepare(
+        `SELECT source.category_id, source.id AS transaction_id,
+                target.category_id AS target_category_id, target_category.name AS target_name
+         FROM transactions source
+         JOIN transactions target ON target.id = source.transfer_pair_id
+         JOIN budget_categories target_category ON target_category.id = target.category_id
+         WHERE source.category_id IN (${ph})
+           AND source.cover_week_start >= ? AND source.cover_week_start <= ?
+           AND source.type = 'sweep' AND source.amount < 0
+           AND target.category_id IS NOT NULL
+           AND source.category_id != target.category_id`,
+      )
+      .all(...ids, start, end) as Array<{ category_id: number; transaction_id: number; target_category_id: number; target_name: string }>
+    for (const row of rows) {
+      const existing = sweepingCategoriesMap.get(row.category_id) ?? []
+      existing.push({ id: row.target_category_id, name: row.target_name, transactionId: row.transaction_id })
+      sweepingCategoriesMap.set(row.category_id, existing)
+    }
+  }
+
   const spentMap = new Map<number, number>()
   for (const { start, end, ids } of spentByPeriodKey.values()) {
     const ph = ids.map(() => '?').join(',')
@@ -598,6 +623,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
         isInvestment: cat.is_investment === 1,
           isUnlisted: cat.is_unlisted === 1,
         coveringCategories: coveringCategoriesMap.get(cat.id) ?? [],
+        sweepingCategories: sweepingCategoriesMap.get(cat.id) ?? [],
       }
     })
 

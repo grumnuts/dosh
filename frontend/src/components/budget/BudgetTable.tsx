@@ -161,6 +161,7 @@ function CategoryRow({
   const [rollForwardOpen, setRollForwardOpen] = useState(false)
   const [undoRolloverOpen, setUndoRolloverOpen] = useState(false)
   const [undoCoverId, setUndoCoverId] = useState<number | null>(null)
+  const [undoSweepId, setUndoSweepId] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts
   const isCovered = cat.covers > 0 && !cat.isOverspent
@@ -177,6 +178,16 @@ function CategoryRow({
     mutationFn: (transactionId: number) => budgetApi.undoCover(transactionId),
     onSuccess: () => {
       setUndoCoverId(null)
+      qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
+
+  const undoSweep = useMutation({
+    mutationFn: (transactionId: number) => budgetApi.undoSweep(transactionId),
+    onSuccess: () => {
+      setUndoSweepId(null)
       qc.invalidateQueries({ queryKey: ['budget'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['reports'] })
@@ -214,6 +225,21 @@ function CategoryRow({
                     type="button"
                     title={`Undo cover from ${cover.name}`}
                     onClick={(e) => { e.stopPropagation(); setUndoCoverId(cover.transactionId) }}
+                    className="hover:text-danger transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {cat.sweepingCategories.map((sweep) => (
+              <span key={sweep.transactionId} className="inline-flex items-center gap-1 text-xs text-transfer">
+                swept to {sweep.name}
+                {!isReadonly && (
+                  <button
+                    type="button"
+                    title={`Undo sweep to ${sweep.name}`}
+                    onClick={(e) => { e.stopPropagation(); setUndoSweepId(sweep.transactionId) }}
                     className="hover:text-danger transition-colors"
                   >
                     ×
@@ -344,6 +370,14 @@ function CategoryRow({
         title="Undo Category Cover"
         message="Undo this category cover? The source balance and covered category balance will be restored."
         loading={undoCover.isPending}
+      />
+      <ConfirmModal
+        open={undoSweepId !== null}
+        onClose={() => setUndoSweepId(null)}
+        onConfirm={() => { if (undoSweepId !== null) undoSweep.mutate(undoSweepId) }}
+        title="Undo Category Sweep"
+        message="Undo this category sweep? The source and destination balances will be restored."
+        loading={undoSweep.isPending}
       />
 
       <CategoryModal

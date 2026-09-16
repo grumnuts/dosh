@@ -755,4 +755,33 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     db.prepare('DELETE FROM transactions WHERE id IN (?, ?)').run(transactionId, cover.transfer_pair_id)
     return reply.send({ ok: true })
   })
+
+  app.delete('/api/budget/sweep/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const transactionId = parseInt(id, 10)
+    if (isNaN(transactionId)) return reply.code(400).send({ error: 'Invalid sweep id' })
+
+    const db = getDb()
+    const sweep = db
+      .prepare(
+        `SELECT id, transfer_pair_id, category_id, amount
+         FROM transactions
+         WHERE id = ? AND type = 'sweep' AND amount < 0`,
+      )
+      .get(transactionId) as { id: number; transfer_pair_id: number | null; category_id: number | null; amount: number } | undefined
+
+    if (!sweep || !sweep.transfer_pair_id || sweep.category_id === null) {
+      return reply.code(404).send({ error: 'Category sweep not found' })
+    }
+
+    const paired = db
+      .prepare('SELECT category_id, account_id FROM transactions WHERE id = ? AND type = \'sweep\'')
+      .get(sweep.transfer_pair_id) as { category_id: number | null; account_id: number } | undefined
+    if (!paired || paired.category_id === null || paired.account_id !== (db.prepare('SELECT account_id FROM transactions WHERE id = ?').get(transactionId) as { account_id: number }).account_id) {
+      return reply.code(404).send({ error: 'Category sweep not found' })
+    }
+
+    db.prepare('DELETE FROM transactions WHERE id IN (?, ?)').run(transactionId, sweep.transfer_pair_id)
+    return reply.send({ ok: true })
+  })
 }

@@ -82,7 +82,7 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     // Build shared WHERE clause and params (reused for count + main query)
     let where = ' WHERE 1=1'
     where += ` AND NOT (
-      t.type = 'cover' AND (
+      t.type IN ('cover', 'sweep') AND (
         (t.transfer_pair_id IS NOT NULL AND EXISTS (
           SELECT 1 FROM transactions paired_cover
           WHERE paired_cover.id = t.transfer_pair_id
