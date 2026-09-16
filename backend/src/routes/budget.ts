@@ -253,11 +253,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, name, group_id, budgeted_amount, period, is_unlisted, linked_account_id FROM budget_categories WHERE id = ? AND is_active = 1')
-      .get(id) as { id: number; name: string; group_id: number; budgeted_amount: number; period: string; is_unlisted: number; linked_account_id: number | null } | undefined
+      .prepare('SELECT id, name, group_id, budgeted_amount, period, is_system, linked_account_id FROM budget_categories WHERE id = ? AND is_active = 1')
+      .get(id) as { id: number; name: string; group_id: number; budgeted_amount: number; period: string; is_system: number; linked_account_id: number | null } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Category not found' })
-    if (existing.is_unlisted) return reply.code(400).send({ error: 'System categories cannot be edited' })
+    if (existing.is_system) return reply.code(400).send({ error: 'System categories cannot be edited' })
 
     // Debt categories: prevent moving to another group or renaming (name is controlled by account)
     if (existing.linked_account_id !== null) {
