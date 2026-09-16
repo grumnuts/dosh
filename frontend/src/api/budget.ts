@@ -19,6 +19,7 @@ export interface BudgetCategory {
   sortOrder: number
   catchUp: boolean
   isInvestment: boolean
+  coveringCategories: Array<{ id: number; name: string; transactionId: number }>
 }
 
 export interface BudgetGroup {
@@ -191,4 +192,7 @@ export const budgetApi = {
 
   undoRollover: (id: number) =>
     api.delete<{ ok: boolean }>(`/api/budget/rollover/${id}`),
+
+  undoCover: (id: number) =>
+    api.delete<{ ok: boolean }>(`/api/budget/cover/${id}`),
 }

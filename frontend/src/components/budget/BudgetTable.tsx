@@ -160,6 +160,7 @@ function CategoryRow({
   const [sweepOpen, setSweepOpen] = useState(false)
   const [rollForwardOpen, setRollForwardOpen] = useState(false)
   const [undoRolloverOpen, setUndoRolloverOpen] = useState(false)
+  const [undoCoverId, setUndoCoverId] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
   const isCovered = cat.covers > 0 && !cat.isOverspent
@@ -170,6 +171,16 @@ function CategoryRow({
   const undoRollover = useMutation({
     mutationFn: () => budgetApi.undoRollover(cat.rolloverIdOut!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['budget'] }),
+  })
+
+  const undoCover = useMutation({
+    mutationFn: (transactionId: number) => budgetApi.undoCover(transactionId),
+    onSuccess: () => {
+      setUndoCoverId(null)
+      qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
+    },
   })
 
   return (
@@ -192,6 +203,21 @@ function CategoryRow({
             {isCovered && (
               <span className="text-xs text-accent-dim">covered</span>
             )}
+            {cat.coveringCategories.map((cover) => (
+              <span key={cover.transactionId} className="inline-flex items-center gap-1 text-xs text-transfer">
+                covering {cover.name}
+                {!isReadonly && (
+                  <button
+                    type="button"
+                    title={`Undo cover from ${cover.name}`}
+                    onClick={(e) => { e.stopPropagation(); setUndoCoverId(cover.transactionId) }}
+                    className="hover:text-danger transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
             {isSwept && (
               <span className="text-xs text-transfer">swept</span>
             )}
@@ -306,6 +332,14 @@ function CategoryRow({
         title="Undo Roll Forward"
         message="Are you sure you want to undo the rolled-forward balance?"
         loading={undoRollover.isPending}
+      />
+      <ConfirmModal
+        open={undoCoverId !== null}
+        onClose={() => setUndoCoverId(null)}
+        onConfirm={() => { if (undoCoverId !== null) undoCover.mutate(undoCoverId) }}
+        title="Undo Category Cover"
+        message="Undo this category cover? The source balance and covered category balance will be restored."
+        loading={undoCover.isPending}
       />
 
       <CategoryModal

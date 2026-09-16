@@ -732,4 +732,26 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({ ok: true })
   })
+
+  app.delete('/api/budget/cover/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const transactionId = parseInt(id, 10)
+    if (isNaN(transactionId)) return reply.code(400).send({ error: 'Invalid cover id' })
+
+    const db = getDb()
+    const cover = db
+      .prepare(
+        `SELECT id, transfer_pair_id, category_id, amount
+         FROM transactions
+         WHERE id = ? AND type = 'cover' AND amount < 0`,
+      )
+      .get(transactionId) as { id: number; transfer_pair_id: number | null; category_id: number | null; amount: number } | undefined
+
+    if (!cover || !cover.transfer_pair_id || cover.category_id === null) {
+      return reply.code(404).send({ error: 'Category cover not found' })
+    }
+
+    db.prepare('DELETE FROM transactions WHERE id IN (?, ?)').run(transactionId, cover.transfer_pair_id)
+    return reply.send({ ok: true })
+  })
 }
