@@ -252,7 +252,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
         <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
 
-        {!isDebtGroup && !isInvestmentGroup && (
+        {!isDebtGroup && (
           <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
             <div>
               <div className="text-sm font-medium text-primary">Hidden category</div>
