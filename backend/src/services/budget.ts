@@ -432,6 +432,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
   // --- Batch: fetch rollovers (balance rolled forward from/to this period) ---
   const rolledInMap = new Map<number, number>()
   const rolledOutMap = new Map<number, number>()
+  const rolledOutBalanceMap = new Map<number, number>()
   const rolloverIdOutMap = new Map<number, number>()
   for (const { start, end, ids } of spentByPeriodKey.values()) {
     const ph = ids.map(() => '?').join(',')
@@ -447,14 +448,17 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
     const outRows = db
       .prepare(
-        `SELECT category_id, COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total, MIN(id) AS rollover_id
+        `SELECT category_id, COALESCE(SUM(amount), 0) AS signed_total,
+          COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total,
+          MIN(id) AS rollover_id
          FROM budget_rollovers
          WHERE category_id IN (${ph}) AND source_week_start >= ? AND source_week_start <= ?
          GROUP BY category_id`,
       )
-      .all(...ids, start, end) as Array<{ category_id: number; total: number; rollover_id: number }>
+      .all(...ids, start, end) as Array<{ category_id: number; signed_total: number; total: number; rollover_id: number }>
     for (const r of outRows) {
       rolledOutMap.set(r.category_id, r.total)
+      rolledOutBalanceMap.set(r.category_id, r.signed_total)
       rolloverIdOutMap.set(r.category_id, r.rollover_id)
     }
   }
@@ -526,8 +530,9 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
       const sweepIns = sweepInsMap.get(cat.id) ?? 0
       const rolledIn = rolledInMap.get(cat.id) ?? 0
       const rolledOut = rolledOutMap.get(cat.id) ?? 0
+      const rolledOutForBalance = rolledOutBalanceMap.get(cat.id) ?? 0
       const rolloverIdOut = rolloverIdOutMap.get(cat.id) ?? null
-      const balance = budgetedAmount - spent + covers - sweeps + sweepIns + rolledIn - rolledOut
+      const balance = budgetedAmount - spent + covers - sweeps + sweepIns + rolledIn - rolledOutForBalance
       const weekly = cat.catch_up
         ? catchUpWeeklyEquivalent(cat.id, budgetedAmount, period, weekStart)
         : weeklyEquivalent(budgetedAmount, period)
