@@ -4,6 +4,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Select } from '../ui/Input'
 import { formatMoney } from '../ui/AmountDisplay'
+import { CategoryCombobox } from '../ui/CategoryCombobox'
 import { budgetApi, BudgetCategory } from '../../api/budget'
 import { accountsApi, Account } from '../../api/accounts'
 
@@ -23,6 +24,7 @@ interface CoverModalProps {
   weekStart: string
   transactionalAccounts: Account[]
   sourceCategories: BudgetCategory[]
+  categoryGroups: Array<{ id: number; name: string }>
 }
 
 export function CoverModal({
@@ -33,6 +35,7 @@ export function CoverModal({
   weekStart,
   transactionalAccounts,
   sourceCategories,
+  categoryGroups,
 }: CoverModalProps) {
   const qc = useQueryClient()
   const { data: accounts } = useQuery({
@@ -203,18 +206,21 @@ export function CoverModal({
                     ))}
                   </Select>
                 ) : (
-                  <Select
-                    label="Category"
-                    value={row.categoryId}
-                    onChange={(e) => updateRow(row.id, { categoryId: Number(e.target.value) || '' })}
-                  >
-                    <option value="">Select category...</option>
-                    {sourceCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({formatMoney(c.balance)})
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-secondary uppercase tracking-wide">Category</label>
+                    <CategoryCombobox
+                      value={row.categoryId === '' ? '' : String(row.categoryId)}
+                      onChange={(value) => updateRow(row.id, { categoryId: Number(value) || '' })}
+                      categories={sourceCategories.map((sourceCategory) => ({
+                        id: sourceCategory.id,
+                        group_id: sourceCategory.groupId,
+                        name: sourceCategory.name,
+                      }))}
+                      groups={categoryGroups}
+                      placeholder="Select category..."
+                      balances={Object.fromEntries(sourceCategories.map((sourceCategory) => [sourceCategory.id, sourceCategory.balance]))}
+                    />
+                  </div>
                 )}
 
                 <Input

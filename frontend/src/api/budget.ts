@@ -2,6 +2,7 @@ import { api } from './client'
 
 export interface BudgetCategory {
   id: number
+  groupId: number
   name: string
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   budgetedAmount: number

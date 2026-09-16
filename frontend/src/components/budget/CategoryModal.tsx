@@ -338,6 +338,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
             sourceCategories={[]}
+            categoryGroups={[]}
           />
         )}
         {showSweepButton && fullCategory && transactionalAccounts && (

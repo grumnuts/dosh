@@ -540,6 +540,7 @@ export function getBudgetWeek(weekStart: string): BudgetWeekData {
 
       return {
         id: cat.id,
+        groupId: cat.group_id,
         name: cat.name,
         period,
         budgetedAmount,

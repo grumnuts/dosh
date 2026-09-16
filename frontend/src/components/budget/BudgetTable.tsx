@@ -131,6 +131,7 @@ type CategoryRowProps = {
   accounts: Account[]
   sourceCategories: BudgetCategory[]
   destinationCategories: BudgetCategory[]
+  categoryGroups: Array<{ id: number; name: string }>
   groupId: number
   groupName: string
   rowRef?: React.RefCallback<HTMLTableRowElement>
@@ -145,6 +146,7 @@ function CategoryRow({
   accounts,
   sourceCategories,
   destinationCategories,
+  categoryGroups,
   groupId,
   groupName,
   rowRef,
@@ -276,6 +278,7 @@ function CategoryRow({
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
           sourceCategories={sourceCategories.filter((sourceCat) => sourceCat.id !== cat.id && sourceCat.balance > 0)}
+          categoryGroups={categoryGroups}
         />
       )}
       {sweepOpen && (
@@ -346,6 +349,7 @@ type GroupSectionProps = {
   accounts: Account[]
   sourceCategories: BudgetCategory[]
   destinationCategories: BudgetCategory[]
+  categoryGroups: Array<{ id: number; name: string }>
   onAddCategory: (groupId: number, groupName: string) => void
   rowRef?: React.RefCallback<HTMLTableRowElement>
   rowStyle?: React.CSSProperties
@@ -360,6 +364,7 @@ function GroupSection({
   accounts,
   sourceCategories,
   destinationCategories,
+  categoryGroups,
   onAddCategory,
   rowRef,
   rowStyle,
@@ -471,6 +476,7 @@ function GroupSection({
                 accounts={accounts}
                 sourceCategories={sourceCategories}
                 destinationCategories={destinationCategories}
+                categoryGroups={categoryGroups}
                 groupId={group.id}
                 groupName={group.name}
               />
@@ -1035,6 +1041,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   const investmentGroups = data.investmentGroups ?? []
   const sourceCategories = data.groups.flatMap((group) => group.categories).filter((category) => category.balance > 0)
   const destinationCategories = data.groups.flatMap((group) => group.categories)
+  const categoryGroups = data.groups.map((group) => ({ id: group.id, name: group.name }))
   const hasSavingsOrInvestments = savingsGroups.length > 0 || investmentGroups.length > 0
   const queryClient = useQueryClient()
 
@@ -1108,6 +1115,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                       accounts={accounts}
                       sourceCategories={sourceCategories}
                       destinationCategories={destinationCategories}
+                      categoryGroups={categoryGroups}
                       onAddCategory={(groupId, groupName) =>
                         setAddCatState({ groupId, groupName, isIncome: false, isInvestment: false })
                       }
