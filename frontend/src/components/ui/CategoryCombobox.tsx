@@ -28,6 +28,7 @@ interface Props {
   onSplitClick?: () => void
   showClear?: boolean
   balances?: Record<number, number>
+  selectedCategory?: Category
 }
 
 export function CategoryCombobox({
@@ -43,6 +44,7 @@ export function CategoryCombobox({
   onSplitClick,
   showClear,
   balances,
+  selectedCategory: selectedCategoryOverride,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -52,7 +54,7 @@ export function CategoryCombobox({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const selectedCategory = categories.find((c) => String(c.id) === value)
+  const selectedCategory = categories.find((c) => String(c.id) === value) ?? selectedCategoryOverride
 
   useEffect(() => {
     if (!open) return

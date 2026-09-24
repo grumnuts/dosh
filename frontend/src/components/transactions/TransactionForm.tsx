@@ -382,6 +382,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
 
   const watchedCategoryId = watch('categoryId')
   const selectedCategory = categories?.find((c) => String(c.id) === watchedCategoryId)
+    ?? (isEdit && transaction?.category_id && transaction.category_name
+      ? { id: transaction.category_id, group_id: 0, name: transaction.category_name, period: 'weekly', is_investment: transaction.category_is_investment ?? 0, ticker: null }
+      : undefined)
   const isInvestmentCategory = Boolean(selectedCategory?.ticker || selectedCategory?.is_investment)
   // If the category has a ticker, it comes from the category — user only enters quantity
   const categoryTicker = selectedCategory?.ticker ?? null
@@ -596,6 +599,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
                 categories={categories ?? []}
                 groups={groups ?? []}
                 balances={balances}
+                selectedCategory={selectedCategory}
               />
             </div>
           )
