@@ -218,7 +218,7 @@ function CategoryRow({
               <span className="text-xs text-accent-dim">covered</span>
             )}
             {cat.coveringCategories.map((cover) => (
-              <span key={cover.transactionId} className="inline-flex items-center gap-1 text-xs text-transfer">
+              <span key={cover.transactionId} className="hidden sm:inline-flex items-center gap-1 text-xs text-transfer">
                 covering {cover.name}
                 {!isReadonly && (
                   <button
@@ -233,7 +233,7 @@ function CategoryRow({
               </span>
             ))}
             {cat.sweepingCategories.map((sweep) => (
-              <span key={sweep.transactionId} className="inline-flex items-center gap-1 text-xs text-transfer">
+              <span key={sweep.transactionId} className="hidden sm:inline-flex items-center gap-1 text-xs text-transfer">
                 swept to {sweep.name}
                 {!isReadonly && (
                   <button

@@ -936,7 +936,7 @@ export function getCategoryBalance(categoryId: number, weekStart: string): numbe
 
   const rolledInRow = db
     .prepare(
-      `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total
+      `SELECT COALESCE(SUM(amount), 0) as total
        FROM budget_rollovers
        WHERE category_id = ? AND dest_period_start >= ? AND dest_period_start <= ?`,
     )
