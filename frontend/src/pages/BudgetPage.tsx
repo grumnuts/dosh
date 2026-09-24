@@ -13,12 +13,14 @@ import { CategoryModal } from '../components/budget/CategoryModal'
 import { Modal } from '../components/ui/Modal'
 import { useSwipe } from '../hooks/useSwipe'
 import { useAuth } from '../hooks/useAuth'
+import { useLocalStorageBool } from '../hooks/useLocalStorageBool'
 
 export function BudgetPage() {
   const { isReadonly } = useAuth()
   const [fabOpen, setFabOpen] = useState(false)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
   const [groupPickerOpen, setGroupPickerOpen] = useState(false)
+  const [showHidden, setShowHidden] = useLocalStorageBool('dosh:budget-show-hidden-categories', false)
   const [addCatState, setAddCatState] = useState<{ groupId: number; groupName: string } | null>(null)
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
@@ -38,8 +40,8 @@ export function BudgetPage() {
   }, [goPrev])
 
   const { data: budgetData, isLoading, error } = useQuery({
-    queryKey: ['budget', weekStart],
-    queryFn: () => budgetApi.getWeek(weekStart),
+    queryKey: ['budget', weekStart, showHidden],
+    queryFn: () => budgetApi.getWeek(weekStart, showHidden),
   })
 
   const { data: accounts } = useQuery({
@@ -168,11 +170,37 @@ export function BudgetPage() {
 
       <div className="max-w-7xl mx-auto px-4 pt-4 pb-28 md:py-6 md:pb-6 md:space-y-5 md:px-6" {...swipe}>
         {/* Mobile title */}
-        <h1 className="md:hidden text-xl font-bold text-primary mb-3">Budget</h1>
+        <div className="md:hidden flex items-center justify-between mb-3">
+          <h1 className="text-xl font-bold text-primary">Budget</h1>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showHidden}
+            onClick={() => setShowHidden(!showHidden)}
+            className="flex items-center gap-2 text-xs text-secondary"
+          >
+            <span>Show hidden</span>
+            <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showHidden ? 'bg-accent' : 'bg-surface-3'}`}>
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showHidden ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </span>
+          </button>
+        </div>
 
         {/* Desktop header */}
         <div className="hidden md:flex flex-row items-center gap-3">
           <h1 className="text-xl font-bold text-primary flex-1">Budget</h1>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showHidden}
+            onClick={() => setShowHidden(!showHidden)}
+            className="flex items-center gap-2 text-xs text-secondary hover:text-primary transition-colors"
+          >
+            <span>Show hidden</span>
+            <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showHidden ? 'bg-accent' : 'bg-surface-3'}`}>
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showHidden ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </span>
+          </button>
           {weekNav}
         </div>
 

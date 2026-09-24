@@ -351,7 +351,7 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
 
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list(), enabled: open })
   const { data: payees = [] } = useQuery({ queryKey: ['payees'], queryFn: payeesApi.list, enabled: open })
-  const { data: categoriesRaw = [] } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories, enabled: open })
+  const { data: categoriesRaw = [] } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: () => budgetApi.getCategories(), enabled: open })
   const { data: budgetGroupsRaw = [] } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups, enabled: open })
 
   const categories = categoriesRaw as unknown as Array<{ id: number; group_id: number; name: string }>
@@ -447,10 +447,12 @@ export function RuleModal({ open, onClose, rule, defaultGroupId, groups }: Props
           <span className="text-xs font-medium text-secondary uppercase tracking-wide">Enabled</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={isEnabled}
             onClick={() => setIsEnabled((v) => !v)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isEnabled ? 'bg-accent' : 'bg-surface-3'}`}
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </button>
         </div>
 

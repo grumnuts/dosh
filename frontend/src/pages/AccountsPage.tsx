@@ -657,7 +657,7 @@ export function AccountsPage() {
     })
   }
 
-  const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories })
+  const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat', 'include-hidden'], queryFn: () => budgetApi.getCategories(true) })
   const { data: groups } = useQuery({ queryKey: ['budget', 'groups'], queryFn: budgetApi.getGroups })
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
@@ -1335,7 +1335,7 @@ export function AccountsPage() {
                           />
                         )
                       ) : (
-                        <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : tx.type === 'sweep' ? 'Sweep to savings' : 'Transfer'}</span>
+                        <span className="text-sm text-primary">{tx.type === 'cover' ? 'Cover transfer' : tx.type === 'sweep' ? 'Sweep' : 'Transfer'}</span>
                       )}
                     </td>
                     <td className="pl-2 pr-3 py-2.5 text-right whitespace-nowrap sm:w-auto sm:px-3">

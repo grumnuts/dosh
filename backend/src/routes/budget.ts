@@ -20,7 +20,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
       return reply.code(400).send({ error: 'Invalid weekStart format. Use YYYY-MM-DD' })
     }
-    return reply.send(getBudgetWeek(weekStart))
+      const query = request.query as { showHidden?: string }
+      return reply.send(getBudgetWeek(weekStart, query.showHidden === 'true'))
   })
 
   // --- Groups ---
@@ -150,12 +151,13 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // --- Categories ---
 
-  app.get('/api/budget/categories', { preHandler: authenticate }, async (_req, reply) => {
+  app.get('/api/budget/categories', { preHandler: authenticate }, async (request, reply) => {
+    const query = request.query as { includeHidden?: string }
     const db = getDb()
     const cats = db
       .prepare(
         `SELECT id, group_id, name, budgeted_amount, period, notes, sort_order, is_investment, ticker
-         FROM budget_categories WHERE is_active = 1 AND is_unlisted = 0 ORDER BY sort_order, name`,
+         FROM budget_categories WHERE is_active = 1 ${query.includeHidden === 'true' ? '' : 'AND is_unlisted = 0'} ORDER BY sort_order, name`,
       )
       .all()
     return reply.send(cats)
@@ -170,7 +172,9 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     sortOrder: z.number().int().optional(),
     catchUp: z.boolean().optional(),
     catchUpWeekStart: z.string().optional(),
+    effectiveWeekStart: z.string().date().optional(),
     isInvestment: z.boolean().optional().default(false),
+    isUnlisted: z.boolean().optional().default(false),
     ticker: z.string().max(20).toUpperCase().optional().nullable(),
   })
 
@@ -197,8 +201,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       : null
     const result = db
       .prepare(
-        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, catch_up_period_start, is_investment, ticker, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO budget_categories (group_id, name, budgeted_amount, period, notes, sort_order, catch_up, catch_up_period_start, is_investment, is_unlisted, ticker, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         body.data.groupId,
@@ -210,6 +214,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         body.data.catchUp ? 1 : 0,
         catchUpPeriodStart,
         ticker !== null ? 1 : (body.data.isInvestment ? 1 : 0),
+        body.data.isUnlisted ? 1 : 0,
         ticker,
         now,
         now,
@@ -249,11 +254,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, name, group_id, budgeted_amount, period, is_unlisted, linked_account_id FROM budget_categories WHERE id = ? AND is_active = 1')
-      .get(id) as { id: number; name: string; group_id: number; budgeted_amount: number; period: string; is_unlisted: number; linked_account_id: number | null } | undefined
+      .prepare('SELECT id, name, group_id, budgeted_amount, period, is_system, linked_account_id FROM budget_categories WHERE id = ? AND is_active = 1')
+      .get(id) as { id: number; name: string; group_id: number; budgeted_amount: number; period: string; is_system: number; linked_account_id: number | null } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Category not found' })
-    if (existing.is_unlisted) return reply.code(400).send({ error: 'System categories cannot be edited' })
+    if (existing.is_system) return reply.code(400).send({ error: 'System categories cannot be edited' })
 
     // Debt categories: prevent moving to another group or renaming (name is controlled by account)
     if (existing.linked_account_id !== null) {
@@ -275,7 +280,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     db.prepare(
       `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
        notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, catch_up_period_start = ?,
-       is_investment = ?, ticker = ?, updated_at = ?
+       is_investment = ?, is_unlisted = ?, ticker = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       body.data.groupId,
@@ -287,13 +292,20 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       body.data.catchUp ? 1 : 0,
       catchUpPeriodStartUpdate,
       tickerToSave !== null ? 1 : (body.data.isInvestment ? 1 : 0),
+      body.data.isUnlisted ? 1 : 0,
       tickerToSave,
       new Date().toISOString(),
       id,
     )
 
     if (amountChanged) {
-      recordBudgetChange(parseInt(id, 10), body.data.budgetedAmount, body.data.period, request.user!.id)
+      recordBudgetChange(
+        parseInt(id, 10),
+        body.data.budgetedAmount,
+        body.data.period,
+        request.user!.id,
+        body.data.effectiveWeekStart,
+      )
 
       logAudit({
         userId: request.user!.id,
@@ -356,21 +368,36 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   // --- Cover Overspend ---
 
   app.post('/api/budget/cover', { preHandler: authenticate }, async (request, reply) => {
+    const sourceSchema = z.object({
+      kind: z.enum(['account', 'category']),
+      amount: z.number().int().positive(),
+      accountId: z.number().int().optional(),
+      categoryId: z.number().int().optional(),
+    }).refine((value) => {
+      if (value.kind === 'account') return value.accountId !== undefined
+      return value.categoryId !== undefined
+    }, { message: 'Account or category source is required' })
+
     const body = z
       .object({
         categoryId: z.number().int(),
         weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        sourceAccountId: z.number().int(),
+        sourceAccountId: z.number().int().optional(),
         destinationAccountId: z.number().int(),
         amount: z.number().int().positive().optional(),
+        sources: z.array(sourceSchema).optional(),
       })
+      .refine((value) => {
+        if (Array.isArray(value.sources) && value.sources.length > 0) return true
+        return value.sourceAccountId !== undefined
+      }, { message: 'At least one source is required' })
       .safeParse(request.body)
 
     if (!body.success) {
       return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
     }
 
-    const { categoryId, weekStart, sourceAccountId, destinationAccountId } = body.data
+    const { categoryId, weekStart, destinationAccountId } = body.data
     const db = getDb()
 
     const overspendAmount = getCategoryOverspendAmount(categoryId, weekStart)
@@ -378,15 +405,19 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Category is not overspent' })
     }
 
-    const coverAmount = body.data.amount && body.data.amount <= overspendAmount
-      ? body.data.amount
-      : overspendAmount
+    type CoverSource =
+      | { kind: 'account'; accountId: number; amount: number }
+      | { kind: 'category'; categoryId: number; amount: number }
+    const legacySourceAccountId = body.data.sourceAccountId
+    const sources: CoverSource[] = body.data.sources && body.data.sources.length > 0
+      ? body.data.sources.map((source) => source.kind === 'account'
+        ? { kind: 'account', accountId: source.accountId!, amount: source.amount }
+        : { kind: 'category', categoryId: source.categoryId!, amount: source.amount })
+      : [{ kind: 'account', accountId: legacySourceAccountId!, amount: body.data.amount ?? overspendAmount }]
 
-    const sourceAccount = db
-      .prepare("SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND type = 'savings'")
-      .get(sourceAccountId) as { id: number; name: string } | undefined
-    if (!sourceAccount) {
-      return reply.code(400).send({ error: 'Source savings account not found' })
+    const totalCovered = sources.reduce((sum, source) => sum + source.amount, 0)
+    if (totalCovered > overspendAmount) {
+      return reply.code(400).send({ error: 'Cover amount exceeds the category overspend' })
     }
 
     const destAccount = db
@@ -406,28 +437,64 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const payee = 'Cover Overspend'
     const description = `Cover overspend: ${cat.name}`
 
-    // Debit from savings (negative amount)
-    const debitResult = db
-      .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'cover', ?, ?, ?, ?)`,
-      )
-      .run(today, sourceAccountId, payee, description, -coverAmount, categoryId, weekStart, now, now, request.user!.id)
+    const insertedSourceDetails: Array<{ type: 'account' | 'category'; id: number; name: string; amount: number }> = []
+    const insertCoverLeg = (accountId: number, categoryIdForTransaction: number | null, amount: number) => {
+      const result = db
+        .prepare(
+          `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, 'cover', ?, ?, ?, ?)`,
+        )
+        .run(today, accountId, payee, description, amount, categoryIdForTransaction, weekStart, now, now, request.user!.id)
+      return result.lastInsertRowid as number
+    }
 
-    const debitId = debitResult.lastInsertRowid as number
+    for (const source of sources) {
+      if (source.kind === 'account') {
+        const sourceAccountId = source.accountId!
+        const sourceAccount = db
+          .prepare(`SELECT a.id, a.name, a.starting_balance + COALESCE(SUM(t.amount), 0) AS current_balance
+                    FROM accounts a
+                    LEFT JOIN transactions t ON t.account_id = a.id
+                    WHERE a.id = ? AND a.is_active = 1
+                    GROUP BY a.id`)
+          .get(sourceAccountId) as { id: number; name: string; current_balance: number } | undefined
 
-    // Credit to spending (positive amount)
-    const creditResult = db
-      .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, transfer_pair_id, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'cover', ?, ?, ?, ?, ?)`,
-      )
-      .run(today, destinationAccountId, payee, description, coverAmount, categoryId, weekStart, debitId, now, now, request.user!.id)
+        if (!sourceAccount) {
+          return reply.code(400).send({ error: 'Source savings account not found' })
+        }
+        if (source.amount > sourceAccount.current_balance) {
+          return reply.code(400).send({ error: `Source account ${sourceAccount.name} does not have enough balance to cover that amount` })
+        }
 
-    const creditId = creditResult.lastInsertRowid as number
+        const debitId = insertCoverLeg(sourceAccountId, categoryId, -source.amount)
+        const creditId = insertCoverLeg(destinationAccountId, categoryId, source.amount)
+        db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(creditId, debitId)
+        insertedSourceDetails.push({ type: 'account', id: sourceAccountId, name: sourceAccount.name, amount: source.amount })
+        continue
+      }
 
-    // Link the debit back to the credit
-    db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(creditId, debitId)
+      if (source.kind !== 'category') continue
+      const sourceCategoryId = source.categoryId!
+      const sourceCategory = db
+        .prepare('SELECT id, name FROM budget_categories WHERE id = ? AND is_active = 1')
+        .get(sourceCategoryId) as { id: number; name: string } | undefined
+      if (!sourceCategory) {
+        return reply.code(400).send({ error: 'Source category not found' })
+      }
+      if (sourceCategoryId === categoryId) {
+        return reply.code(400).send({ error: 'A category cannot cover itself' })
+      }
+
+      const sourceAvailable = getCategoryBalance(sourceCategoryId, weekStart)
+      if (sourceAvailable <= 0 || source.amount > sourceAvailable) {
+        return reply.code(400).send({ error: `Category ${sourceCategory.name} does not have enough remaining balance to cover that amount` })
+      }
+
+      const debitId = insertCoverLeg(destinationAccountId, sourceCategoryId, -source.amount)
+      const creditId = insertCoverLeg(destinationAccountId, categoryId, source.amount)
+      db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(creditId, debitId)
+      insertedSourceDetails.push({ type: 'category', id: sourceCategoryId, name: sourceCategory.name, amount: source.amount })
+    }
 
     logAudit({
       userId: request.user!.id,
@@ -438,8 +505,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       details: {
         categoryName: cat.name,
         weekStart,
-        amount: overspendAmount,
-        sourceAccount: sourceAccount.name,
+        amount: totalCovered,
+        sourceDetails: insertedSourceDetails,
         destinationAccount: destAccount.name,
       },
       ipAddress: request.ip,
@@ -447,9 +514,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({
       ok: true,
-      debitTransactionId: debitId,
-      creditTransactionId: creditId,
-      amount: overspendAmount,
+      amount: totalCovered,
+      sourceDetails: insertedSourceDetails,
     })
   })
 
@@ -462,7 +528,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         amount: z.number().int().positive(),
         sourceAccountId: z.number().int(),
-        destinationAccountId: z.number().int(),
+        destinations: z.array(z.object({
+          kind: z.enum(['account', 'category']),
+          id: z.number().int(),
+          amount: z.number().int().positive(),
+        })).min(1),
       })
       .safeParse(request.body)
 
@@ -470,8 +540,12 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Invalid input', issues: body.error.issues })
     }
 
-    const { categoryId, weekStart, amount: sweepAmount, sourceAccountId, destinationAccountId } = body.data
+    const { categoryId, weekStart, amount: sweepAmount, sourceAccountId, destinations } = body.data
     const db = getDb()
+
+    if (destinations.reduce((total, destination) => total + destination.amount, 0) !== sweepAmount) {
+      return reply.code(400).send({ error: 'Destination amounts must equal the sweep amount' })
+    }
 
     const availableBalance = getCategoryBalance(categoryId, weekStart)
     if (availableBalance <= 0) {
@@ -488,44 +562,60 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'Source account not found' })
     }
 
-    const destAccount = db
-      .prepare("SELECT id, name FROM accounts WHERE id = ? AND is_active = 1 AND type = 'savings'")
-      .get(destinationAccountId) as { id: number; name: string } | undefined
-    if (!destAccount) {
-      return reply.code(400).send({ error: 'Destination savings account not found' })
-    }
-
     const cat = db
       .prepare('SELECT name FROM budget_categories WHERE id = ?')
       .get(categoryId) as { name: string } | undefined
     if (!cat) return reply.code(404).send({ error: 'Category not found' })
 
+    const destinationDetails: Array<typeof destinations[number] & { name: string }> = []
+    for (const destination of destinations) {
+      if (destination.kind === 'account') {
+        const account = db
+          .prepare('SELECT id, name FROM accounts WHERE id = ? AND is_active = 1')
+          .get(destination.id) as { id: number; name: string } | undefined
+        if (!account) return reply.code(400).send({ error: 'Destination account not found' })
+        destinationDetails.push({ ...destination, name: account.name })
+        continue
+      }
+
+      if (destination.id === categoryId) {
+        return reply.code(400).send({ error: 'Cannot sweep into the source category' })
+      }
+      const destinationCategory = db
+        .prepare('SELECT id, name FROM budget_categories WHERE id = ? AND is_active = 1 AND is_unlisted = 0')
+        .get(destination.id) as { id: number; name: string } | undefined
+      if (!destinationCategory) return reply.code(400).send({ error: 'Destination category not found' })
+      destinationDetails.push({ ...destination, name: destinationCategory.name })
+    }
+
     const now = new Date().toISOString()
     const today = todayString()
-    const payee = 'Sweep to Savings'
+    const payee = 'Sweep'
     const description = `Sweep unspent: ${cat.name}`
 
-    // Debit from spending account (tagged to category — reduces balance)
-    const debitResult = db
-      .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'sweep', ?, ?, ?, ?)`,
-      )
-      .run(today, sourceAccountId, payee, description, -sweepAmount, categoryId, weekStart, now, now, request.user!.id)
+    const transactionIds: Array<{ debitTransactionId: number; creditTransactionId: number }> = []
+    for (const destination of destinationDetails) {
+      const debitResult = db
+        .prepare(
+          `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, 'sweep', ?, ?, ?, ?)`,
+        )
+        .run(today, sourceAccountId, payee, `${description} to ${destination.name}`, -destination.amount, categoryId, weekStart, now, now, request.user!.id)
 
-    const debitId = debitResult.lastInsertRowid as number
+      const debitId = debitResult.lastInsertRowid as number
+      const creditAccountId = destination.kind === 'account' ? destination.id : sourceAccountId
+      const creditCategoryId = destination.kind === 'category' ? destination.id : null
+      const creditResult = db
+        .prepare(
+          `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, transfer_pair_id, created_at, updated_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, 'sweep', ?, ?, ?, ?, ?)`,
+        )
+        .run(today, creditAccountId, payee, `${description} from ${cat.name}`, destination.amount, creditCategoryId, weekStart, debitId, now, now, request.user!.id)
 
-    // Credit to savings account (no category — just a money movement)
-    const creditResult = db
-      .prepare(
-        `INSERT INTO transactions (date, account_id, payee, description, amount, category_id, type, cover_week_start, transfer_pair_id, created_at, updated_at, created_by)
-         VALUES (?, ?, ?, ?, ?, NULL, 'sweep', ?, ?, ?, ?, ?)`,
-      )
-      .run(today, destinationAccountId, payee, description, sweepAmount, weekStart, debitId, now, now, request.user!.id)
-
-    const creditId = creditResult.lastInsertRowid as number
-
-    db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(creditId, debitId)
+      const creditId = creditResult.lastInsertRowid as number
+      db.prepare('UPDATE transactions SET transfer_pair_id = ? WHERE id = ?').run(creditId, debitId)
+      transactionIds.push({ debitTransactionId: debitId, creditTransactionId: creditId })
+    }
 
     logAudit({
       userId: request.user!.id,
@@ -538,15 +628,18 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
         weekStart,
         amount: sweepAmount,
         sourceAccount: sourceAccount.name,
-        destinationAccount: destAccount.name,
+        destinations: destinationDetails.map((destination) => ({
+          kind: destination.kind,
+          name: destination.name,
+          amount: destination.amount,
+        })),
       },
       ipAddress: request.ip,
     })
 
     return reply.send({
       ok: true,
-      debitTransactionId: debitId,
-      creditTransactionId: creditId,
+      transactions: transactionIds,
       amount: sweepAmount,
     })
   })
@@ -575,14 +668,15 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     if (!cat) return reply.code(404).send({ error: 'Category not found' })
 
     const balance = getCategoryBalance(categoryId, weekStart)
-    if (balance <= 0) {
-      return reply.code(400).send({ error: 'Category has no positive balance to roll forward' })
+    if (balance === 0) {
+      return reply.code(400).send({ error: 'Category has no balance to roll forward' })
     }
-    if (rollAmount > balance) {
-      return reply.code(400).send({ error: 'Roll amount exceeds available balance' })
+    if (rollAmount > Math.abs(balance)) {
+      return reply.code(400).send({ error: 'Roll amount exceeds the category balance' })
     }
 
     const destPeriodStart = getNextPeriodStart(weekStart, cat.period)
+    const signedAmount = balance < 0 ? -rollAmount : rollAmount
     const now = new Date().toISOString()
 
     let result
@@ -592,7 +686,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
           `INSERT INTO budget_rollovers (category_id, source_week_start, dest_period_start, amount, created_at, created_by)
            VALUES (?, ?, ?, ?, ?, ?)`,
         )
-        .run(categoryId, weekStart, destPeriodStart, rollAmount, now, request.user!.id)
+        .run(categoryId, weekStart, destPeriodStart, signedAmount, now, request.user!.id)
     } catch {
       return reply.code(409).send({ error: 'A rollover already exists for this category and period' })
     }
@@ -603,11 +697,11 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       eventType: 'budget.balance_rolled_forward',
       entityType: 'budget_category',
       entityId: categoryId,
-      details: { categoryName: cat.name, weekStart, destPeriodStart, amount: rollAmount },
+      details: { categoryName: cat.name, weekStart, destPeriodStart, amount: signedAmount },
       ipAddress: request.ip,
     })
 
-    return reply.send({ ok: true, id: result.lastInsertRowid, amount: rollAmount, destPeriodStart })
+    return reply.send({ ok: true, id: result.lastInsertRowid, amount: signedAmount, destPeriodStart })
   })
 
   app.delete('/api/budget/rollover/:id', { preHandler: authenticate }, async (request, reply) => {
@@ -638,6 +732,57 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       ipAddress: request.ip,
     })
 
+    return reply.send({ ok: true })
+  })
+
+  app.delete('/api/budget/cover/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const transactionId = parseInt(id, 10)
+    if (isNaN(transactionId)) return reply.code(400).send({ error: 'Invalid cover id' })
+
+    const db = getDb()
+    const cover = db
+      .prepare(
+        `SELECT id, transfer_pair_id, category_id, amount
+         FROM transactions
+         WHERE id = ? AND type = 'cover' AND amount < 0`,
+      )
+      .get(transactionId) as { id: number; transfer_pair_id: number | null; category_id: number | null; amount: number } | undefined
+
+    if (!cover || !cover.transfer_pair_id || cover.category_id === null) {
+      return reply.code(404).send({ error: 'Category cover not found' })
+    }
+
+    db.prepare('DELETE FROM transactions WHERE id IN (?, ?)').run(transactionId, cover.transfer_pair_id)
+    return reply.send({ ok: true })
+  })
+
+  app.delete('/api/budget/sweep/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const transactionId = parseInt(id, 10)
+    if (isNaN(transactionId)) return reply.code(400).send({ error: 'Invalid sweep id' })
+
+    const db = getDb()
+    const sweep = db
+      .prepare(
+        `SELECT id, transfer_pair_id, category_id, amount
+         FROM transactions
+         WHERE id = ? AND type = 'sweep' AND amount < 0`,
+      )
+      .get(transactionId) as { id: number; transfer_pair_id: number | null; category_id: number | null; amount: number } | undefined
+
+    if (!sweep || !sweep.transfer_pair_id || sweep.category_id === null) {
+      return reply.code(404).send({ error: 'Category sweep not found' })
+    }
+
+    const paired = db
+      .prepare('SELECT category_id, account_id FROM transactions WHERE id = ? AND type = \'sweep\'')
+      .get(sweep.transfer_pair_id) as { category_id: number | null; account_id: number } | undefined
+    if (!paired || paired.category_id === null || paired.account_id !== (db.prepare('SELECT account_id FROM transactions WHERE id = ?').get(transactionId) as { account_id: number }).account_id) {
+      return reply.code(404).send({ error: 'Category sweep not found' })
+    }
+
+    db.prepare('DELETE FROM transactions WHERE id IN (?, ?)').run(transactionId, sweep.transfer_pair_id)
     return reply.send({ ok: true })
   })
 }

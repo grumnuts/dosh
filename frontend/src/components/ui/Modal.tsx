@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 interface ModalProps {
@@ -10,6 +10,9 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }: ModalProps) {
+  const interactionStartedInDialog = useRef(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -40,8 +43,12 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onMouseDownCapture={(e) => {
+        interactionStartedInDialog.current = dialogRef.current?.contains(e.target as Node) ?? false
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget && !interactionStartedInDialog.current) onClose()
+        interactionStartedInDialog.current = false
       }}
     >
       {/* Backdrop */}
@@ -49,6 +56,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
 
       {/* Dialog */}
       <div
+        ref={dialogRef}
         className={`relative w-full ${maxWidth} bg-surface border border-border rounded-xl shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)]`}
         role="dialog"
         aria-modal="true"

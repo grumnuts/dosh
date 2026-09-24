@@ -4,6 +4,18 @@
 
 ---
 
+## v1.16.4 — 2026-09-25
+
+### Bug Fixes
+- Budget: overspending rolled into the next period is now deducted from that period instead of being treated as additional available balance.
+- Transactions: hidden categories remain visible when editing an existing transaction while staying excluded from category choices.
+- Transactions: Safari keyboard navigation now moves from Amount to Category and opens the category search automatically.
+- UI: selecting text beyond a modal boundary no longer closes the modal.
+
+### Enhancements
+- Budget: cover overspend defaults to an account source with the full overspent amount prefilled, preferring savings accounts.
+- Budget: verbose covering and sweep tags are hidden on mobile so balances remain visible.
+
 ## v1.16.3 — 2026-06-16
 
 ### Bug Fixes

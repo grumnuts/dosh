@@ -19,6 +19,7 @@ const schema = z.object({
   budgetedAmount: z.string().refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) >= 0, 'Must be a positive number'),
   period: z.enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'annually']),
   notes: z.string().optional(),
+  isUnlisted: z.boolean().optional().default(false),
 })
 
 type FormData = z.infer<typeof schema>
@@ -32,6 +33,7 @@ interface CategoryProp {
   notes: string | null
   catchUp: boolean
   isInvestment: boolean
+  isUnlisted?: boolean
   isOverspent?: boolean
 }
 
@@ -79,7 +81,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
     isIncomeGroup ? g.is_income === 1 : (g.is_income === 0 && g.is_debt === 0 && g.is_savings === 0 && g.is_investments === 0)
   ) ?? []
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -87,6 +89,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       budgetedAmount: '0.00',
       period: 'weekly',
       notes: '',
+      isUnlisted: false,
     },
   })
 
@@ -108,8 +111,8 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
   const showCoverButton = isEdit && category?.isOverspent && !!fullCategory && !!transactionalAccounts?.length
   const showSweepButton = isEdit && !category?.isOverspent && !!fullCategory && (fullCategory.balance > 0) && !!transactionalAccounts?.length
-  const isRolledOut = !!(fullCategory?.rolledOut && fullCategory.rolledOut > 0)
-  const showRollForwardButton = isEdit && !category?.isOverspent && !!fullCategory && fullCategory.balance > 0 && !isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
+  const isRolledOut = fullCategory?.rolloverIdOut !== null && fullCategory?.rolloverIdOut !== undefined
+  const showRollForwardButton = isEdit && !!fullCategory && fullCategory.balance !== 0 && !isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
   const showUndoRollButton = isEdit && isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
 
   useEffect(() => {
@@ -123,10 +126,11 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           budgetedAmount: (category.budgetedAmount / 100).toFixed(2),
           period: category.period,
           notes: category.notes ?? '',
+          isUnlisted: !!category.isUnlisted,
         })
       } else {
         setCatchUp(false)
-        reset({ name: '', ticker: '', budgetedAmount: '0.00', period: 'weekly', notes: '' })
+        reset({ name: '', ticker: '', budgetedAmount: '0.00', period: 'weekly', notes: '', isUnlisted: false })
       }
     }
   }, [open, category, groupId, reset])
@@ -162,7 +166,9 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       notes: data.notes || null,
       catchUp,
       catchUpWeekStart: catchUp ? weekStart : undefined,
+      effectiveWeekStart: isEdit ? weekStart : undefined,
       isInvestment: !!isInvestmentGroup,
+      isUnlisted: !!data.isUnlisted,
       ticker: isInvestmentGroup ? (data.ticker?.toUpperCase().trim() || null) : null,
     })
   }
@@ -246,6 +252,26 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
         <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
 
+        {!isDebtGroup && (
+          <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
+            <div>
+              <div className="text-sm font-medium text-primary">Hidden category</div>
+              <p className="text-xs text-muted mt-0.5 leading-relaxed">
+                Hide it from the budget page and from new transaction category dropdowns while keeping its history visible in reports.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={watch('isUnlisted')}
+              onClick={() => setValue('isUnlisted', !watch('isUnlisted'))}
+              className={`relative shrink-0 mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none ${watch('isUnlisted') ? 'bg-accent' : 'bg-surface-3'}`}
+            >
+              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${watch('isUnlisted') ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        )}
+
         {mutation.isError && (
           <p className="text-sm text-danger">{(mutation.error as Error).message}</p>
         )}
@@ -311,6 +337,8 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
+            sourceCategories={[]}
+            categoryGroups={[]}
           />
         )}
         {showSweepButton && fullCategory && transactionalAccounts && (
@@ -321,6 +349,8 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             category={fullCategory}
             weekStart={weekStart}
             transactionalAccounts={transactionalAccounts}
+            destinationCategories={[]}
+            categoryGroups={[]}
           />
         )}
         {showRollForwardButton && fullCategory && (

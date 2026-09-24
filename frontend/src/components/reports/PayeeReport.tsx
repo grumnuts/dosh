@@ -34,7 +34,7 @@ export function PayeeReport({ year }: Props) {
 
   const payees = useMemo(() => {
     if (!data) return []
-    return Array.from(new Set(data.map((r) => r.payee))).sort()
+    return Array.from(new Set(data.map((r) => r.payee))).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [data])
 
   const filtered = useMemo(

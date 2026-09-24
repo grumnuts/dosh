@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, CSSProperties } from 'react'
+import { useState, useRef, useEffect, CSSProperties, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { formatMoney } from './AmountDisplay'
 
@@ -28,6 +28,8 @@ interface Props {
   onSplitClick?: () => void
   showClear?: boolean
   balances?: Record<number, number>
+  selectedCategory?: Category
+  triggerRef?: RefObject<HTMLButtonElement>
 }
 
 export function CategoryCombobox({
@@ -43,16 +45,19 @@ export function CategoryCombobox({
   onSplitClick,
   showClear,
   balances,
+  selectedCategory: selectedCategoryOverride,
+  triggerRef: triggerRefOverride,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({})
   const containerRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const internalTriggerRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = triggerRefOverride ?? internalTriggerRef
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const selectedCategory = categories.find((c) => String(c.id) === value)
+  const selectedCategory = categories.find((c) => String(c.id) === value) ?? selectedCategoryOverride
 
   useEffect(() => {
     if (!open) return
@@ -186,7 +191,14 @@ export function CategoryCombobox({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      <button ref={triggerRef} type="button" className={`${triggerClass} ${showClear && value ? 'pr-7' : ''}`} onClick={() => setOpen((o) => !o)}>
+      <button
+        ref={triggerRef}
+        type="button"
+        tabIndex={0}
+        className={`${triggerClass} ${showClear && value ? 'pr-7' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        onFocus={() => setOpen(true)}
+      >
         {selectedCategory?.name ?? placeholder}
       </button>
       {showClear && value && (
