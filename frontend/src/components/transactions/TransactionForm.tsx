@@ -174,6 +174,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   const [splits, setSplits] = useState<SplitRow[]>(blankSplits())
   const [splitError, setSplitError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const categoryTriggerRef = useRef<HTMLButtonElement>(null)
 
   const txType = watch('type')
   const amountStr = watch('amount')
@@ -469,6 +470,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           min="0.01"
           placeholder="0.00"
           {...register('amount')}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab' && !e.shiftKey && !isCover && canSplit && !isSplit && !(isEdit && !!transaction?.category_is_unlisted)) {
+              e.preventDefault()
+              categoryTriggerRef.current?.focus()
+            }
+          }}
           error={errors.amount?.message}
           disabled={isCover}
         />
@@ -600,6 +607,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
                 groups={groups ?? []}
                 balances={balances}
                 selectedCategory={selectedCategory}
+                triggerRef={categoryTriggerRef}
               />
             </div>
           )

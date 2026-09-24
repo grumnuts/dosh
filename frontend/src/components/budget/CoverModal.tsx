@@ -48,22 +48,22 @@ export function CoverModal({
   const overspendAmount = Math.abs(category.balance)
   const [destAccountId, setDestAccountId] = useState<number | ''>(transactionalAccounts[0]?.id ?? '')
   const [rows, setRows] = useState<CoverSourceRow[]>(() => {
-    const initialKind = sourceCategories.length > 0 ? 'category' : 'account'
-    const initialCategory = sourceCategories[0]
-    const initialAccount = availableAccounts[0]
+    const initialKind = 'account'
+    const initialAccount = availableAccounts.find((account) => account.type === 'savings') ?? availableAccounts[0]
 
     return [{
       id: `source-${Date.now()}`,
       kind: initialKind,
       accountId: initialKind === 'account' ? (initialAccount?.id ?? '') : '',
-      categoryId: initialKind === 'category' ? (initialCategory?.id ?? '') : '',
-      amountStr: (Math.min(overspendAmount, initialKind === 'category' ? (initialCategory?.balance ?? overspendAmount) : (initialAccount?.currentBalance ?? overspendAmount)) / 100).toFixed(2),
+      categoryId: '',
+      amountStr: (overspendAmount / 100).toFixed(2),
     }]
   })
 
   const addSourceRow = () => {
     const categoryOption = sourceCategories.find((c) => !rows.some((row) => row.kind === 'category' && row.categoryId === c.id))
-    const accountOption = availableAccounts.find((a) => !rows.some((row) => row.kind === 'account' && row.accountId === a.id))
+    const accountOption = availableAccounts.find((a) => a.type === 'savings' && !rows.some((row) => row.kind === 'account' && row.accountId === a.id))
+      ?? availableAccounts.find((a) => !rows.some((row) => row.kind === 'account' && row.accountId === a.id))
 
     const nextKind = categoryOption ? 'category' : 'account'
     setRows((current) => [
@@ -185,7 +185,9 @@ export function CoverModal({
                   onChange={(e) => {
                     const nextKind = e.target.value as 'account' | 'category'
                     const nextAccount = nextKind === 'account'
-                      ? (availableAccounts.find((a) => !rows.some((r) => r.id !== row.id && r.kind === 'account' && r.accountId === a.id))?.id ?? '')
+                      ? (availableAccounts.find((a) => a.type === 'savings' && !rows.some((r) => r.id !== row.id && r.kind === 'account' && r.accountId === a.id))?.id
+                        ?? availableAccounts.find((a) => !rows.some((r) => r.id !== row.id && r.kind === 'account' && r.accountId === a.id))?.id
+                        ?? '')
                       : ''
                     const nextCategory = nextKind === 'category'
                       ? (sourceCategories.find((c) => !rows.some((r) => r.id !== row.id && r.kind === 'category' && r.categoryId === c.id))?.id ?? '')
