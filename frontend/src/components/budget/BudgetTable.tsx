@@ -914,9 +914,10 @@ function SortableIncomeGroupSection(props: Omit<IncomeGroupSectionProps, 'rowRef
 
 type SavingsGroupSectionProps = {
   group: SavingsGroup
+  weekStart: string
 }
 
-function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
+function SavingsGroupSection({ group, weekStart }: SavingsGroupSectionProps) {
   const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:savings-group:${group.id}`, false)
   const [editCat, setEditCat] = useState<SavingsCategory | null>(null)
@@ -988,6 +989,7 @@ function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
           onClose={() => setEditCat(null)}
           groupId={group.id}
           groupName={group.name}
+          weekStart={weekStart}
           isDebtGroup
           category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
         />
@@ -1262,7 +1264,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
               </thead>
               <tbody>
                 {savingsGroups.map((group) => (
-                  <SavingsGroupSection key={group.id} group={group} />
+                  <SavingsGroupSection key={group.id} group={group} weekStart={data.weekStart} />
                 ))}
                 {investmentGroups.map((group) => (
                   <InvestmentGroupSection
