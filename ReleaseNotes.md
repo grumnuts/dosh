@@ -16,6 +16,7 @@
 ### Enhancements
 - Budget: cover overspend defaults to an account source with the full overspent amount prefilled, preferring savings accounts.
 - Budget: verbose covering and sweep tags are hidden on mobile so balances remain visible.
+- Budget: category balances show grey at exactly $0.00 and orange when below 20% of the budgeted amount remains.
 
 ## v1.16.3 — 2026-06-16
 
