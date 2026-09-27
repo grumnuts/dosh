@@ -10,6 +10,7 @@
 - Budget: overspending rolled into the next period is now deducted from that period instead of being treated as additional available balance.
 - Transactions: hidden categories remain visible when editing an existing transaction while staying excluded from category choices.
 - Transactions: Safari keyboard navigation now moves from Amount to Category and opens the category search automatically.
+- Transactions: clicking the category field no longer immediately closes the dropdown it just opened.
 - UI: selecting text beyond a modal boundary no longer closes the modal.
 
 ### Enhancements
