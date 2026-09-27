@@ -273,9 +273,11 @@ function CategoryRow({
           <span className={
             cat.isOverspent
               ? 'text-danger font-semibold'
-              : cat.budgetedAmount > 0 && cat.balance < cat.budgetedAmount * 0.1
-                ? 'text-orange-400'
-                : 'text-primary'
+              : cat.balance === 0
+                ? 'text-muted'
+                : cat.budgetedAmount > 0 && cat.balance < cat.budgetedAmount * 0.2
+                  ? 'text-orange-400'
+                  : 'text-primary'
           }>
             {formatMoney(cat.balance)}
           </span>
