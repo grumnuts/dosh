@@ -45,6 +45,7 @@ interface Props {
   weekStart?: string
   isIncomeGroup?: boolean
   isAccountLinkedCategory?: boolean
+  linkedAccountType?: 'debt' | 'savings'
   isInvestmentGroup?: boolean
   category?: CategoryProp | null
   fullCategory?: BudgetCategory
@@ -67,7 +68,7 @@ function getPeriodStart(weekStart: string, period: string): string {
   }
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isAccountLinkedCategory, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isAccountLinkedCategory, linkedAccountType, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
   const [selectedGroupId, setSelectedGroupId] = useState(groupId)
@@ -182,7 +183,11 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
           <div>
             <p className="text-xs text-muted mb-1">Name</p>
             <p className="text-sm text-primary">{category?.name}</p>
-            <p className="text-xs text-muted mt-1">Name is controlled by the linked account.</p>
+            <p className="text-xs text-muted mt-1">
+              {linkedAccountType
+                ? `Name is controlled by the linked ${linkedAccountType} account.`
+                : 'Name is controlled by the linked account.'}
+            </p>
           </div>
         ) : (
           <Input label="Name" {...register('name')} error={errors.name?.message} />

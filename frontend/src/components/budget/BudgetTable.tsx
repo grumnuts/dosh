@@ -752,6 +752,7 @@ function DebtGroupSection({ group, weekStart }: DebtGroupSectionProps) {
           groupName={group.name}
           weekStart={weekStart}
           isAccountLinkedCategory
+          linkedAccountType="debt"
           category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
         />
       )}
@@ -993,6 +994,7 @@ function SavingsGroupSection({ group, weekStart }: SavingsGroupSectionProps) {
           groupName={group.name}
           weekStart={weekStart}
           isAccountLinkedCategory
+          linkedAccountType="savings"
           category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
         />
       )}
