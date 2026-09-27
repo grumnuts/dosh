@@ -254,16 +254,36 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
     const db = getDb()
     const existing = db
-      .prepare('SELECT id, name, group_id, budgeted_amount, period, is_system, linked_account_id FROM budget_categories WHERE id = ? AND is_active = 1')
-      .get(id) as { id: number; name: string; group_id: number; budgeted_amount: number; period: string; is_system: number; linked_account_id: number | null } | undefined
+      .prepare(
+        `SELECT bc.id, bc.name, bc.group_id, bc.budgeted_amount, bc.period, bc.is_system,
+                bc.linked_account_id, bg.is_debt, bg.is_savings
+         FROM budget_categories bc
+         JOIN budget_groups bg ON bg.id = bc.group_id
+         WHERE bc.id = ? AND bc.is_active = 1`,
+      )
+      .get(id) as {
+        id: number
+        name: string
+        group_id: number
+        budgeted_amount: number
+        period: string
+        is_system: number
+        linked_account_id: number | null
+        is_debt: number
+        is_savings: number
+      } | undefined
 
     if (!existing) return reply.code(404).send({ error: 'Category not found' })
-    if (existing.is_system) return reply.code(400).send({ error: 'System categories cannot be edited' })
+    const isAccountBudgetCategory =
+      existing.linked_account_id !== null && (existing.is_debt === 1 || existing.is_savings === 1)
+    if (existing.is_system && !isAccountBudgetCategory) {
+      return reply.code(400).send({ error: 'System categories cannot be edited' })
+    }
 
-    // Debt categories: prevent moving to another group or renaming (name is controlled by account)
+    // Account-linked categories cannot be moved or renamed; their names are controlled by the account.
     if (existing.linked_account_id !== null) {
       if (body.data.groupId !== existing.group_id) {
-        return reply.code(400).send({ error: 'Debt payment categories cannot be moved to another group' })
+        return reply.code(400).send({ error: 'Account-linked categories cannot be moved to another group' })
       }
     }
 
@@ -277,26 +297,38 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const catchUpPeriodStartUpdate = body.data.catchUp && body.data.catchUpWeekStart
       ? computePeriodStart(body.data.catchUpWeekStart, body.data.period)
       : null
-    db.prepare(
-      `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
-       notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, catch_up_period_start = ?,
-       is_investment = ?, is_unlisted = ?, ticker = ?, updated_at = ?
-       WHERE id = ?`,
-    ).run(
-      body.data.groupId,
-      nameToSave,
-      body.data.budgetedAmount,
-      body.data.period,
-      body.data.notes ?? null,
-      body.data.sortOrder ?? null,
-      body.data.catchUp ? 1 : 0,
-      catchUpPeriodStartUpdate,
-      tickerToSave !== null ? 1 : (body.data.isInvestment ? 1 : 0),
-      body.data.isUnlisted ? 1 : 0,
-      tickerToSave,
-      new Date().toISOString(),
-      id,
-    )
+    if (isAccountBudgetCategory) {
+      db.prepare(
+        'UPDATE budget_categories SET budgeted_amount = ?, period = ?, notes = ?, updated_at = ? WHERE id = ?',
+      ).run(
+        body.data.budgetedAmount,
+        body.data.period,
+        body.data.notes ?? null,
+        new Date().toISOString(),
+        id,
+      )
+    } else {
+      db.prepare(
+        `UPDATE budget_categories SET group_id = ?, name = ?, budgeted_amount = ?, period = ?,
+         notes = ?, sort_order = COALESCE(?, sort_order), catch_up = ?, catch_up_period_start = ?,
+         is_investment = ?, is_unlisted = ?, ticker = ?, updated_at = ?
+         WHERE id = ?`,
+      ).run(
+        body.data.groupId,
+        nameToSave,
+        body.data.budgetedAmount,
+        body.data.period,
+        body.data.notes ?? null,
+        body.data.sortOrder ?? null,
+        body.data.catchUp ? 1 : 0,
+        catchUpPeriodStartUpdate,
+        tickerToSave !== null ? 1 : (body.data.isInvestment ? 1 : 0),
+        body.data.isUnlisted ? 1 : 0,
+        tickerToSave,
+        new Date().toISOString(),
+        id,
+      )
+    }
 
     if (amountChanged) {
       recordBudgetChange(

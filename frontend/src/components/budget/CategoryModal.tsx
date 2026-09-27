@@ -44,7 +44,7 @@ interface Props {
   groupName: string
   weekStart?: string
   isIncomeGroup?: boolean
-  isDebtGroup?: boolean
+  isAccountLinkedCategory?: boolean
   isInvestmentGroup?: boolean
   category?: CategoryProp | null
   fullCategory?: BudgetCategory
@@ -67,7 +67,7 @@ function getPeriodStart(weekStart: string, period: string): string {
   }
 }
 
-export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isDebtGroup, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
+export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '', isIncomeGroup, isAccountLinkedCategory, isInvestmentGroup, category, fullCategory, transactionalAccounts }: Props) {
   const qc = useQueryClient()
   const isEdit = !!category
   const [selectedGroupId, setSelectedGroupId] = useState(groupId)
@@ -75,7 +75,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const { data: allGroups } = useQuery({
     queryKey: ['budget-groups'],
     queryFn: budgetApi.getGroups,
-    enabled: isEdit && !isDebtGroup && !isInvestmentGroup,
+    enabled: isEdit && !isAccountLinkedCategory && !isInvestmentGroup,
   })
   const moveableGroups = allGroups?.filter((g) =>
     isIncomeGroup ? g.is_income === 1 : (g.is_income === 0 && g.is_debt === 0 && g.is_savings === 0 && g.is_investments === 0)
@@ -95,7 +95,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
   const selectedPeriod = watch('period')
   const isMidPeriod = getPeriodStart(weekStart, selectedPeriod) < weekStart
-  const showCatchupToggle = isMidPeriod && !isIncomeGroup
+  const showCatchupToggle = isMidPeriod && !isIncomeGroup && !isAccountLinkedCategory
 
   const [catchUp, setCatchUp] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -112,8 +112,8 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
   const showCoverButton = isEdit && category?.isOverspent && !!fullCategory && !!transactionalAccounts?.length
   const showSweepButton = isEdit && !category?.isOverspent && !!fullCategory && (fullCategory.balance > 0) && !!transactionalAccounts?.length
   const isRolledOut = fullCategory?.rolloverIdOut !== null && fullCategory?.rolloverIdOut !== undefined
-  const showRollForwardButton = isEdit && !!fullCategory && fullCategory.balance !== 0 && !isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
-  const showUndoRollButton = isEdit && isRolledOut && !isIncomeGroup && !isDebtGroup && !isInvestmentGroup
+  const showRollForwardButton = isEdit && !!fullCategory && fullCategory.balance !== 0 && !isRolledOut && !isIncomeGroup && !isAccountLinkedCategory && !isInvestmentGroup
+  const showUndoRollButton = isEdit && isRolledOut && !isIncomeGroup && !isAccountLinkedCategory && !isInvestmentGroup
 
   useEffect(() => {
     if (open) {
@@ -178,17 +178,17 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <p className="text-xs text-muted">Group: {groupName}</p>
 
-        {isDebtGroup ? (
+        {isAccountLinkedCategory ? (
           <div>
             <p className="text-xs text-muted mb-1">Name</p>
             <p className="text-sm text-primary">{category?.name}</p>
-            <p className="text-xs text-muted mt-1">Name is controlled by the linked debt account.</p>
+            <p className="text-xs text-muted mt-1">Name is controlled by the linked account.</p>
           </div>
         ) : (
           <Input label="Name" {...register('name')} error={errors.name?.message} />
         )}
 
-        {isEdit && !isDebtGroup && !isInvestmentGroup && moveableGroups.length > 1 && (
+        {isEdit && !isAccountLinkedCategory && !isInvestmentGroup && moveableGroups.length > 1 && (
           <Select
             label="Group"
             value={selectedGroupId}
@@ -252,7 +252,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
 
         <Textarea label="Notes (optional)" {...register('notes')} rows={2} />
 
-        {!isDebtGroup && (
+        {!isAccountLinkedCategory && (
           <div className="flex items-start justify-between gap-4 p-3 rounded-lg bg-surface-2 border border-border">
             <div>
               <div className="text-sm font-medium text-primary">Hidden category</div>
@@ -314,7 +314,7 @@ export function CategoryModal({ open, onClose, groupId, groupName, weekStart = '
             loading={undoRollover.isPending}
           />
           <div className="flex items-center gap-3 pt-2">
-            {isEdit && !isDebtGroup && (
+            {isEdit && !isAccountLinkedCategory && (
               <Button type="button" variant="danger" onClick={() => setConfirmDelete(true)}>
                 Delete
               </Button>

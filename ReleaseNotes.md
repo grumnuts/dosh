@@ -7,7 +7,7 @@
 ## v1.16.4 — 2026-09-25
 
 ### Bug Fixes
-- Budget: savings category budget changes now use the displayed budget week when recording the updated amount.
+- Budget: linked savings and debt categories now allow editing budget amounts, periods, and notes while keeping account-controlled fields protected; budget changes use the displayed week.
 - Budget: overspending rolled into the next period is now deducted from that period instead of being treated as additional available balance.
 - Transactions: hidden categories remain visible when editing an existing transaction while staying excluded from category choices.
 - Transactions: Safari keyboard navigation now moves from Amount to Category and opens the category search automatically.
