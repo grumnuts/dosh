@@ -56,6 +56,7 @@ export function CategoryCombobox({
   const triggerRef = triggerRefOverride ?? internalTriggerRef
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const isMouseInteractionRef = useRef(false)
 
   const selectedCategory = categories.find((c) => String(c.id) === value) ?? selectedCategoryOverride
 
@@ -196,8 +197,15 @@ export function CategoryCombobox({
         type="button"
         tabIndex={0}
         className={`${triggerClass} ${showClear && value ? 'pr-7' : ''}`}
-        onClick={() => setOpen((o) => !o)}
-        onFocus={() => setOpen(true)}
+        onMouseDown={() => { isMouseInteractionRef.current = true }}
+        onClick={() => {
+          setOpen((o) => !o)
+          isMouseInteractionRef.current = false
+        }}
+        onFocus={() => {
+          // Skip auto-open when focus is a byproduct of a click (onClick handles toggling instead)
+          if (!isMouseInteractionRef.current) setOpen(true)
+        }}
       >
         {selectedCategory?.name ?? placeholder}
       </button>
