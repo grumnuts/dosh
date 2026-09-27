@@ -274,7 +274,7 @@ function CategoryRow({
             cat.isOverspent
               ? 'text-danger font-semibold'
               : cat.balance === 0
-                ? 'text-muted'
+                ? 'text-secondary'
                 : cat.budgetedAmount > 0 && cat.balance < cat.budgetedAmount * 0.2
                   ? 'text-orange-400'
                   : 'text-primary'
