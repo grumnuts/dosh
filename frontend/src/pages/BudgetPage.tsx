@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, parseISO, addDays, getWeek } from 'date-fns'
+import { parseISO, addDays, getISOWeek, getISOWeekYear } from 'date-fns'
 import { useWeek } from '../hooks/useWeek'
 import { budgetApi } from '../api/budget'
 import { accountsApi } from '../api/accounts'
@@ -49,8 +49,8 @@ export function BudgetPage() {
 
   const parsedStart = weekStart ? parseISO(weekStart) : null
   const parsedEnd = parsedStart ? addDays(parsedStart, 6) : null
-  const weekNumber = parsedStart ? getWeek(parsedStart, { weekStartsOn }) : null
-  const weekYear = parsedStart ? format(parsedStart, 'yyyy') : ''
+  const weekNumber = parsedStart ? getISOWeek(parsedStart) : null
+  const weekYear = parsedStart ? String(getISOWeekYear(parsedStart)) : ''
   const weekRange = parsedStart && parsedEnd
     ? formatAppDateRange(parsedStart, parsedEnd, dateFormat)
     : ''

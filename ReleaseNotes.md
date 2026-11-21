@@ -4,6 +4,13 @@
 
 ---
 
+## v1.16.4 — 2026-11-21
+
+### Bug Fixes
+- Budget: week labels now use ISO week numbering and ISO week years.
+
+---
+
 ## v1.16.3 — 2026-06-16
 
 ### Bug Fixes
