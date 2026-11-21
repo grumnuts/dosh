@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, parseISO, addDays, getISOWeek, getISOWeekYear } from 'date-fns'
+import { parseISO, addDays, getISOWeek, getISOWeekYear } from 'date-fns'
 import { useWeek } from '../hooks/useWeek'
 import { budgetApi } from '../api/budget'
 import { accountsApi } from '../api/accounts'
