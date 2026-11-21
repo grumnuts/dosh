@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getWeek } from 'date-fns'
+import { getISOWeek } from 'date-fns'
 import {
   BarChart,
   Bar,
@@ -12,7 +12,6 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { reportsApi } from '../../api/reports'
-import { settingsApi } from '../../api/settings'
 import { formatMoney } from '../ui/AmountDisplay'
 import { Select } from '../ui/Input'
 import { useResizableCols, ResizeHandle } from '../../hooks/useResizableCols'
@@ -39,16 +38,14 @@ export function SpendingReport({ year }: Props) {
     queryKey: ['reports', 'spending', year],
     queryFn: () => reportsApi.spending(year),
   })
-  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
 
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.length === 0) return <div className="py-12 text-center text-secondary">No spending data for {year}.</div>
 
   const reportYear = parseInt(year, 10)
   const currentYear = new Date().getFullYear()
-  const weekStartsOn: 0 | 1 = settings?.week_start_day === '1' ? 1 : 0
   const weeklyAverageDivisor = reportYear === currentYear
-    ? Math.max(1, getWeek(new Date(), { weekStartsOn }))
+    ? Math.max(1, getISOWeek(new Date()))
     : reportYear < currentYear ? 52 : 1
 
   // Collect unique groups
