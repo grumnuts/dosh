@@ -108,7 +108,7 @@ export function RulesPage() {
   // Used for rule summaries in the list — read from cache populated by Budget/Accounts pages.
   // Not fetched here; the modal fetches them when it opens.
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list(), staleTime: 30_000, enabled: false })
-  const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: budgetApi.getCategories, staleTime: 30_000, enabled: false })
+  const { data: categories } = useQuery({ queryKey: ['budget', 'categories-flat'], queryFn: () => budgetApi.getCategories(), staleTime: 30_000, enabled: false })
 
   const lookup = useNameLookup(accounts, categories)
 
@@ -242,11 +242,13 @@ export function RulesPage() {
                     {/* Enabled toggle */}
                     <button
                       type="button"
+                      role="switch"
+                      aria-checked={rule.is_enabled}
                       onClick={(e) => { e.stopPropagation(); toggleRule.mutate(rule) }}
                       className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${rule.is_enabled ? 'bg-accent' : 'bg-surface-3'}`}
                       title={rule.is_enabled ? 'Disable rule' : 'Enable rule'}
                     >
-                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${rule.is_enabled ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${rule.is_enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </button>
 
                     <div className="flex-1 min-w-0">

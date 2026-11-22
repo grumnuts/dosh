@@ -57,11 +57,13 @@ function PayeeCombobox({
   onChange,
   payees,
   disabled,
+  optionLabel = 'Payees',
 }: {
   value: string
   onChange: (v: string) => void
   payees: { id: number; name: string }[]
   disabled?: boolean
+  optionLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -90,7 +92,7 @@ function PayeeCombobox({
         <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-surface-2 border border-border rounded-lg shadow-lg overflow-hidden">
           {filtered.length > 0 && (
             <>
-              <div className="px-3 pt-2 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">Payees</div>
+              <div className="px-3 pt-2 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">{optionLabel}</div>
               {filtered.map((p) => (
                 <button
                   key={p.id}
@@ -172,6 +174,7 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
   const [splits, setSplits] = useState<SplitRow[]>(blankSplits())
   const [splitError, setSplitError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const categoryTriggerRef = useRef<HTMLButtonElement>(null)
 
   const txType = watch('type')
   const amountStr = watch('amount')
@@ -380,6 +383,9 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
 
   const watchedCategoryId = watch('categoryId')
   const selectedCategory = categories?.find((c) => String(c.id) === watchedCategoryId)
+    ?? (isEdit && transaction?.category_id && transaction.category_name
+      ? { id: transaction.category_id, group_id: 0, name: transaction.category_name, period: 'weekly', is_investment: transaction.category_is_investment ?? 0, ticker: null }
+      : undefined)
   const isInvestmentCategory = Boolean(selectedCategory?.ticker || selectedCategory?.is_investment)
   // If the category has a ticker, it comes from the category — user only enters quantity
   const categoryTicker = selectedCategory?.ticker ?? null
@@ -445,7 +451,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
         <PayeeCombobox
           value={watch('payee') ?? ''}
           onChange={(v) => setValue('payee', v)}
-          payees={payees ?? []}
+          payees={txType === 'transfer' ? (accounts ?? []) : (payees ?? [])}
+          optionLabel={txType === 'transfer' ? 'Accounts' : 'Payees'}
           disabled={isCover}
         />
 
@@ -463,6 +470,12 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
           min="0.01"
           placeholder="0.00"
           {...register('amount')}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab' && !e.shiftKey && !isCover && canSplit && !isSplit && !(isEdit && !!transaction?.category_is_unlisted)) {
+              e.preventDefault()
+              categoryTriggerRef.current?.focus()
+            }
+          }}
           error={errors.amount?.message}
           disabled={isCover}
         />
@@ -593,6 +606,8 @@ export function TransactionForm({ open, onClose, transaction }: Props) {
                 categories={categories ?? []}
                 groups={groups ?? []}
                 balances={balances}
+                selectedCategory={selectedCategory}
+                triggerRef={categoryTriggerRef}
               />
             </div>
           )

@@ -129,6 +129,9 @@ type CategoryRowProps = {
   cat: BudgetCategory
   weekStart: string
   accounts: Account[]
+  sourceCategories: BudgetCategory[]
+  destinationCategories: BudgetCategory[]
+  categoryGroups: Array<{ id: number; name: string }>
   groupId: number
   groupName: string
   rowRef?: React.RefCallback<HTMLTableRowElement>
@@ -141,6 +144,9 @@ function CategoryRow({
   cat,
   weekStart,
   accounts,
+  sourceCategories,
+  destinationCategories,
+  categoryGroups,
   groupId,
   groupName,
   rowRef,
@@ -154,16 +160,38 @@ function CategoryRow({
   const [sweepOpen, setSweepOpen] = useState(false)
   const [rollForwardOpen, setRollForwardOpen] = useState(false)
   const [undoRolloverOpen, setUndoRolloverOpen] = useState(false)
+  const [undoCoverId, setUndoCoverId] = useState<number | null>(null)
+  const [undoSweepId, setUndoSweepId] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
-  const transactionalAccounts = accounts.filter((a) => a.type === 'transactional')
+  const transactionalAccounts = accounts
   const isCovered = cat.covers > 0 && !cat.isOverspent
   const isSwept = cat.sweeps > 0 && !cat.isOverspent
-  const isRolledOut = cat.rolledOut > 0
+  const isRolledOut = cat.rolloverIdOut !== null
   const isRolledIn = cat.rolledIn > 0
 
   const undoRollover = useMutation({
     mutationFn: () => budgetApi.undoRollover(cat.rolloverIdOut!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['budget'] }),
+  })
+
+  const undoCover = useMutation({
+    mutationFn: (transactionId: number) => budgetApi.undoCover(transactionId),
+    onSuccess: () => {
+      setUndoCoverId(null)
+      qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
+
+  const undoSweep = useMutation({
+    mutationFn: (transactionId: number) => budgetApi.undoSweep(transactionId),
+    onSuccess: () => {
+      setUndoSweepId(null)
+      qc.invalidateQueries({ queryKey: ['budget'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
+    },
   })
 
   return (
@@ -182,10 +210,43 @@ function CategoryRow({
             <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
               {PERIOD_LABELS[cat.period]}
             </span>
-            <span className="text-sm text-primary">{cat.name}</span>
+            <span className={`text-sm ${cat.isUnlisted ? 'text-muted' : 'text-primary'}`}>{cat.name}</span>
+            {cat.isUnlisted && (
+              <span className="px-1.5 py-0.5 rounded bg-surface-3 text-xs text-muted uppercase tracking-wide">Hidden</span>
+            )}
             {isCovered && (
               <span className="text-xs text-accent-dim">covered</span>
             )}
+            {cat.coveringCategories.map((cover) => (
+              <span key={cover.transactionId} className="hidden sm:inline-flex items-center gap-1 text-xs text-transfer">
+                covering {cover.name}
+                {!isReadonly && (
+                  <button
+                    type="button"
+                    title={`Undo cover from ${cover.name}`}
+                    onClick={(e) => { e.stopPropagation(); setUndoCoverId(cover.transactionId) }}
+                    className="hover:text-danger transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {cat.sweepingCategories.map((sweep) => (
+              <span key={sweep.transactionId} className="hidden sm:inline-flex items-center gap-1 text-xs text-transfer">
+                swept to {sweep.name}
+                {!isReadonly && (
+                  <button
+                    type="button"
+                    title={`Undo sweep to ${sweep.name}`}
+                    onClick={(e) => { e.stopPropagation(); setUndoSweepId(sweep.transactionId) }}
+                    className="hover:text-danger transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
             {isSwept && (
               <span className="text-xs text-transfer">swept</span>
             )}
@@ -212,9 +273,11 @@ function CategoryRow({
           <span className={
             cat.isOverspent
               ? 'text-danger font-semibold'
-              : cat.budgetedAmount > 0 && cat.balance < cat.budgetedAmount * 0.1
-                ? 'text-orange-400'
-                : 'text-primary'
+              : cat.balance === 0
+                ? 'text-secondary'
+                : cat.budgetedAmount > 0 && cat.balance < cat.budgetedAmount * 0.2
+                  ? 'text-orange-400'
+                  : 'text-primary'
           }>
             {formatMoney(cat.balance)}
           </span>
@@ -239,22 +302,24 @@ function CategoryRow({
                 >
                   <UndoRollIcon />
                 </button>
-              ) : (!cat.isOverspent && cat.balance > 0 && (
+              ) : (cat.balance !== 0 && (
                 <>
                   <button
-                    title="Roll balance forward to next period"
+                    title={cat.isOverspent ? 'Roll overspending forward to next period' : 'Roll balance forward to next period'}
                     onClick={(e) => { e.stopPropagation(); setRollForwardOpen(true) }}
                     className="text-blue-400 hover:text-blue-300 transition-colors"
                   >
                     <RollForwardIcon />
                   </button>
-                  <button
-                    title="Sweep to savings"
-                    onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
-                    className="text-accent hover:text-accent/70 transition-colors"
-                  >
-                    <SweepIcon />
-                  </button>
+                  {!cat.isOverspent && (
+                    <button
+                      title="Sweep unspent balance"
+                      onClick={(e) => { e.stopPropagation(); setSweepOpen(true) }}
+                      className="text-accent hover:text-accent/70 transition-colors"
+                    >
+                      <SweepIcon />
+                    </button>
+                  )}
                 </>
               ))}
             </div>
@@ -269,6 +334,8 @@ function CategoryRow({
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
+          sourceCategories={sourceCategories.filter((sourceCat) => sourceCat.id !== cat.id && sourceCat.balance > 0)}
+          categoryGroups={categoryGroups}
         />
       )}
       {sweepOpen && (
@@ -278,6 +345,8 @@ function CategoryRow({
           category={cat}
           weekStart={weekStart}
           transactionalAccounts={transactionalAccounts}
+          destinationCategories={destinationCategories.filter((destination) => destination.id !== cat.id)}
+          categoryGroups={categoryGroups}
         />
       )}
       {rollForwardOpen && (
@@ -295,6 +364,22 @@ function CategoryRow({
         title="Undo Roll Forward"
         message="Are you sure you want to undo the rolled-forward balance?"
         loading={undoRollover.isPending}
+      />
+      <ConfirmModal
+        open={undoCoverId !== null}
+        onClose={() => setUndoCoverId(null)}
+        onConfirm={() => { if (undoCoverId !== null) undoCover.mutate(undoCoverId) }}
+        title="Undo Category Cover"
+        message="Undo this category cover? The source balance and covered category balance will be restored."
+        loading={undoCover.isPending}
+      />
+      <ConfirmModal
+        open={undoSweepId !== null}
+        onClose={() => setUndoSweepId(null)}
+        onConfirm={() => { if (undoSweepId !== null) undoSweep.mutate(undoSweepId) }}
+        title="Undo Category Sweep"
+        message="Undo this category sweep? The source and destination balances will be restored."
+        loading={undoSweep.isPending}
       />
 
       <CategoryModal
@@ -336,6 +421,9 @@ type GroupSectionProps = {
   group: BudgetGroup
   weekStart: string
   accounts: Account[]
+  sourceCategories: BudgetCategory[]
+  destinationCategories: BudgetCategory[]
+  categoryGroups: Array<{ id: number; name: string }>
   onAddCategory: (groupId: number, groupName: string) => void
   rowRef?: React.RefCallback<HTMLTableRowElement>
   rowStyle?: React.CSSProperties
@@ -348,6 +436,9 @@ function GroupSection({
   group,
   weekStart,
   accounts,
+  sourceCategories,
+  destinationCategories,
+  categoryGroups,
   onAddCategory,
   rowRef,
   rowStyle,
@@ -457,6 +548,9 @@ function GroupSection({
                 cat={cat}
                 weekStart={weekStart}
                 accounts={accounts}
+                sourceCategories={sourceCategories}
+                destinationCategories={destinationCategories}
+                categoryGroups={categoryGroups}
                 groupId={group.id}
                 groupName={group.name}
               />
@@ -498,6 +592,7 @@ function SortableGroupSection(props: Omit<GroupSectionProps, 'rowRef' | 'rowStyl
 
 type IncomeCategoryRowProps = {
   cat: IncomeCategory
+  weekStart: string
   groupId: number
   groupName: string
   rowRef?: React.RefCallback<HTMLTableRowElement>
@@ -508,6 +603,7 @@ type IncomeCategoryRowProps = {
 
 function IncomeCategoryRow({
   cat,
+  weekStart,
   groupId,
   groupName,
   rowRef,
@@ -534,7 +630,10 @@ function IncomeCategoryRow({
             <span className={`inline-flex justify-center w-8 py-0.5 rounded text-xs font-medium shrink-0 ${PERIOD_COLOURS[cat.period] ?? 'bg-surface-2 text-muted'}`}>
               {PERIOD_LABELS[cat.period]}
             </span>
-            <span className="text-sm text-primary">{cat.name}</span>
+            <span className={`text-sm ${cat.isUnlisted ? 'text-muted' : 'text-primary'}`}>{cat.name}</span>
+            {cat.isUnlisted && (
+              <span className="px-1.5 py-0.5 rounded bg-surface-3 text-xs text-muted uppercase tracking-wide">Hidden</span>
+            )}
           </div>
         </td>
         <td className="hidden md:table-cell" />
@@ -551,6 +650,7 @@ function IncomeCategoryRow({
         onClose={() => setEditOpen(false)}
         groupId={groupId}
         groupName={groupName}
+        weekStart={weekStart}
         isIncomeGroup
         category={{ id: cat.id, name: cat.name, period: cat.period, budgetedAmount: 0, notes: cat.notes, catchUp: false, isInvestment: false }}
       />
@@ -575,9 +675,10 @@ function SortableIncomeCategoryRow(props: Omit<IncomeCategoryRowProps, 'rowRef' 
 
 type DebtGroupSectionProps = {
   group: DebtGroup
+  weekStart: string
 }
 
-function DebtGroupSection({ group }: DebtGroupSectionProps) {
+function DebtGroupSection({ group, weekStart }: DebtGroupSectionProps) {
   const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:debt-group:${group.id}`, false)
   const [editCat, setEditCat] = useState<DebtCategory | null>(null)
@@ -649,7 +750,9 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
           onClose={() => setEditCat(null)}
           groupId={group.id}
           groupName={group.name}
-          isDebtGroup
+          weekStart={weekStart}
+          isAccountLinkedCategory
+          linkedAccountType="debt"
           category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
         />
       )}
@@ -661,6 +764,7 @@ function DebtGroupSection({ group }: DebtGroupSectionProps) {
 
 type IncomeGroupSectionProps = {
   group: IncomeGroup
+  weekStart: string
   onAddCategory: (groupId: number, groupName: string) => void
   rowRef?: React.RefCallback<HTMLTableRowElement>
   rowStyle?: React.CSSProperties
@@ -671,6 +775,7 @@ type IncomeGroupSectionProps = {
 
 function IncomeGroupSection({
   group,
+  weekStart,
   onAddCategory,
   rowRef,
   rowStyle,
@@ -769,6 +874,7 @@ function IncomeGroupSection({
               <SortableIncomeCategoryRow
                 key={cat.id}
                 cat={cat}
+                weekStart={weekStart}
                 groupId={group.id}
                 groupName={group.name}
               />
@@ -811,9 +917,10 @@ function SortableIncomeGroupSection(props: Omit<IncomeGroupSectionProps, 'rowRef
 
 type SavingsGroupSectionProps = {
   group: SavingsGroup
+  weekStart: string
 }
 
-function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
+function SavingsGroupSection({ group, weekStart }: SavingsGroupSectionProps) {
   const { isReadonly } = useAuth()
   const [collapsed, setCollapsed] = useLocalStorageBool(`dosh:collapsed:savings-group:${group.id}`, false)
   const [editCat, setEditCat] = useState<SavingsCategory | null>(null)
@@ -885,7 +992,9 @@ function SavingsGroupSection({ group }: SavingsGroupSectionProps) {
           onClose={() => setEditCat(null)}
           groupId={group.id}
           groupName={group.name}
-          isDebtGroup
+          weekStart={weekStart}
+          isAccountLinkedCategory
+          linkedAccountType="savings"
           category={{ id: editCat.id, name: editCat.name, period: editCat.period, budgetedAmount: editCat.budgetedAmount, notes: editCat.notes, catchUp: editCat.catchUp, isInvestment: false }}
         />
       )}
@@ -1019,6 +1128,9 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
   const debtGroups = data.debtGroups ?? []
   const savingsGroups = data.savingsGroups ?? []
   const investmentGroups = data.investmentGroups ?? []
+  const sourceCategories = data.groups.flatMap((group) => group.categories).filter((category) => category.balance > 0 && !category.isUnlisted)
+  const destinationCategories = data.groups.flatMap((group) => group.categories).filter((category) => !category.isUnlisted)
+  const categoryGroups = data.groups.map((group) => ({ id: group.id, name: group.name }))
   const hasSavingsOrInvestments = savingsGroups.length > 0 || investmentGroups.length > 0
   const queryClient = useQueryClient()
 
@@ -1090,6 +1202,9 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                       group={group}
                       weekStart={data.weekStart}
                       accounts={accounts}
+                      sourceCategories={sourceCategories}
+                      destinationCategories={destinationCategories}
+                      categoryGroups={categoryGroups}
                       onAddCategory={(groupId, groupName) =>
                         setAddCatState({ groupId, groupName, isIncome: false, isInvestment: false })
                       }
@@ -1127,7 +1242,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
               </thead>
               <tbody>
                 {debtGroups.map((group) => (
-                  <DebtGroupSection key={group.id} group={group} />
+                  <DebtGroupSection key={group.id} group={group} weekStart={data.weekStart} />
                 ))}
               </tbody>
             </table>
@@ -1153,7 +1268,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
               </thead>
               <tbody>
                 {savingsGroups.map((group) => (
-                  <SavingsGroupSection key={group.id} group={group} />
+                  <SavingsGroupSection key={group.id} group={group} weekStart={data.weekStart} />
                 ))}
                 {investmentGroups.map((group) => (
                   <InvestmentGroupSection
@@ -1203,6 +1318,7 @@ export function BudgetTable({ data, accounts }: BudgetTableProps) {
                     <SortableIncomeGroupSection
                       key={group.id}
                       group={group}
+                      weekStart={data.weekStart}
                       onAddCategory={(groupId, groupName) =>
                         setAddCatState({ groupId, groupName, isIncome: true, isInvestment: false })
                       }

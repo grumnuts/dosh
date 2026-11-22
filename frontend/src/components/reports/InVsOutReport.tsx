@@ -36,7 +36,7 @@ export function InVsOutReport({ year }: Props) {
     queryFn: () => accountsApi.list(false),
   })
 
-  const openAccounts = accounts?.filter((a) => !a.closedAt) ?? []
+  const openAccounts = (accounts?.filter((a) => !a.closedAt) ?? []).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.length === 0) return (

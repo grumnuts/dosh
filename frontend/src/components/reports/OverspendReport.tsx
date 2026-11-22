@@ -28,8 +28,10 @@ export function OverspendReport({ year }: Props) {
   if (isLoading) return <div className="py-12 text-center text-secondary">Loading...</div>
   if (!data || data.length === 0) return <div className="py-12 text-center text-secondary">No overspend recorded for {year}.</div>
 
+  const sortedData = [...data].sort((a, b) => a.category.localeCompare(b.category, undefined, { sensitivity: 'base' }))
+
   // Chart: overspend per category
-  const chartData = data.map((row) => ({
+  const chartData = sortedData.map((row) => ({
     period: row.category,
     overspend: row.overspend_cents / 100,
   }))
@@ -71,7 +73,7 @@ export function OverspendReport({ year }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {data.map((row, i) => (
+          {sortedData.map((row, i) => (
             <tr key={i} className="hover:bg-surface-2">
               <td className="py-1.5 pr-2 text-primary">{row.category}</td>
               <td className="py-1.5 pr-2 text-secondary hidden sm:table-cell">{row.group_name}</td>
@@ -86,7 +88,7 @@ export function OverspendReport({ year }: Props) {
             <td colSpan={3} className="py-2 pr-2 text-right text-secondary sm:hidden">Total</td>
             <td colSpan={4} className="py-2 pr-2 text-right text-secondary hidden sm:table-cell">Total overspend</td>
             <td className="py-2 text-right text-danger tabular-nums">
-              {formatMoney(data.reduce((s, r) => s + r.overspend_cents, 0))}
+              {formatMoney(sortedData.reduce((s, r) => s + r.overspend_cents, 0))}
             </td>
           </tr>
         </tfoot>

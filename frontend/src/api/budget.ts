@@ -2,6 +2,7 @@ import { api } from './client'
 
 export interface BudgetCategory {
   id: number
+  groupId: number
   name: string
   period: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually'
   budgetedAmount: number
@@ -18,6 +19,9 @@ export interface BudgetCategory {
   sortOrder: number
   catchUp: boolean
   isInvestment: boolean
+    isUnlisted: boolean
+  coveringCategories: Array<{ id: number; name: string; transactionId: number }>
+  sweepingCategories: Array<{ id: number; name: string; transactionId: number }>
 }
 
 export interface BudgetGroup {
@@ -34,6 +38,7 @@ export interface IncomeCategory {
   received: number
   notes: string | null
   sortOrder: number
+  isUnlisted: boolean
 }
 
 export interface IncomeGroup {
@@ -131,7 +136,9 @@ export interface CategoryInput {
   sortOrder?: number
   catchUp?: boolean
   catchUpWeekStart?: string
+  effectiveWeekStart?: string
   isInvestment?: boolean
+  isUnlisted?: boolean
   ticker?: string | null
 }
 
@@ -142,15 +149,16 @@ export interface GroupInput {
 }
 
 export const budgetApi = {
-  getWeek: (weekStart: string) => api.get<BudgetWeek>(`/api/budget/week/${weekStart}`),
+  getWeek: (weekStart: string, showHidden = false) =>
+    api.get<BudgetWeek>(`/api/budget/week/${weekStart}${showHidden ? '?showHidden=true' : ''}`),
 
   getGroups: () => api.get<Array<{ id: number; name: string; sort_order: number; is_income: number; is_debt: number; is_savings: number; is_investments: number }>>('/api/budget/groups'),
   createGroup: (data: GroupInput) => api.post<{ id: number }>('/api/budget/groups', data),
   updateGroup: (id: number, data: GroupInput) => api.put<{ ok: boolean }>(`/api/budget/groups/${id}`, data),
   deleteGroup: (id: number) => api.delete<{ ok: boolean }>(`/api/budget/groups/${id}`),
 
-  getCategories: () =>
-    api.get<Array<CategoryInput & { id: number; is_investment: number; ticker: string | null }>>('/api/budget/categories'),
+  getCategories: (includeHidden = false) =>
+    api.get<Array<CategoryInput & { id: number; is_investment: number; ticker: string | null }>>(`/api/budget/categories${includeHidden ? '?includeHidden=true' : ''}`),
   createCategory: (data: CategoryInput) => api.post<{ id: number }>('/api/budget/categories', data),
   updateCategory: (id: number, data: CategoryInput) =>
     api.put<{ ok: boolean }>(`/api/budget/categories/${id}`, data),
@@ -164,17 +172,23 @@ export const budgetApi = {
   coverOverspend: (data: {
     categoryId: number
     weekStart: string
-    sourceAccountId: number
+    sourceAccountId?: number
     destinationAccountId: number
     amount?: number
-  }) => api.post<{ ok: boolean; amount: number }>('/api/budget/cover', data),
+    sources?: Array<{
+      kind: 'account' | 'category'
+      accountId?: number
+      categoryId?: number
+      amount: number
+    }>
+  }) => api.post<{ ok: boolean; amount: number; sourceDetails?: Array<{ type: 'account' | 'category'; id: number; name: string; amount: number }> }>('/api/budget/cover', data),
 
   sweepUnspent: (data: {
     categoryId: number
     weekStart: string
     amount: number
     sourceAccountId: number
-    destinationAccountId: number
+    destinations: Array<{ kind: 'account' | 'category'; id: number; amount: number }>
   }) => api.post<{ ok: boolean; amount: number }>('/api/budget/sweep', data),
 
   rollForward: (data: { categoryId: number; weekStart: string; amount: number }) =>
@@ -182,4 +196,10 @@ export const budgetApi = {
 
   undoRollover: (id: number) =>
     api.delete<{ ok: boolean }>(`/api/budget/rollover/${id}`),
+
+  undoCover: (id: number) =>
+    api.delete<{ ok: boolean }>(`/api/budget/cover/${id}`),
+
+  undoSweep: (id: number) =>
+    api.delete<{ ok: boolean }>(`/api/budget/sweep/${id}`),
 }

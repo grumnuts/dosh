@@ -25,10 +25,12 @@ const PERIOD_NEXT: Record<string, string> = {
 export function RollForwardModal({ open, onClose, onSuccess, category, weekStart }: RollForwardModalProps) {
   const qc = useQueryClient()
   const availableBalance = category.balance
-  const [amountStr, setAmountStr] = useState((availableBalance / 100).toFixed(2))
+  const absoluteBalance = Math.abs(availableBalance)
+  const isOverspent = availableBalance < 0
+  const [amountStr, setAmountStr] = useState((absoluteBalance / 100).toFixed(2))
 
   const parsedAmount = Math.round(parseFloat(amountStr) * 100)
-  const amountValid = !isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= availableBalance
+  const amountValid = !isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= absoluteBalance
 
   const roll = useMutation({
     mutationFn: () => budgetApi.rollForward({ categoryId: category.id, weekStart, amount: parsedAmount }),
@@ -47,23 +49,24 @@ export function RollForwardModal({ open, onClose, onSuccess, category, weekStart
         <div className="bg-surface-2 rounded-lg p-4">
           <div className="text-sm text-secondary mb-1">Category</div>
           <div className="font-semibold text-primary">{category.name}</div>
-          <div className="mt-2 text-sm text-secondary">Available balance</div>
-          <div className="text-xl font-bold text-accent font-mono">
+          <div className="mt-2 text-sm text-secondary">{isOverspent ? 'Overspent balance' : 'Available balance'}</div>
+          <div className={`text-xl font-bold font-mono ${isOverspent ? 'text-danger' : 'text-accent'}`}>
             {formatMoney(availableBalance)}
           </div>
         </div>
 
         <p className="text-sm text-secondary">
-          The amount below will be added on top of {category.name}'s regular budget for{' '}
-          {nextLabel}. No money moves between accounts.
+          {isOverspent
+            ? `The amount below will be deducted from ${category.name}'s next period. This marks the current overspending as intentionally rolled forward.`
+            : `The amount below will be added on top of ${category.name}'s regular budget for ${nextLabel}. No money moves between accounts.`}
         </p>
 
         <Input
-          label="Amount to roll forward ($)"
+          label={`Amount to roll ${isOverspent ? 'forward from overspending' : 'forward'} ($)`}
           type="number"
           step="0.01"
           min="0.01"
-          max={(availableBalance / 100).toFixed(2)}
+          max={(absoluteBalance / 100).toFixed(2)}
           value={amountStr}
           onChange={(e) => setAmountStr(e.target.value)}
         />

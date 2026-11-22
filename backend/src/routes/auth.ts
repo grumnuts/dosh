@@ -134,7 +134,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .setCookie('session', sessionId, {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: request.protocol === 'https',
         path: '/',
         expires: new Date(expiresAt),
       })

@@ -81,6 +81,22 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
 
     // Build shared WHERE clause and params (reused for count + main query)
     let where = ' WHERE 1=1'
+    where += ` AND NOT (
+      t.type IN ('cover', 'sweep') AND (
+        (t.transfer_pair_id IS NOT NULL AND EXISTS (
+          SELECT 1 FROM transactions paired_cover
+          WHERE paired_cover.id = t.transfer_pair_id
+            AND paired_cover.account_id = t.account_id
+            AND paired_cover.category_id != t.category_id
+        ))
+        OR EXISTS (
+          SELECT 1 FROM transactions paired_cover
+          WHERE paired_cover.transfer_pair_id = t.id
+            AND paired_cover.account_id = t.account_id
+            AND paired_cover.category_id != t.category_id
+        )
+      )
+    )`
     const whereParams: (string | number)[] = []
 
     if (query.startDate) {

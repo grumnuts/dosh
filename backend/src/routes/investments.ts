@@ -21,7 +21,7 @@ export async function investmentRoutes(app: FastifyInstance): Promise<void> {
          LEFT JOIN share_prices sp ON sp.ticker = ih.ticker
          WHERE ih.quantity > 0
          GROUP BY ih.ticker
-         ORDER BY ih.ticker`,
+         ORDER BY ih.ticker COLLATE NOCASE`,
       )
       .all() as Array<{
         ticker: string
@@ -66,7 +66,7 @@ export async function investmentRoutes(app: FastifyInstance): Promise<void> {
     // Build cumulative quantity per ticker per month from transactions
     const txRows = db
       .prepare(
-        `SELECT strftime('%Y-%m', date) AS month,
+        `SELECT date(date, '-' || CAST(strftime('%w', date) AS INTEGER) || ' days') AS month,
                 investment_ticker AS ticker,
                 SUM(investment_quantity) AS qty_change
          FROM transactions
