@@ -51,8 +51,9 @@ export function BudgetPage() {
 
   const parsedStart = weekStart ? parseISO(weekStart) : null
   const parsedEnd = parsedStart ? addDays(parsedStart, 6) : null
-  const weekNumber = parsedStart ? getISOWeek(parsedStart) : null
-  const weekYear = parsedStart ? String(getISOWeekYear(parsedStart)) : ''
+  const isoWeekReference = parsedStart ? addDays(parsedStart, weekStartsOn === 0 ? 4 : 3) : null
+  const weekNumber = isoWeekReference ? getISOWeek(isoWeekReference) : null
+  const weekYear = isoWeekReference ? String(getISOWeekYear(isoWeekReference)) : ''
   const weekRange = parsedStart && parsedEnd
     ? formatAppDateRange(parsedStart, parsedEnd, dateFormat)
     : ''

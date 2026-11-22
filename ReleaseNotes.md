@@ -1,6 +1,9 @@
 # Release Notes
 
-## Unreleased
+## v1.16.6 — 2026-11-22
+
+### Bug Fixes
+- Budget: week labels now remain on the correct ISO week across year boundaries for both Sunday-start and Monday-start periods.
 
 ---
 
