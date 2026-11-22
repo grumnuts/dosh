@@ -1,5 +1,5 @@
 import { getDb } from '../db/client'
-import { getPeriodBoundaries, weeklyEquivalent, parseDate, toDateString, getWeekStart, currentWeekStart } from '../utils/dates'
+import { getPeriodBoundaries, weeklyEquivalent, parseDate, toDateString, getWeekStart, currentWeekStart, getISOWeekYear, getISOWeekOneStart } from '../utils/dates'
 
 function getWeekStartsOn(): 0 | 1 {
   const db = getDb()
@@ -8,26 +8,14 @@ function getWeekStartsOn(): 0 | 1 {
 }
 
 /**
- * Compute the first and last actual budget week-starts for an annual period.
- * The first week is the week containing Jan 1 (may start in Dec of the previous year).
- * The last week is the latest week-start whose 7-day span doesn't extend past Dec 31.
+ * Compute the first and last actual budget week-starts for an ISO annual period.
+ * The range begins at ISO week 1 and ends on the week before the next ISO week 1.
  */
 function getAnnualWeekRange(year: number, weekStartsOn: 0 | 1): { firstWeekMs: number; lastWeekMs: number; totalWeeks: number } {
-  const msPerDay = 86400000
-  const msPerWeek = 7 * msPerDay
-
-  const jan1Ms = Date.UTC(year, 0, 1)
-  const dec31Ms = Date.UTC(year, 11, 31)
-
-  // First week: the week-start of the week containing Jan 1
-  const firstWeekMs = getWeekStart(new Date(jan1Ms), weekStartsOn).getTime()
-
-  // Last week: latest week-start where weekStart + 6 <= Dec 31
-  const lastSafeMs = dec31Ms - 6 * msPerDay
-  const lastWeek = getWeekStart(new Date(lastSafeMs), weekStartsOn)
-  let lastWeekMs = lastWeek.getTime()
-  if (lastWeekMs > lastSafeMs) lastWeekMs -= msPerWeek
-
+  const msPerWeek = 7 * 86400000
+  const firstWeekMs = getISOWeekOneStart(year, weekStartsOn).getTime()
+  const nextFirstWeekMs = getISOWeekOneStart(year + 1, weekStartsOn).getTime()
+  const lastWeekMs = nextFirstWeekMs - msPerWeek
   const totalWeeks = Math.floor((lastWeekMs - firstWeekMs) / msPerWeek) + 1
 
   return { firstWeekMs, lastWeekMs, totalWeeks }
@@ -60,11 +48,12 @@ function catchUpWeeklyEquivalent(
   let periodStart: string
   let periodEnd: string
   if (period === 'annually') {
-    const weekEndYear = new Date(currentWeekMs + 6 * msPerDay).getUTCFullYear()
-    const weekStartYear = parseDate(weekStart).getUTCFullYear()
-    const year = weekEndYear > weekStartYear ? weekEndYear : weekStartYear
-    periodStart = `${year}-01-01`
-    periodEnd = `${year}-12-31`
+    const year = getISOWeekYear(parseDate(weekStart))
+    periodStart = toDateString(getISOWeekOneStart(year, weekStartsOn))
+    const nextStart = getISOWeekOneStart(year + 1, weekStartsOn)
+    const periodEndDate = new Date(nextStart)
+    periodEndDate.setUTCDate(periodEndDate.getUTCDate() - 1)
+    periodEnd = toDateString(periodEndDate)
   } else {
     const bounds = getPeriodBoundaries(weekStart, period, weekStartsOn)
     periodStart = bounds.start
@@ -377,7 +366,7 @@ export function getBudgetWeek(weekStart: string, showHidden = false): BudgetWeek
   // --- Batch: fetch spent amounts grouped by category across all distinct period ranges ---
   // Categories may share the same period boundary, so group them to avoid duplicate queries.
   // Key: "start|end" -> category IDs that share this range
-  const spentByPeriodKey = new Map<string, { start: string; end: string; ids: number[] }>()
+  const spentByPeriodKey = new Map<string, { start: string, end: string, ids: number[] }>()
   for (const cat of categories) {
     const bounds = boundsMap.get(cat.id)!
     const key = `${bounds.start}|${bounds.end}`

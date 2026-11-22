@@ -4,6 +4,13 @@
 
 ---
 
+## v1.16.5 — 2026-11-22
+
+### Bug Fixes
+- Budget: annual categories now reset at ISO week 1, keeping year and period boundaries aligned with the displayed ISO week numbering.
+
+---
+
 ## v1.16.4 — 2026-09-25
 
 ### Bug Fixes

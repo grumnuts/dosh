@@ -40,6 +40,15 @@ export function getWeekEnd(date: Date, weekStartsOn: 0 | 1 = 0): Date {
   return end
 }
 
+/** ISO week-year for a date. */
+export function getISOWeekYear(date: Date): number {
+  const d = new Date(date)
+  d.setUTCHours(0, 0, 0, 0)
+  const isoDay = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - isoDay)
+  return d.getUTCFullYear()
+}
+
 /** Returns the current week's start date as YYYY-MM-DD in local (server) time */
 export function currentWeekStart(weekStartsOn: 0 | 1 = 0): string {
   const now = new Date()
@@ -95,10 +104,14 @@ export function getPeriodBoundaries(
     }
 
     case 'annually': {
-      const year = weekStart.getUTCFullYear()
+      const year = getISOWeekYear(weekStart)
+      const start = getISOWeekOneStart(year, weekStartsOn)
+      const nextStart = getISOWeekOneStart(year + 1, weekStartsOn)
+      const end = new Date(nextStart)
+      end.setUTCDate(end.getUTCDate() - 1)
       return {
-        start: `${year}-01-01`,
-        end: `${year}-12-31`,
+        start: toDateString(start),
+        end: toDateString(end),
       }
     }
 
@@ -132,4 +145,8 @@ export function weeklyEquivalent(amountCents: number, period: string): number {
     default:
       return amountCents
   }
+}
+
+export function getISOWeekOneStart(year: number, weekStartsOn: 0 | 1): Date {
+  return getWeekStart(new Date(Date.UTC(year, 0, 4)), weekStartsOn)
 }
